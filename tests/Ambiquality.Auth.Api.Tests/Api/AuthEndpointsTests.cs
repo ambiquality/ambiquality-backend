@@ -1,0 +1,213 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using Ambiquality.Auth.Api.Api.Contracts;
+
+namespace Ambiquality.Auth.Api.Tests.Api;
+
+[Collection(nameof(AuthApiCollection))]
+public class AuthEndpointsTests(AuthApiFactory factory)
+{
+    private static string UniqueEmail() => $"user-{Guid.NewGuid():N}@example.com";
+
+    private async Task<(string Email, string Password)> RegisterAndConfirmAsync(HttpClient client)
+    {
+        var email = UniqueEmail();
+        const string password = "Sup3rSecret!";
+
+        var register = await client.PostAsJsonAsync(
+            "/register", new RegisterRequest(email, password));
+        Assert.Equal(HttpStatusCode.Created, register.StatusCode);
+
+        var sent = factory.EmailSender.LastTo(email);
+        Assert.NotNull(sent);
+        var token = CapturingEmailSender.ExtractToken(sent.Body);
+
+        var userId = await GetUserIdFromConfirmLink(sent.Body);
+        var confirm = await client.GetAsync($"/confirm-email?userId={userId}&token={token}");
+        Assert.Equal(HttpStatusCode.OK, confirm.StatusCode);
+
+        return (email, password);
+    }
+
+    private static Task<string> GetUserIdFromConfirmLink(string body)
+    {
+        var marker = "userId=";
+        var start = body.IndexOf(marker, StringComparison.Ordinal) + marker.Length;
+        var end = body.IndexOf('&', start);
+        return Task.FromResult(body[start..end]);
+    }
+
+    [Fact]
+    public async Task Register_ReturnsCreatedAndSendsConfirmationEmail()
+    {
+        var client = factory.CreateClient();
+        var email = UniqueEmail();
+
+        var response = await client.PostAsJsonAsync(
+            "/register", new RegisterRequest(email, "Sup3rSecret!"));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.NotNull(factory.EmailSender.LastTo(email));
+    }
+
+    [Fact]
+    public async Task Login_BeforeConfirmation_Returns401ProblemJson()
+    {
+        var client = factory.CreateClient();
+        var email = UniqueEmail();
+        await client.PostAsJsonAsync("/register", new RegisterRequest(email, "Sup3rSecret!"));
+
+        var response = await client.PostAsJsonAsync(
+            "/login", new LoginRequest(email, "Sup3rSecret!"));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Login_AfterConfirmation_ReturnsTokens()
+    {
+        var client = factory.CreateClient();
+        var (email, password) = await RegisterAndConfirmAsync(client);
+
+        var response = await client.PostAsJsonAsync(
+            "/login", new LoginRequest(email, password));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        Assert.NotNull(body);
+        Assert.False(string.IsNullOrWhiteSpace(body.AccessToken));
+        Assert.False(string.IsNullOrWhiteSpace(body.RefreshToken));
+    }
+
+    [Fact]
+    public async Task Me_WithValidJwt_ReturnsIdentity()
+    {
+        var client = factory.CreateClient();
+        var (email, password) = await RegisterAndConfirmAsync(client);
+        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
+        var response = await client.GetAsync("/account/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var me = await response.Content.ReadFromJsonAsync<MeResponse>();
+        Assert.NotNull(me);
+        Assert.Equal(email, me.Email);
+        Assert.True(me.EmailConfirmed);
+    }
+
+    [Fact]
+    public async Task Me_WithoutJwt_Returns401()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/account/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_ThenReloginWithNewPassword_Succeeds()
+    {
+        var client = factory.CreateClient();
+        var (email, password) = await RegisterAndConfirmAsync(client);
+        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
+
+        const string newPassword = "An0therSecret!";
+        var change = await client.PostAsJsonAsync(
+            "/account/change-password", new ChangePasswordRequest(password, newPassword));
+        Assert.Equal(HttpStatusCode.OK, change.StatusCode);
+
+        client.DefaultRequestHeaders.Authorization = null;
+        var relogin = await client.PostAsJsonAsync(
+            "/login", new LoginRequest(email, newPassword));
+        Assert.Equal(HttpStatusCode.OK, relogin.StatusCode);
+
+        var oldLogin = await client.PostAsJsonAsync(
+            "/login", new LoginRequest(email, password));
+        Assert.Equal(HttpStatusCode.Unauthorized, oldLogin.StatusCode);
+    }
+
+    [Fact]
+    public async Task Refresh_RotatesTokens_AndOldTokenIsRejected()
+    {
+        var client = factory.CreateClient();
+        var (email, password) = await RegisterAndConfirmAsync(client);
+        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
+
+        var refresh = await client.PostAsJsonAsync(
+            "/refresh", new RefreshRequest(tokens!.RefreshToken));
+        Assert.Equal(HttpStatusCode.OK, refresh.StatusCode);
+        var refreshed = await refresh.Content.ReadFromJsonAsync<AuthResponse>();
+        Assert.NotNull(refreshed);
+        Assert.NotEqual(tokens.RefreshToken, refreshed.RefreshToken);
+
+        var reuse = await client.PostAsJsonAsync(
+            "/refresh", new RefreshRequest(tokens.RefreshToken));
+        Assert.Equal(HttpStatusCode.Unauthorized, reuse.StatusCode);
+        Assert.Equal("application/problem+json", reuse.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task ChangeEmail_ConfirmsNewAddress()
+    {
+        var client = factory.CreateClient();
+        var (email, password) = await RegisterAndConfirmAsync(client);
+        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
+
+        var newEmail = UniqueEmail();
+        var change = await client.PostAsJsonAsync(
+            "/account/change-email", new ChangeEmailRequest(newEmail));
+        Assert.Equal(HttpStatusCode.Accepted, change.StatusCode);
+
+        var sent = factory.EmailSender.LastTo(newEmail);
+        Assert.NotNull(sent);
+        var token = CapturingEmailSender.ExtractToken(sent.Body);
+
+        var confirm = await client.GetAsync($"/account/confirm-email-change?token={token}");
+        Assert.Equal(HttpStatusCode.OK, confirm.StatusCode);
+
+        var me = await client.GetFromJsonAsync<MeResponse>("/account/me");
+        Assert.Equal(newEmail, me!.Email);
+    }
+
+    [Fact]
+    public async Task Register_DuplicateEmail_Returns409ProblemJson()
+    {
+        var client = factory.CreateClient();
+        var email = UniqueEmail();
+        await client.PostAsJsonAsync("/register", new RegisterRequest(email, "Sup3rSecret!"));
+
+        var response = await client.PostAsJsonAsync(
+            "/register", new RegisterRequest(email, "An0therSecret!"));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Register_InvalidEmail_Returns400ProblemJson()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/register", new RegisterRequest("not-an-email", "Sup3rSecret!"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+}
+
+[CollectionDefinition(nameof(AuthApiCollection))]
+public sealed class AuthApiCollection : ICollectionFixture<AuthApiFactory>;
