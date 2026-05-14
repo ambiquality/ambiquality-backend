@@ -35,16 +35,5 @@ services:
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: "true"
 
-  caddy:
-    image: caddy:2-alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-    depends_on:
-      - postgres
-      - redis
-
 volumes:
   postgres-data:
