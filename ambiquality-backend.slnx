@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ambiquality.Auth.Api/Ambiquality.Auth.Api.csproj" />
+    <Project Path="src/Ambiquality.Core/Ambiquality.Core.csproj" />
+    <Project Path="src/Ambiquality.Ingestion.Api/Ambiquality.Ingestion.Api.csproj" />
+    <Project Path="src/Ambiquality.Public.Api/Ambiquality.Public.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ambiquality.Auth.Api.Tests/Ambiquality.Auth.Api.Tests.csproj" />
+    <Project Path="tests/Ambiquality.Core.Tests/Ambiquality.Core.Tests.csproj" />
+    <Project Path="tests/Ambiquality.Ingestion.Api.Tests/Ambiquality.Ingestion.Api.Tests.csproj" />
+    <Project Path="tests/Ambiquality.Public.Api.Tests/Ambiquality.Public.Api.Tests.csproj" />
+  </Folder>
+</Solution>
