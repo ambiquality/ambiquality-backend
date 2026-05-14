@@ -140,9 +140,11 @@ Enhancement suggestions are tracked as [GitHub issues](https://github.com/ambiqu
    podman compose up -d
    ```
 
-4. Run the project:
+4. Run a service:
    ```bash
-   dotnet run --project src/AmbiQuality.Api
+   dotnet run --project src/Ambiquality.Auth.Api
+   dotnet run --project src/Ambiquality.Ingestion.Api
+   dotnet run --project src/Ambiquality.Public.Api
    ```
 
 5. Run the tests:
