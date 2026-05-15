@@ -78,6 +78,18 @@ public static class AccountEndpoints
             }
         });
 
+        group.MapPost("/logout", async (
+            ClaimsPrincipal principal,
+            LogoutHandler handler,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+                return Results.Unauthorized();
+
+            await handler.HandleAsync(new LogoutCommand(userId), cancellationToken);
+            return Results.NoContent();
+        });
+
         group.MapGet("/confirm-email-change", async (
             string token,
             ClaimsPrincipal principal,

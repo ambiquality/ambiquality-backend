@@ -55,6 +55,7 @@ builder.Services.AddScoped<ResendConfirmationHandler>();
 builder.Services.AddScoped<ChangePasswordHandler>();
 builder.Services.AddScoped<ChangeEmailHandler>();
 builder.Services.AddScoped<ConfirmEmailChangeHandler>();
+builder.Services.AddScoped<LogoutHandler>();
 
 // --- AuthN / AuthZ -----------------------------------------------------------
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
