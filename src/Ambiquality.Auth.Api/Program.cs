@@ -34,7 +34,8 @@ builder.Services.AddSingleton(authOptions);
 
 // --- Persistence -------------------------------------------------------------
 builder.Services.AddDbContext<AuthDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("AuthDb")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("AuthDb"),
+        o => o.MigrationsHistoryTable("__EFMigrationsHistory", "auth")));
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 

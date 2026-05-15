@@ -482,3 +482,17 @@ $RECYCLE.BIN/
 *.swp
 
 thoughts/*
+# Added by code-review-graph
+.code-review-graph/
+
+# postman
+postman
+.postman
+
+#claude
+.claude
+.tldr
+.mcp.json
+
+#
+
