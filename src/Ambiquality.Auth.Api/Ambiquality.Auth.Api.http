@@ -1,0 +1,121 @@
+@host = http://localhost:5080
+@email = manual-test@example.com
+@password = Sup3rSecret!
+
+### F01 — Register (expect 201; confirmation email is logged/sent)
+POST {{host}}/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### F02 — Login before confirming (expect 401, application/problem+json, generic message)
+POST {{host}}/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Confirm email (paste userId + token from the confirmation email)
+GET {{host}}/confirm-email?userId=PASTE_USER_ID&token=PASTE_TOKEN
+
+### F02 — Login after confirming (expect 200 with accessToken + refreshToken)
+# @name login
+POST {{host}}/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### GET /me with JWT (expect 200; sub + email)
+GET {{host}}/account/me
+Authorization: Bearer {{login.response.body.accessToken}}
+
+### F04 — Change password (expect 200; revokes refresh tokens)
+POST {{host}}/account/change-password
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "{{password}}",
+  "newPassword": "An0therSecret!"
+}
+
+### Re-login with the new password (expect 200)
+POST {{host}}/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "An0therSecret!"
+}
+
+### Refresh tokens (expect 200, new token pair)
+POST {{host}}/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{login.response.body.refreshToken}}"
+}
+
+### Reuse the old refresh token (expect 401, application/problem+json)
+POST {{host}}/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{login.response.body.refreshToken}}"
+}
+
+### Change email (expect 202; confirmation email sent to the new address)
+POST {{host}}/account/change-email
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "newEmail": "manual-test-new@example.com"
+}
+
+### Confirm email change (paste token from the new-address email)
+GET {{host}}/account/confirm-email-change?token=PASTE_TOKEN
+Authorization: Bearer {{login.response.body.accessToken}}
+
+### Resend confirmation (always 202 — no account enumeration)
+POST {{host}}/resend-confirmation
+Content-Type: application/json
+
+{
+  "email": "{{email}}"
+}
+
+### Failure — duplicate registration (expect 409, application/problem+json)
+POST {{host}}/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Failure — invalid email (expect 400, application/problem+json)
+POST {{host}}/register
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "{{password}}"
+}
+
+### Failure — bad credentials (expect 401, application/problem+json, generic message)
+POST {{host}}/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "wrong-password"
+}

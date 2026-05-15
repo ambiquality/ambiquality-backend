@@ -480,3 +480,19 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+thoughts/*
+# Added by code-review-graph
+.code-review-graph/
+
+# postman
+postman
+.postman
+
+#claude
+.claude
+.tldr
+.mcp.json
+
+#
+
