@@ -12,6 +12,7 @@ public class ChangeEmailHandlerTests
     private static readonly DateTime Now = new(2026, 5, 14, 12, 0, 0, DateTimeKind.Utc);
 
     private readonly InMemoryUserRepository _repository = new();
+    private readonly IPasswordService _passwordService = Substitute.For<IPasswordService>();
     private readonly ITokenGenerator _tokenGenerator = Substitute.For<ITokenGenerator>();
     private readonly IEmailSender _emailSender = Substitute.For<IEmailSender>();
     private readonly FakeClock _clock = new(Now);
@@ -21,7 +22,7 @@ public class ChangeEmailHandlerTests
     {
         _tokenGenerator.Generate().Returns(new GeneratedToken("change-raw", "change-hash"));
         return new ChangeEmailHandler(
-            _repository, _tokenGenerator, _emailSender, _clock, _options);
+            _repository, _passwordService, _tokenGenerator, _emailSender, _clock, _options);
     }
 
     private User SeedConfirmedUser()
@@ -38,9 +39,10 @@ public class ChangeEmailHandlerTests
     public async Task Handle_SetsPendingEmailAndSendsTokenToNewAddress()
     {
         var user = SeedConfirmedUser();
+        _passwordService.Verify(user, "hash", "correct-pw").Returns(true);
         var handler = CreateHandler();
 
-        await handler.HandleAsync(new ChangeEmailCommand(user.Id, "New@Example.com"));
+        await handler.HandleAsync(new ChangeEmailCommand(user.Id, "correct-pw", "New@Example.com"));
 
         Assert.Equal("new@example.com", user.PendingEmail!.Value);
         await _emailSender.Received(1).SendAsync(
@@ -50,21 +52,35 @@ public class ChangeEmailHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WithWrongCurrentPassword_ThrowsInvalidCredentials()
+    {
+        var user = SeedConfirmedUser();
+        _passwordService.Verify(user, Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+        var handler = CreateHandler();
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+            handler.HandleAsync(new ChangeEmailCommand(user.Id, "wrong-pw", "new@example.com")));
+        Assert.Null(user.PendingEmail);
+        Assert.Equal(0, _repository.SaveChangesCallCount);
+    }
+
+    [Fact]
     public async Task Handle_WithUnknownUser_ThrowsUserNotFound()
     {
         var handler = CreateHandler();
 
         await Assert.ThrowsAsync<UserNotFoundException>(() =>
-            handler.HandleAsync(new ChangeEmailCommand(Guid.NewGuid(), "new@example.com")));
+            handler.HandleAsync(new ChangeEmailCommand(Guid.NewGuid(), "any-pw", "new@example.com")));
     }
 
     [Fact]
     public async Task Handle_WithInvalidNewEmail_ThrowsInvalidEmail()
     {
         var user = SeedConfirmedUser();
+        _passwordService.Verify(user, "hash", "correct-pw").Returns(true);
         var handler = CreateHandler();
 
         await Assert.ThrowsAsync<InvalidEmailException>(() =>
-            handler.HandleAsync(new ChangeEmailCommand(user.Id, "not-an-email")));
+            handler.HandleAsync(new ChangeEmailCommand(user.Id, "correct-pw", "not-an-email")));
     }
 }

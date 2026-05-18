@@ -69,7 +69,7 @@ public static class AccountEndpoints
             try
             {
                 await handler.HandleAsync(
-                    new ChangeEmailCommand(userId, request.NewEmail), cancellationToken);
+                    new ChangeEmailCommand(userId, request.CurrentPassword, request.NewEmail), cancellationToken);
                 return Results.Accepted();
             }
             catch (DomainException ex)

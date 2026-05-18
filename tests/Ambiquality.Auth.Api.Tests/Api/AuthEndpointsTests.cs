@@ -168,7 +168,7 @@ public class AuthEndpointsTests(AuthApiFactory factory)
 
         var newEmail = UniqueEmail();
         var change = await client.PostAsJsonAsync(
-            "/account/change-email", new ChangeEmailRequest(newEmail));
+            "/account/change-email", new ChangeEmailRequest(password, newEmail));
         Assert.Equal(HttpStatusCode.Accepted, change.StatusCode);
 
         var sent = factory.EmailSender.LastTo(newEmail);

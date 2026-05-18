@@ -5,10 +5,12 @@ namespace Ambiquality.Auth.Api.Application.Users;
 
 /// <summary>
 /// Starts an email-change flow: records the pending address and emails a
-/// confirmation token to the NEW address.
+/// confirmation token to the NEW address. Requires the current password to
+/// prevent account takeover via stolen bearer tokens.
 /// </summary>
 public sealed class ChangeEmailHandler(
     IUserRepository repository,
+    IPasswordService passwordService,
     ITokenGenerator tokenGenerator,
     IEmailSender emailSender,
     IClock clock,
@@ -21,6 +23,9 @@ public sealed class ChangeEmailHandler(
 
         var user = await repository.GetByIdAsync(command.UserId, cancellationToken)
             ?? throw new UserNotFoundException();
+
+        if (!passwordService.Verify(user, user.PasswordHash, command.CurrentPassword))
+            throw new InvalidCredentialsException();
 
         var token = tokenGenerator.Generate();
         user.RequestEmailChange(
