@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Ambiquality.Auth.Api.Api.Contracts;
 using Ambiquality.Auth.Api.Application.Users;
 using Ambiquality.Auth.Api.Domain;
@@ -29,7 +30,15 @@ public static class AuthEndpoints
             {
                 return Problems.ToResult(ex);
             }
-        });
+        })
+        .WithName("RegisterUser")
+        .WithSummary("Register a new user account")
+        .WithDescription(
+            "Creates a new user with the provided email and password. " +
+            "A confirmation email is sent; the account cannot be used until the email is confirmed via GET /confirm-email.")
+        .Produces(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status409Conflict);
 
         group.MapPost("/login", async (
             LoginRequest request,
@@ -50,7 +59,14 @@ public static class AuthEndpoints
             {
                 return Problems.ToResult(ex);
             }
-        });
+        })
+        .WithName("Login")
+        .WithSummary("Log in and obtain JWT tokens")
+        .WithDescription(
+            "Validates the credentials and returns a short-lived access token plus a long-lived refresh token. " +
+            "The account email must be confirmed before login succeeds.")
+        .Produces<AuthResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/refresh", async (
             RefreshRequest request,
@@ -71,11 +87,18 @@ public static class AuthEndpoints
             {
                 return Problems.ToResult(ex);
             }
-        });
+        })
+        .WithName("RefreshToken")
+        .WithSummary("Exchange a refresh token for a new token pair")
+        .WithDescription(
+            "Issues a new access token and refresh token in exchange for a valid, non-expired refresh token. " +
+            "The old refresh token is invalidated on success.")
+        .Produces<AuthResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapGet("/confirm-email", async (
-            Guid userId,
-            string token,
+            [Description("The GUID of the user to confirm.")] Guid userId,
+            [Description("The single-use verification token sent via email.")] string token,
             ConfirmEmailHandler handler,
             CancellationToken cancellationToken) =>
         {
@@ -89,7 +112,14 @@ public static class AuthEndpoints
             {
                 return Problems.ToResult(ex);
             }
-        });
+        })
+        .WithName("ConfirmEmail")
+        .WithSummary("Confirm a user's email address")
+        .WithDescription(
+            "Verifies the one-time token that was emailed after registration. " +
+            "Both userId and token query parameters are required and are included in the confirmation link sent by the server.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest);
 
         group.MapPost("/resend-confirmation", async (
             ResendConfirmationRequest request,
@@ -107,7 +137,13 @@ public static class AuthEndpoints
             {
                 return Problems.ToResult(ex);
             }
-        });
+        })
+        .WithName("ResendConfirmation")
+        .WithSummary("Re-send the email confirmation link")
+        .WithDescription(
+            "Triggers a new confirmation email for the given address. " +
+            "Always returns 202 regardless of whether the address is registered, to prevent account enumeration.")
+        .Produces(StatusCodes.Status202Accepted);
 
         return app;
     }
