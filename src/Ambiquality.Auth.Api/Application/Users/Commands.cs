@@ -13,7 +13,7 @@ public sealed record ResendConfirmationCommand(string Email);
 
 public sealed record ChangePasswordCommand(Guid UserId, string CurrentPassword, string NewPassword);
 
-public sealed record ChangeEmailCommand(Guid UserId, string NewEmail);
+public sealed record ChangeEmailCommand(Guid UserId, string CurrentPassword, string NewEmail);
 
 public sealed record ConfirmEmailChangeCommand(Guid UserId, string Token);
 
