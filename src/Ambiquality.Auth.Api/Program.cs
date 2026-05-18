@@ -8,9 +8,12 @@ using Ambiquality.Auth.Api.Infrastructure.Messaging;
 using Ambiquality.Auth.Api.Infrastructure.Persistence;
 using Ambiquality.Auth.Api.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -79,6 +82,44 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddProblemDetails();
 
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, ct) =>
+    {
+        document.Info = new OpenApiInfo
+        {
+            Title = "Ambiquality Auth API",
+            Version = "v1",
+            Description = "Authentication and account management API for the Ambiquality platform."
+        };
+        var components = document.Components ??= new OpenApiComponents();
+        components.SecuritySchemes = new Dictionary<string, IOpenApiSecurityScheme>();
+        components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = "JWT access token issued by POST /login or POST /refresh."
+        };
+        return Task.CompletedTask;
+    });
+
+    // Attach Bearer security requirement to every endpoint that requires authorization.
+    options.AddOperationTransformer((operation, context, ct) =>
+    {
+        if (context.Description.ActionDescriptor.EndpointMetadata
+            .OfType<IAuthorizeData>().Any())
+        {
+            operation.Security ??= [];
+            operation.Security.Add(new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Bearer")] = []
+            });
+        }
+        return Task.CompletedTask;
+    });
+});
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
@@ -86,6 +127,8 @@ app.UseStatusCodePages();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapOpenApi();
+app.MapScalarApiReference();
 app.MapAuthEndpoints();
 app.MapAccountEndpoints();
 

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Ambiquality.Auth.Api.Api.Contracts;
@@ -33,7 +34,13 @@ public static class AccountEndpoints
                 return Problems.ToResult(new UserNotFoundException());
 
             return Results.Ok(new MeResponse(user.Id, user.Email.Value, user.EmailConfirmed));
-        });
+        })
+        .WithName("GetMe")
+        .WithSummary("Get the authenticated user's profile")
+        .WithDescription("Returns the ID, email, and email-confirmation status of the user identified by the Bearer JWT.")
+        .Produces<MeResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapPost("/change-password", async (
             ChangePasswordRequest request,
@@ -55,7 +62,15 @@ public static class AccountEndpoints
             {
                 return Problems.ToResult(ex);
             }
-        });
+        })
+        .WithName("ChangePassword")
+        .WithSummary("Change the authenticated user's password")
+        .WithDescription(
+            "Verifies the current password then replaces it with the new password. " +
+            "All existing refresh tokens remain valid after the change.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/change-email", async (
             ChangeEmailRequest request,
@@ -76,7 +91,15 @@ public static class AccountEndpoints
             {
                 return Problems.ToResult(ex);
             }
-        });
+        })
+        .WithName("ChangeEmail")
+        .WithSummary("Request an email address change")
+        .WithDescription(
+            "Validates the current password and sends a confirmation link to the new email address. " +
+            "The email is not actually changed until the link is followed (GET /account/confirm-email-change).")
+        .Produces(StatusCodes.Status202Accepted)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/logout", async (
             ClaimsPrincipal principal,
@@ -88,10 +111,17 @@ public static class AccountEndpoints
 
             await handler.HandleAsync(new LogoutCommand(userId), cancellationToken);
             return Results.NoContent();
-        });
+        })
+        .WithName("Logout")
+        .WithSummary("Invalidate the current user's refresh tokens")
+        .WithDescription(
+            "Revokes all active refresh tokens for the authenticated user. " +
+            "Existing access tokens remain valid until they expire naturally.")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapGet("/confirm-email-change", async (
-            string token,
+            [Description("The single-use token from the email-change confirmation link.")] string token,
             ClaimsPrincipal principal,
             ConfirmEmailChangeHandler handler,
             CancellationToken cancellationToken) =>
@@ -109,7 +139,15 @@ public static class AccountEndpoints
             {
                 return Problems.ToResult(ex);
             }
-        });
+        })
+        .WithName("ConfirmEmailChange")
+        .WithSummary("Confirm a pending email address change")
+        .WithDescription(
+            "Finalises the email change initiated by POST /account/change-email. " +
+            "The token is a single-use value from the confirmation link sent to the new address.")
+        .Produces(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         return app;
     }
