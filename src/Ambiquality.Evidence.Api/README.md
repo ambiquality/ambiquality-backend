@@ -1,12 +1,16 @@
 # Ambiquality.Evidence.Api
 
 The **evidence catalog**: registration and lifecycle management of the physical objects that
-sensors measure — **buildings** and the **rooms** inside them. Covers thesis requirements
-**F05–F09**.
+sensors measure — **buildings** and the **rooms** inside them — and of the **sensors** doing the
+measuring. Covers thesis requirements **F05–F09**.
 
-Each building and room is what the open-data catalog points at, so the service treats their
-descriptive attributes as a **versioned, auditable record** rather than mutable fields. This
-shapes the entire design.
+Each building, room and sensor is what the open-data catalog points at, so the service treats
+their descriptive attributes as a **versioned, auditable record** rather than mutable fields.
+This shapes the entire design.
+
+The sensor is also the **canonical device registry**: its `Id` is the stable identity that
+ingested measurements will reference (the planned Ingestion.Api carries `sensor_id`; there is no
+separate devices table).
 
 > **Note on the architecture.** The thesis (and `CLAUDE.md`) originally planned building/room
 > registration to live in `Public.Api`. It was extracted into this dedicated service. The
@@ -14,10 +18,11 @@ shapes the entire design.
 
 ## Core concept: attribute-level temporal versioning
 
-A building's name, address, type, GPS location and construction years — and a room's name,
-floor, function, exposure, geometry, ventilation and pollution sources — all **change over
-time**, and the catalog must answer "what was true *as of* date X", not just "what is true
-now".
+A building's name, address, type, GPS location and construction years; a room's name, floor,
+function, exposure, geometry, ventilation and pollution sources; and a sensor's identity
+(manufacturer/model/serial), room placement, lifecycle status and measured-parameter
+capabilities — all **change over time**, and the catalog must answer "what was true *as of* date
+X", not just "what is true now".
 
 So each mutable attribute is stored not as a column but as a stream of **history rows**, each
 carrying a **validity period**:
@@ -43,19 +48,23 @@ DDD layering, dependencies pointing inward (`Domain` has no framework dependenci
 Api/             Minimal-API endpoint groups + contracts + ProblemDetails mapping
   BuildingEndpoints.cs    /buildings ...
   RoomEndpoints.cs        /buildings/{id}/rooms ...
-  RoomContracts.cs        request/response DTOs
+  SensorEndpoints.cs      /buildings/{id}/rooms/{id}/sensors ...
+  Room/SensorContracts.cs request/response DTOs
   Problems.cs             DomainException -> RFC 9457 ProblemDetails, asOf/validTo parsing
 Application/     Use-case handlers + ports
   Buildings/*Handler.cs   RegisterBuilding, ChangeBuilding{Name,Address,Type,Location,Years}
   Rooms/*Handler.cs       RegisterRoom, ChangeRoom{Name,Floor,Function,Exposure,Geometry,Ventilation},
                           Add/RemoveRoomPollutionSource
+  Sensors/*Handler.cs     RegisterSensor, ChangeSensor{Identity,Placement,Status},
+                          Add/RemoveSensorMeasuredParameter
   Abstractions/           IClock, ICurrentUser
 Domain/
   Buildings/              Building aggregate + *History entities + Address/Coordinates value objects
   Rooms/                  Room aggregate + *History entities
-  Common/                 Validity, UriSlug, FloorNumber, AnonymizationLevel
+  Sensors/                Sensor aggregate + *History entities
+  Common/                 Validity, UriSlug, FloorNumber, AnonymizationLevel, SensorStatus, MeasuredParameter
 Infrastructure/
-  Persistence/            EvidenceDbContext, Building/RoomRepository, EF migrations (evidence schema)
+  Persistence/            EvidenceDbContext, Building/Room/SensorRepository, EF migrations (evidence schema)
   SystemClock.cs
 ```
 
@@ -93,6 +102,38 @@ registers them. All read routes answer both `GET` and `HEAD`.
 | `PUT` | `/buildings/{buildingId}/rooms/{roomId}/ventilation` | Change ventilation |
 | `POST` | `/buildings/{buildingId}/rooms/{roomId}/pollution-sources` | Add a pollution source |
 | `DELETE` | `/buildings/{buildingId}/rooms/{roomId}/pollution-sources/{sourceCode}` | Remove a pollution source |
+
+### Sensors (nested under a room)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/buildings/{buildingId}/rooms/{roomId}/sensors` | Register a sensor in a room |
+| `GET` `HEAD` | `…/rooms/{roomId}/sensors/{sensorId:guid}` | Get a sensor by id (supports `?asOf=`) |
+| `GET` `HEAD` | `…/rooms/{roomId}/sensors/{slug}` | Get a sensor by URI slug (supports `?asOf=`) |
+| `PUT` | `…/sensors/{sensorId}/identity` | Change manufacturer / model / serial |
+| `PUT` | `…/sensors/{sensorId}/placement` | Relocate the sensor (body: `newRoomId`) |
+| `PUT` | `…/sensors/{sensorId}/status` | Change lifecycle status (codelist) |
+| `POST` | `…/sensors/{sensorId}/measured-parameters` | Add a measured-parameter capability |
+| `DELETE` | `…/sensors/{sensorId}/measured-parameters/{parameterCode}` | Remove a measured-parameter capability |
+
+**Nested URL, but a movable, stable sensor.** A sensor is registered and read *under* its room
+(matching how rooms nest under buildings), yet it has a stable `Id`/slug and its room is a
+**versioned placement**, so it can be relocated. The reconciliation:
+
+- *Reads* (`GET`/`HEAD`) resolve the sensor and return `404` unless it was placed in the path's
+  room (and building) **as of** the requested instant — so the nested URL stays meaningful even
+  across moves.
+- *Mutations* address the sensor by `Id`; the `{buildingId}`/`{roomId}` path segments locate it
+  but are not re-validated (mirroring the room change endpoints).
+- A **move** is `PUT …/sensors/{id}/placement` carrying the destination `newRoomId` (the
+  building is derived from the room). The sensor's denormalised current room/building update and
+  a new placement-history row opens.
+
+The slug is **globally unique** (not per-room), since the sensor's identity is stable.
+
+Status codes (`sensor_status`): `active`, `maintenance`, `decommissioned`. Measured parameters
+(`measured_parameter`): `co2`, `temperature`, `humidity`, `pm`, `voc`, `acoustics`, `light`. An
+unknown code is a `400 unknown-codelist-code`.
 
 `HEAD` is handled by middleware in `Program.cs` that runs the matching `GET` handler and
 discards the body while preserving status and headers (RFC 9110 §9.3.2).
@@ -136,7 +177,8 @@ at `/scalar/v1` and `/openapi/v1.json` — directly at <http://localhost:6200/sc
 
 | Condition | Status | Type URN suffix |
 |-----------|--------|-----------------|
-| Building / room / pollution source not found | `404` | `building-not-found`, `room-not-found`, `pollution-source-not-found` |
+| Building / room / sensor not found | `404` | `building-not-found`, `room-not-found`, `sensor-not-found` |
+| Pollution source / measured parameter not found | `404` | `pollution-source-not-found`, `measured-parameter-not-found` |
 | Not the owner | `403` | `forbidden` |
 | Slug already taken | `409` | `duplicate-uri-slug` |
 | Validity period overlaps an existing one | `409` | `overlapping-validity-range` |
@@ -144,12 +186,33 @@ at `/scalar/v1` and `/openapi/v1.json` — directly at <http://localhost:6200/sc
 | Any other domain-rule violation (bad valid-from, empty value, non-UTC timestamp) | `400` | `domain-rule-violation` |
 | Missing open history row (data corruption — should be impossible) | `500` | `internal-server-error` |
 
+## Temporal integrity (sensors)
+
+The sensor history tables are the first to enforce the no-overlap invariant **end-to-end**
+through the change path, which surfaced two subtleties the building/room code never exercised:
+
+- **Half-open closing.** Closing a history row writes a `[lower, validFrom)` range with an
+  **exclusive** upper bound, so the closed row and the next open row (which starts at
+  `validFrom`) do not both contain the boundary instant. The raw two-argument `NpgsqlRange`
+  constructor produces an *inclusive* upper bound — the building/room `Close` methods use it and
+  therefore write `[lower, validFrom]`; they get away with it only because rooms have no
+  exclusion constraint and building change handlers are unit-tested against an in-memory repo.
+- **Deferred GiST constraints.** A change closes the open row (UPDATE) and opens a new one
+  (INSERT) in one transaction, and EF may emit the INSERT first. The `btree_gist` exclusion
+  constraints are `DEFERRABLE INITIALLY DEFERRED` so the no-overlap check runs at COMMIT, after
+  both rows have settled. Single-value attributes exclude on `(sensor_id, validity)`; the
+  measured-parameter collection excludes on `(sensor_id, parameter_code, validity)`.
+
 ## Known gaps
 
 - **Authentication is stubbed.** `CurrentUserStub` in `Program.cs` returns a hardcoded user
   GUID; there is no JWT validation yet. Ownership checks (`BuildingAuthorizer`,
   `ForbiddenException`) run against that stub. Wiring real JWT bearer auth (as Auth.Api issues)
-  and extracting the `sub` claim into `ICurrentUser` is outstanding.
+  and extracting the `sub` claim into `ICurrentUser` is outstanding. Sensor mutations, like room
+  mutations, currently perform no ownership check.
+- **Building/room history close is inclusive-upper** (see *Temporal integrity* above) and the
+  room history tables have **no GiST exclusion constraints** at all — both latent, masked by the
+  current tests. Worth aligning with the sensor approach when auth/idempotency are revisited.
 
 ## Database & migrations
 

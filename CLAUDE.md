@@ -13,7 +13,7 @@ ambiquality-backend.slnx        ← single solution, two solution folders
 src/
   Ambiquality.Core/             ← [EMPTY/PLANNED] shared library: EF Core IeqDbContext, measurement models
   Ambiquality.Auth.Api/         ← [BUILT] authentication service (register, login, token management)
-  Ambiquality.Evidence.Api/     ← [BUILT] building & room registration / lifecycle catalog (F05–F09)
+  Ambiquality.Evidence.Api/     ← [BUILT] building, room & sensor registration / lifecycle catalog (F05–F09)
   Ambiquality.Ingestion.Api/    ← [SKELETON] write-only: receives measurements from sensors
   Ambiquality.Public.Api/       ← [SKELETON] read-only: public API, filtering, pagination, open data
 tests/
@@ -48,13 +48,17 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
 | Database | Schema | Owner role | Used by |
 |----------|--------|-----------|---------|
 | `auth` | `auth` | `auth_api` | Auth.Api — users, password hashes, tokens |
-| `evidence` | `evidence` | `evidence_api` | Evidence.Api — buildings, rooms + their attribute history |
+| `evidence` | `evidence` | `evidence_api` | Evidence.Api — buildings, rooms, sensors + their attribute history |
 
 - The Postgres image is `timescale/timescaledb` (TimescaleDB preloaded) and the `evidence`
   database has the `btree_gist` extension enabled for temporal exclusion constraints.
-- **Planned (not yet built):** an `ieq` database with `devices` / `measurements` (TimescaleDB
-  hypertables) / `app` schemas, owned by Ingestion.Api and read by Public.Api, with
-  least-privilege `ingestion_api` / `public_api` roles.
+- **Sensors are the canonical device registry.** Evidence.Api owns sensor (device) identity;
+  ingested measurements will reference a sensor's `Id` (GUID). There is no separate `devices`
+  table — the originally-planned `ieq.devices` is superseded by `evidence.sensors`.
+- **Planned (not yet built):** an `ieq` database with `measurements` (TimescaleDB hypertables)
+  and an `app` schema, owned by Ingestion.Api and read by Public.Api, with least-privilege
+  `ingestion_api` / `public_api` roles. Measurements carry `sensor_id` referencing the evidence
+  catalog (no cross-database FK).
 
 ### EF Core ownership
 
@@ -70,7 +74,7 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
 | ID | Responsibility | Service |
 |----|---------------|---------|
 | F01–F04 | User registration, login, logout, credential change | Auth.Api ✅ |
-| F05–F09 | Building & room registration and lifecycle | **Evidence.Api** ✅ |
+| F05–F09 | Building, room & sensor registration and lifecycle | **Evidence.Api** ✅ |
 | F10 | Measurement validation on ingestion | Ingestion.Api (planned) |
 | F11–F15 | Public read API, filtering, pagination, search, OpenAPI spec | Public.Api (planned) |
 | F16 | DCAT-AP-CZ catalog metadata publication | Public.Api (planned) |
@@ -119,12 +123,23 @@ dotnet test tests/Ambiquality.Ingestion.Api.Tests   # single project
 - **Service-per-bounded-context**: Independently deployable services (Auth, Evidence, and the
   planned Ingestion/Public split) so write-heavy and read-heavy paths scale separately. Built
   services use DDD layering `Api → Application → Domain ← Infrastructure`.
-- **Attribute-level temporal versioning (Evidence.Api)**: Building and room attributes are not
-  mutable columns — each is a stream of history rows carrying a half-open UTC `tstzrange`
+- **Attribute-level temporal versioning (Evidence.Api)**: Building, room and sensor attributes
+  are not mutable columns — each is a stream of history rows carrying a half-open UTC `tstzrange`
   validity period (`Domain/Common/Validity.cs`). Changes close the open row and open a new one;
   nothing is overwritten. `btree_gist` exclusion constraints forbid overlapping periods. Reads
   accept an `asOf` query param to project past state. Rationale: the open-data catalog needs an
   immutable, auditable record of how each object changed over time.
+  - **Closing a row uses an exclusive upper bound** (`[lower, validFrom)`); the raw 2-arg
+    `NpgsqlRange` ctor makes it *inclusive*, which overlaps the next row's lower bound. Sensor
+    history `Close` methods do this correctly; building/room `Close` do **not** (latent — masked
+    because rooms lack exclusion constraints and building change handlers are unit-tested with an
+    in-memory repo). See `Evidence.Api/README.md` → *Temporal integrity*.
+  - **Exclusion constraints are `DEFERRABLE INITIALLY DEFERRED`** on the sensor history tables: a
+    change emits an UPDATE (close) + INSERT (open) in one transaction and EF may order the INSERT
+    first, so the no-overlap check must run at COMMIT. Single-value attributes exclude on
+    `(id, validity)`; collections add the item code (e.g. `(sensor_id, parameter_code, validity)`).
+- **Sensors = canonical device registry**: Evidence owns sensor/device identity; planned
+  ingestion measurements reference `sensor_id` (GUID), no separate devices table.
 - **TimescaleDB**: Chosen for time-series performance on `measurements` hypertable; use TimescaleDB-specific functions (time_bucket, continuous aggregates) where appropriate
 - **No cross-database foreign keys**: User identity is propagated via JWT `sub` claim (GUID), stored as plain column — no FK from `ieq` to `auth`
 - **Code-first migrations**: Schema is designed conceptually first, implemented via EF Core migrations; do not use `dotnet ef dbcontext scaffold`
