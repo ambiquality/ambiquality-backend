@@ -29,32 +29,32 @@ public static class RoomEndpoints
             .WithName("GetRoomBySlug")
             .WithDescription("Get a room by slug");
 
-        group.MapPatch("/{roomId:guid}/name", ChangeRoomName)
+        group.MapPut("/{roomId:guid}/name", ChangeRoomName)
             .WithName("ChangeRoomName")
             .WithOpenApi()
             .WithDescription("Change room name");
 
-        group.MapPatch("/{roomId:guid}/floor", ChangeRoomFloor)
+        group.MapPut("/{roomId:guid}/floor", ChangeRoomFloor)
             .WithName("ChangeRoomFloor")
             .WithOpenApi()
             .WithDescription("Change room floor");
 
-        group.MapPatch("/{roomId:guid}/function", ChangeRoomFunction)
+        group.MapPut("/{roomId:guid}/function", ChangeRoomFunction)
             .WithName("ChangeRoomFunction")
             .WithOpenApi()
             .WithDescription("Change room function code");
 
-        group.MapPatch("/{roomId:guid}/exposure", ChangeRoomExposure)
+        group.MapPut("/{roomId:guid}/exposure", ChangeRoomExposure)
             .WithName("ChangeRoomExposure")
             .WithOpenApi()
             .WithDescription("Change room exposure category");
 
-        group.MapPatch("/{roomId:guid}/geometry", ChangeRoomGeometry)
+        group.MapPut("/{roomId:guid}/geometry", ChangeRoomGeometry)
             .WithName("ChangeRoomGeometry")
             .WithOpenApi()
             .WithDescription("Change room geometry (area, ceiling height)");
 
-        group.MapPatch("/{roomId:guid}/ventilation", ChangeRoomVentilation)
+        group.MapPut("/{roomId:guid}/ventilation", ChangeRoomVentilation)
             .WithName("ChangeRoomVentilation")
             .WithOpenApi()
             .WithDescription("Change room ventilation type");
@@ -163,7 +163,7 @@ public static class RoomEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomName(
+    private static async Task<Results<NoContent, ProblemHttpResult>> ChangeRoomName(
         Guid buildingId,
         Guid roomId,
         ChangeRoomAttributeRequest request,
@@ -174,7 +174,7 @@ public static class RoomEndpoints
         {
             var command = new ChangeRoomNameCommand(roomId, request.NewValue, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {
@@ -182,7 +182,7 @@ public static class RoomEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomFloor(
+    private static async Task<Results<NoContent, ProblemHttpResult>> ChangeRoomFloor(
         Guid buildingId,
         Guid roomId,
         ChangeRoomAttributeRequest request,
@@ -193,7 +193,7 @@ public static class RoomEndpoints
         {
             var command = new ChangeRoomFloorCommand(roomId, byte.Parse(request.NewValue), request.ValidFrom);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {
@@ -201,7 +201,7 @@ public static class RoomEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomFunction(
+    private static async Task<Results<NoContent, ProblemHttpResult>> ChangeRoomFunction(
         Guid buildingId,
         Guid roomId,
         ChangeRoomAttributeRequest request,
@@ -212,7 +212,7 @@ public static class RoomEndpoints
         {
             var command = new ChangeRoomFunctionCommand(roomId, request.NewValue, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {
@@ -220,7 +220,7 @@ public static class RoomEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomExposure(
+    private static async Task<Results<NoContent, ProblemHttpResult>> ChangeRoomExposure(
         Guid buildingId,
         Guid roomId,
         ChangeRoomAttributeRequest request,
@@ -231,7 +231,7 @@ public static class RoomEndpoints
         {
             var command = new ChangeRoomExposureCommand(roomId, request.NewValue, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {
@@ -239,7 +239,7 @@ public static class RoomEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomGeometry(
+    private static async Task<Results<NoContent, ProblemHttpResult>> ChangeRoomGeometry(
         Guid buildingId,
         Guid roomId,
         ChangeRoomGeometryRequest request,
@@ -250,7 +250,7 @@ public static class RoomEndpoints
         {
             var command = new ChangeRoomGeometryCommand(roomId, request.AreaM2, request.CeilingHeightM, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {
@@ -258,7 +258,7 @@ public static class RoomEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomVentilation(
+    private static async Task<Results<NoContent, ProblemHttpResult>> ChangeRoomVentilation(
         Guid buildingId,
         Guid roomId,
         ChangeRoomAttributeRequest request,
@@ -269,7 +269,7 @@ public static class RoomEndpoints
         {
             var command = new ChangeRoomVentilationCommand(roomId, request.NewValue, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {

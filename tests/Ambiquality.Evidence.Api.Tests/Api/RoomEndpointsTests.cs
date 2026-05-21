@@ -206,7 +206,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ChangeRoomName_WithValidData_Returns200Ok()
+    public async Task ChangeRoomName_WithValidData_Returns204NoContent()
     {
         // Register a room first
         var registerRequest = new RegisterRoomRequest(
@@ -229,11 +229,11 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             NewValue: "Updated Name",
             ValidFrom: DateTime.UtcNow);
 
-        var changeResponse = await _client.PatchAsJsonAsync(
+        var changeResponse = await _client.PutAsJsonAsync(
             $"/buildings/{_buildingId}/rooms/{roomId}/name",
             changeRequest);
 
-        Assert.Equal(HttpStatusCode.OK, changeResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, changeResponse.StatusCode);
 
         // Verify the change by retrieving the room
         var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{roomId}");
@@ -242,7 +242,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ChangeRoomFloor_WithValidData_Returns200Ok()
+    public async Task ChangeRoomFloor_WithValidData_Returns204NoContent()
     {
         // Register a room first
         var registerRequest = new RegisterRoomRequest(
@@ -265,11 +265,11 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             NewValue: "3",
             ValidFrom: DateTime.UtcNow);
 
-        var changeResponse = await _client.PatchAsJsonAsync(
+        var changeResponse = await _client.PutAsJsonAsync(
             $"/buildings/{_buildingId}/rooms/{roomId}/floor",
             changeRequest);
 
-        Assert.Equal(HttpStatusCode.OK, changeResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, changeResponse.StatusCode);
 
         // Verify the change
         var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{roomId}");
@@ -373,7 +373,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             NewValue: "Updated Name",
             ValidFrom: DateTime.UtcNow.AddYears(-1));
 
-        var changeResponse = await _client.PatchAsJsonAsync(
+        var changeResponse = await _client.PutAsJsonAsync(
             $"/buildings/{_buildingId}/rooms/{roomId}/name",
             changeRequest);
 
@@ -387,7 +387,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             NewValue: "Updated Name",
             ValidFrom: DateTime.UtcNow.AddHours(1));
 
-        var changeResponse = await _client.PatchAsJsonAsync(
+        var changeResponse = await _client.PutAsJsonAsync(
             $"/buildings/{_buildingId}/rooms/{Guid.NewGuid()}/name",
             changeRequest);
 
