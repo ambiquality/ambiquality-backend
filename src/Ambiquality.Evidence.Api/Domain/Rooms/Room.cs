@@ -66,17 +66,17 @@ public sealed class Room
             CreatedBy = createdBy,
         };
 
-        room._nameHistory.Add(new RoomNameHistory(id, validity, name, createdBy));
-        room._floorHistory.Add(new RoomFloorHistory(id, validity, floor.Value, createdBy));
-        room._buildingHistory.Add(new RoomBuildingHistory(id, validity, buildingId, createdBy));
-        room._functionHistory.Add(new RoomFunctionHistory(id, validity, functionCode, createdBy));
-        room._exposureHistory.Add(new RoomExposureHistory(id, validity, exposureCode, createdBy));
-        room._geometryHistory.Add(new RoomGeometryHistory(id, validity, areaM2, ceilingHeightM, createdBy));
-        room._ventilationHistory.Add(new RoomVentilationHistory(id, validity, ventilationType, createdBy));
+        room._nameHistory.Add(new RoomNameHistory(id, validity, name, createdBy, now));
+        room._floorHistory.Add(new RoomFloorHistory(id, validity, floor.Value, createdBy, now));
+        room._buildingHistory.Add(new RoomBuildingHistory(id, validity, buildingId, createdBy, now));
+        room._functionHistory.Add(new RoomFunctionHistory(id, validity, functionCode, createdBy, now));
+        room._exposureHistory.Add(new RoomExposureHistory(id, validity, exposureCode, createdBy, now));
+        room._geometryHistory.Add(new RoomGeometryHistory(id, validity, areaM2, ceilingHeightM, createdBy, now));
+        room._ventilationHistory.Add(new RoomVentilationHistory(id, validity, ventilationType, createdBy, now));
 
         foreach (var source in pollutionSources)
         {
-            room._pollutionSourceHistory.Add(new RoomPollutionSourceHistory(id, source, validity, createdBy));
+            room._pollutionSourceHistory.Add(new RoomPollutionSourceHistory(id, source, validity, createdBy, now));
         }
 
         return room;
@@ -87,10 +87,10 @@ public sealed class Room
         var current = _nameHistory.Single(h => h.Validity.UpperBoundInfinite);
 
         if (validFrom <= current.Validity.LowerBound)
-            throw new InvalidOperationException("ValidFrom must be after the current open range's start");
+            throw new DomainException("ValidFrom must be after the current open range's start");
 
         current.Close(validFrom);
-        _nameHistory.Add(new RoomNameHistory(Id, Validity.OpenFrom(validFrom), newName, recordedBy));
+        _nameHistory.Add(new RoomNameHistory(Id, Validity.OpenFrom(validFrom), newName, recordedBy, validFrom));
     }
 
     public void ChangeFloor(FloorNumber newFloor, DateTime validFrom, Guid recordedBy)
@@ -98,10 +98,10 @@ public sealed class Room
         var current = _floorHistory.Single(h => h.Validity.UpperBoundInfinite);
 
         if (validFrom <= current.Validity.LowerBound)
-            throw new InvalidOperationException("ValidFrom must be after the current open range's start");
+            throw new DomainException("ValidFrom must be after the current open range's start");
 
         current.Close(validFrom);
-        _floorHistory.Add(new RoomFloorHistory(Id, Validity.OpenFrom(validFrom), newFloor.Value, recordedBy));
+        _floorHistory.Add(new RoomFloorHistory(Id, Validity.OpenFrom(validFrom), newFloor.Value, recordedBy, validFrom));
     }
 
     public void ChangeFunction(string? newFunctionCode, DateTime validFrom, Guid recordedBy)
@@ -109,10 +109,10 @@ public sealed class Room
         var current = _functionHistory.Single(h => h.Validity.UpperBoundInfinite);
 
         if (validFrom <= current.Validity.LowerBound)
-            throw new InvalidOperationException("ValidFrom must be after the current open range's start");
+            throw new DomainException("ValidFrom must be after the current open range's start");
 
         current.Close(validFrom);
-        _functionHistory.Add(new RoomFunctionHistory(Id, Validity.OpenFrom(validFrom), newFunctionCode, recordedBy));
+        _functionHistory.Add(new RoomFunctionHistory(Id, Validity.OpenFrom(validFrom), newFunctionCode, recordedBy, validFrom));
     }
 
     public void ChangeExposure(string? newExposureCode, DateTime validFrom, Guid recordedBy)
@@ -120,10 +120,10 @@ public sealed class Room
         var current = _exposureHistory.Single(h => h.Validity.UpperBoundInfinite);
 
         if (validFrom <= current.Validity.LowerBound)
-            throw new InvalidOperationException("ValidFrom must be after the current open range's start");
+            throw new DomainException("ValidFrom must be after the current open range's start");
 
         current.Close(validFrom);
-        _exposureHistory.Add(new RoomExposureHistory(Id, Validity.OpenFrom(validFrom), newExposureCode, recordedBy));
+        _exposureHistory.Add(new RoomExposureHistory(Id, Validity.OpenFrom(validFrom), newExposureCode, recordedBy, validFrom));
     }
 
     public void ChangeGeometry(double? areaM2, double? ceilingHeightM, DateTime validFrom, Guid recordedBy)
@@ -131,10 +131,10 @@ public sealed class Room
         var current = _geometryHistory.Single(h => h.Validity.UpperBoundInfinite);
 
         if (validFrom <= current.Validity.LowerBound)
-            throw new InvalidOperationException("ValidFrom must be after the current open range's start");
+            throw new DomainException("ValidFrom must be after the current open range's start");
 
         current.Close(validFrom);
-        _geometryHistory.Add(new RoomGeometryHistory(Id, Validity.OpenFrom(validFrom), areaM2, ceilingHeightM, recordedBy));
+        _geometryHistory.Add(new RoomGeometryHistory(Id, Validity.OpenFrom(validFrom), areaM2, ceilingHeightM, recordedBy, validFrom));
     }
 
     public void ChangeVentilation(string? newVentilationType, DateTime validFrom, Guid recordedBy)
@@ -142,16 +142,16 @@ public sealed class Room
         var current = _ventilationHistory.Single(h => h.Validity.UpperBoundInfinite);
 
         if (validFrom <= current.Validity.LowerBound)
-            throw new InvalidOperationException("ValidFrom must be after the current open range's start");
+            throw new DomainException("ValidFrom must be after the current open range's start");
 
         current.Close(validFrom);
-        _ventilationHistory.Add(new RoomVentilationHistory(Id, Validity.OpenFrom(validFrom), newVentilationType, recordedBy));
+        _ventilationHistory.Add(new RoomVentilationHistory(Id, Validity.OpenFrom(validFrom), newVentilationType, recordedBy, validFrom));
     }
 
     public void AddPollutionSource(string sourceCode, DateTime validFrom)
     {
         var validity = Validity.OpenFrom(validFrom);
-        _pollutionSourceHistory.Add(new RoomPollutionSourceHistory(Id, sourceCode, validity, CreatedBy));
+        _pollutionSourceHistory.Add(new RoomPollutionSourceHistory(Id, sourceCode, validity, CreatedBy, validFrom));
     }
 
     public void RemovePollutionSource(string sourceCode, DateTime validTo)
@@ -161,7 +161,7 @@ public sealed class Room
             .SingleOrDefault();
 
         if (current is null)
-            throw new InvalidOperationException($"No open pollution source '{sourceCode}' found");
+            throw new PollutionSourceNotFoundException(sourceCode);
 
         current.Close(validTo);
     }

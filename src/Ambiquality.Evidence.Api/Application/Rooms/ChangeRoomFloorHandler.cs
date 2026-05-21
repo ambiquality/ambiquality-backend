@@ -13,7 +13,7 @@ public sealed class ChangeRoomFloorHandler(
     {
         var room = await repository.GetByIdAsync(command.RoomId, ct);
         if (room == null)
-            throw new InvalidOperationException($"Room {command.RoomId} not found");
+            throw new RoomNotFoundException(command.RoomId);
 
         room.ChangeFloor(FloorNumber.Create(command.NewFloor), command.ValidFrom, currentUser.ProjectionId);
         await repository.SaveChangesAsync(ct);

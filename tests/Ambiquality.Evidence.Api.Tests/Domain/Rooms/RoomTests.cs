@@ -217,7 +217,7 @@ public class RoomTests
         var room = RegisterRoom();
 
         // Try to change with a time before the current open range started
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<DomainException>(() =>
             room.ChangeName("New Name", T0.AddSeconds(-1), Creator));
 
         Assert.Contains("after", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -230,7 +230,7 @@ public class RoomTests
         room.ChangeName("First Change", T1, Creator);
 
         // Try to change with a time before the newly opened range
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<DomainException>(() =>
             room.ChangeName("Second Change", T1.AddSeconds(-1), Creator));
 
         Assert.Contains("after", ex.Message, StringComparison.OrdinalIgnoreCase);

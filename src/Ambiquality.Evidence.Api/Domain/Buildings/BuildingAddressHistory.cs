@@ -10,14 +10,12 @@ public sealed class BuildingAddressHistory
 
     internal BuildingAddressHistory(Address address, NpgsqlRange<DateTime> validity, DateTime recordedAt, Guid recordedBy)
     {
-        Id = Guid.NewGuid();
         Address = address;
         Validity = validity;
         RecordedAt = recordedAt;
         RecordedBy = recordedBy;
     }
 
-    public Guid Id { get; private set; }
     public Address Address { get; private set; }
     public NpgsqlRange<DateTime> Validity { get; private set; }
     public DateTime RecordedAt { get; private set; }

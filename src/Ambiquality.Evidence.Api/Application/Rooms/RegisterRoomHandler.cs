@@ -11,9 +11,7 @@ public sealed class RegisterRoomHandler(
 {
     public async Task<RegisterRoomResponse> Handle(RegisterRoomCommand command, CancellationToken ct)
     {
-        var slug = UriSlug.Create(command.Name.ToLowerInvariant()
-            .Replace(" ", "-")
-            .Replace("_", "-"));
+        var slug = UriSlug.Create(command.UriSlug);
 
         var room = Room.Register(
             slug: slug,

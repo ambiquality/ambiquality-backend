@@ -14,14 +14,12 @@ public sealed class BuildingNameHistory
 
     internal BuildingNameHistory(string name, NpgsqlRange<DateTime> validity, DateTime recordedAt, Guid recordedBy)
     {
-        Id = Guid.NewGuid();
         Name = name;
         Validity = validity;
         RecordedAt = recordedAt;
         RecordedBy = recordedBy;
     }
 
-    public Guid Id { get; private set; }
     public string Name { get; private set; }
     public NpgsqlRange<DateTime> Validity { get; private set; }
     public DateTime RecordedAt { get; private set; }

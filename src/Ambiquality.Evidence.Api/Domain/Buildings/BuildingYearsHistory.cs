@@ -10,7 +10,6 @@ public sealed class BuildingYearsHistory
 
     internal BuildingYearsHistory(short? yearBuilt, short? yearRenovated, NpgsqlRange<DateTime> validity, DateTime recordedAt, Guid recordedBy)
     {
-        Id = Guid.NewGuid();
         YearBuilt = yearBuilt;
         YearRenovated = yearRenovated;
         Validity = validity;
@@ -18,7 +17,6 @@ public sealed class BuildingYearsHistory
         RecordedBy = recordedBy;
     }
 
-    public Guid Id { get; private set; }
     public short? YearBuilt { get; private set; }
     public short? YearRenovated { get; private set; }
     public NpgsqlRange<DateTime> Validity { get; private set; }

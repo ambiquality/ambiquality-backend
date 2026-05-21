@@ -12,12 +12,12 @@ public sealed class RoomBuildingHistory
 
     private RoomBuildingHistory() { }
 
-    public RoomBuildingHistory(Guid roomId, NpgsqlRange<DateTime> validity, Guid buildingId, Guid recordedBy)
+    public RoomBuildingHistory(Guid roomId, NpgsqlRange<DateTime> validity, Guid buildingId, Guid recordedBy, DateTime recordedAt)
     {
         RoomId = roomId;
         Validity = validity;
         BuildingId = buildingId;
-        RecordedAt = DateTime.UtcNow;
+        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
         RecordedBy = recordedBy;
     }
 

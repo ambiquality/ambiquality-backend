@@ -10,14 +10,12 @@ public sealed class BuildingTypeHistory
 
     internal BuildingTypeHistory(string buildingTypeCode, NpgsqlRange<DateTime> validity, DateTime recordedAt, Guid recordedBy)
     {
-        Id = Guid.NewGuid();
         BuildingTypeCode = buildingTypeCode;
         Validity = validity;
         RecordedAt = recordedAt;
         RecordedBy = recordedBy;
     }
 
-    public Guid Id { get; private set; }
     public string BuildingTypeCode { get; private set; }
     public NpgsqlRange<DateTime> Validity { get; private set; }
     public DateTime RecordedAt { get; private set; }

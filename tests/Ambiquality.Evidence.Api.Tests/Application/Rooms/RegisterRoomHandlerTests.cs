@@ -20,6 +20,7 @@ public class RegisterRoomHandlerTests
     {
         var command = new RegisterRoomCommand(
             BuildingId: BuildingId,
+            UriSlug: "room-101",
             Name: "Room 101",
             Floor: 1,
             FunctionCode: "office",
@@ -52,6 +53,7 @@ public class RegisterRoomHandlerTests
     {
         var command = new RegisterRoomCommand(
             BuildingId: BuildingId,
+            UriSlug: "room-101",
             Name: "Room 101",
             Floor: 1,
             FunctionCode: "kitchen",

@@ -12,7 +12,7 @@ public sealed class RemoveRoomPollutionSourceHandler(
     {
         var room = await repository.GetByIdAsync(command.RoomId, ct);
         if (room == null)
-            throw new InvalidOperationException($"Room {command.RoomId} not found");
+            throw new RoomNotFoundException(command.RoomId);
 
         room.RemovePollutionSource(command.SourceCode, command.ValidTo);
         await repository.SaveChangesAsync(ct);

@@ -348,4 +348,73 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
         var afterRoom = await afterRemoval.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         Assert.DoesNotContain("traffic", afterRoom!.PollutionSources);
     }
+
+    [Fact]
+    public async Task ChangeRoomName_WithNonAdvancingValidFrom_Returns400BadRequest()
+    {
+        var registerRequest = new RegisterRoomRequest(
+            UriSlug: "room-bad-validfrom",
+            Name: "Original Name",
+            Floor: 1,
+            FunctionCode: null,
+            ExposureCode: null,
+            AreaM2: null,
+            CeilingHeightM: null,
+            VentilationType: null,
+            PollutionSources: Array.Empty<string>());
+
+        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
+        var roomId = registeredRoom!.Id;
+
+        // A valid-from before the current open range's start violates the
+        // advancing-validity rule: a domain rule violation, i.e. 400 — not 404.
+        var changeRequest = new ChangeRoomAttributeRequest(
+            NewValue: "Updated Name",
+            ValidFrom: DateTime.UtcNow.AddYears(-1));
+
+        var changeResponse = await _client.PatchAsJsonAsync(
+            $"/buildings/{_buildingId}/rooms/{roomId}/name",
+            changeRequest);
+
+        Assert.Equal(HttpStatusCode.BadRequest, changeResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangeRoomName_OnNonexistentRoom_Returns404NotFound()
+    {
+        var changeRequest = new ChangeRoomAttributeRequest(
+            NewValue: "Updated Name",
+            ValidFrom: DateTime.UtcNow.AddHours(1));
+
+        var changeResponse = await _client.PatchAsJsonAsync(
+            $"/buildings/{_buildingId}/rooms/{Guid.NewGuid()}/name",
+            changeRequest);
+
+        Assert.Equal(HttpStatusCode.NotFound, changeResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetRoomById_WithInvalidAsOf_Returns400BadRequest()
+    {
+        var registerRequest = new RegisterRoomRequest(
+            UriSlug: "room-bad-asof",
+            Name: "As-Of Room",
+            Floor: 1,
+            FunctionCode: null,
+            ExposureCode: null,
+            AreaM2: null,
+            CeilingHeightM: null,
+            VentilationType: null,
+            PollutionSources: Array.Empty<string>());
+
+        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
+        var roomId = registeredRoom!.Id;
+
+        var getResponse = await _client.GetAsync(
+            $"/buildings/{_buildingId}/rooms/{roomId}?asOf=not-a-timestamp");
+
+        Assert.Equal(HttpStatusCode.BadRequest, getResponse.StatusCode);
+    }
 }

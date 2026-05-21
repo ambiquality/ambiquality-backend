@@ -12,12 +12,12 @@ public sealed class RoomPollutionSourceHistory
 
     private RoomPollutionSourceHistory() { }
 
-    public RoomPollutionSourceHistory(Guid roomId, string sourceCode, NpgsqlRange<DateTime> validity, Guid recordedBy)
+    public RoomPollutionSourceHistory(Guid roomId, string sourceCode, NpgsqlRange<DateTime> validity, Guid recordedBy, DateTime recordedAt)
     {
         RoomId = roomId;
         SourceCode = sourceCode;
         Validity = validity;
-        RecordedAt = DateTime.UtcNow;
+        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
         RecordedBy = recordedBy;
     }
 

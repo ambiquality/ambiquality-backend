@@ -1,4 +1,5 @@
 using Ambiquality.Evidence.Api.Application.Rooms;
+using Ambiquality.Evidence.Api.Domain;
 using Ambiquality.Evidence.Api.Domain.Common;
 using Ambiquality.Evidence.Api.Domain.Rooms;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -17,14 +18,15 @@ public static class RoomEndpoints
             .WithOpenApi()
             .WithDescription("Register a new room in a building");
 
-        group.MapGet("/{roomId:guid}", GetRoomById)
+        // GET + HEAD share one route. The modern AddOpenApi pipeline advertises
+        // both methods from route metadata; the legacy .WithOpenApi() helper is
+        // omitted here because it throws on multi-method routes.
+        group.MapMethods("/{roomId:guid}", ["GET", "HEAD"], GetRoomById)
             .WithName("GetRoomById")
-            .WithOpenApi()
             .WithDescription("Get a room by ID");
 
-        group.MapGet("/{slug}", GetRoomBySlug)
+        group.MapMethods("/{slug}", ["GET", "HEAD"], GetRoomBySlug)
             .WithName("GetRoomBySlug")
-            .WithOpenApi()
             .WithDescription("Get a room by slug");
 
         group.MapPatch("/{roomId:guid}/name", ChangeRoomName)
@@ -105,9 +107,9 @@ public static class RoomEndpoints
 
             return TypedResults.Created($"/buildings/{buildingId}/rooms/{result.RoomId}", response);
         }
-        catch (Exception ex)
+        catch (DomainException ex)
         {
-            return TypedResults.Problem(detail: ex.Message);
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -118,39 +120,21 @@ public static class RoomEndpoints
         HttpContext context,
         CancellationToken cancellationToken)
     {
+        var asOfError = Problems.TryParseAsOf(context, out var asOf);
+        if (asOfError is not null)
+            return asOfError;
+
+        var room = await repository.GetByIdAsync(roomId, cancellationToken);
+        if (room is null || room.BuildingId != buildingId)
+            return TypedResults.NotFound();
+
         try
         {
-            var asOf = context.Request.Query["asOf"].FirstOrDefault() != null
-                ? DateTime.Parse(context.Request.Query["asOf"].First()!)
-                : DateTime.UtcNow;
-
-            var room = await repository.GetByIdAsync(roomId, cancellationToken);
-            if (room == null)
-                return TypedResults.NotFound();
-
-            if (room.BuildingId != buildingId)
-                return TypedResults.NotFound();
-
-            var snapshot = room.SnapshotAt(asOf);
-            var response = new RoomSnapshotResponse(
-                Id: snapshot.Id,
-                UriSlug: snapshot.UriSlug,
-                BuildingId: snapshot.BuildingId,
-                Name: snapshot.Name,
-                Floor: snapshot.Floor,
-                FunctionCode: snapshot.FunctionCode,
-                ExposureCode: snapshot.ExposureCode,
-                AreaM2: snapshot.AreaM2,
-                CeilingHeightM: snapshot.CeilingHeightM,
-                VentilationType: snapshot.VentilationType,
-                PollutionSources: snapshot.PollutionSources,
-                AsOf: snapshot.AsOf);
-
-            return TypedResults.Ok(response);
+            return TypedResults.Ok(ToResponse(room.SnapshotAt(asOf)));
         }
-        catch (Exception ex)
+        catch (DomainException ex)
         {
-            return TypedResults.Problem(detail: ex.Message);
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -161,40 +145,25 @@ public static class RoomEndpoints
         HttpContext context,
         CancellationToken cancellationToken)
     {
+        var asOfError = Problems.TryParseAsOf(context, out var asOf);
+        if (asOfError is not null)
+            return asOfError;
+
+        var room = await repository.GetBySlugAsync(buildingId, UriSlug.Create(slug), cancellationToken);
+        if (room is null)
+            return TypedResults.NotFound();
+
         try
         {
-            var asOf = context.Request.Query["asOf"].FirstOrDefault() != null
-                ? DateTime.Parse(context.Request.Query["asOf"].First()!)
-                : DateTime.UtcNow;
-
-            var room = await repository.GetBySlugAsync(buildingId, UriSlug.Create(slug), cancellationToken);
-            if (room == null)
-                return TypedResults.NotFound();
-
-            var snapshot = room.SnapshotAt(asOf);
-            var response = new RoomSnapshotResponse(
-                Id: snapshot.Id,
-                UriSlug: snapshot.UriSlug,
-                BuildingId: snapshot.BuildingId,
-                Name: snapshot.Name,
-                Floor: snapshot.Floor,
-                FunctionCode: snapshot.FunctionCode,
-                ExposureCode: snapshot.ExposureCode,
-                AreaM2: snapshot.AreaM2,
-                CeilingHeightM: snapshot.CeilingHeightM,
-                VentilationType: snapshot.VentilationType,
-                PollutionSources: snapshot.PollutionSources,
-                AsOf: snapshot.AsOf);
-
-            return TypedResults.Ok(response);
+            return TypedResults.Ok(ToResponse(room.SnapshotAt(asOf)));
         }
-        catch (Exception ex)
+        catch (DomainException ex)
         {
-            return TypedResults.Problem(detail: ex.Message);
+            return Problems.ToProblemResult(ex);
         }
     }
 
-    private static async Task<Results<Ok, NotFound, ProblemHttpResult>> ChangeRoomName(
+    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomName(
         Guid buildingId,
         Guid roomId,
         ChangeRoomAttributeRequest request,
@@ -207,17 +176,13 @@ public static class RoomEndpoints
             await handler.Handle(command, cancellationToken);
             return TypedResults.Ok();
         }
-        catch (InvalidOperationException)
+        catch (DomainException ex)
         {
-            return TypedResults.NotFound();
-        }
-        catch (Exception ex)
-        {
-            return TypedResults.Problem(detail: ex.Message);
+            return Problems.ToProblemResult(ex);
         }
     }
 
-    private static async Task<Results<Ok, NotFound, ProblemHttpResult>> ChangeRoomFloor(
+    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomFloor(
         Guid buildingId,
         Guid roomId,
         ChangeRoomAttributeRequest request,
@@ -230,17 +195,13 @@ public static class RoomEndpoints
             await handler.Handle(command, cancellationToken);
             return TypedResults.Ok();
         }
-        catch (InvalidOperationException)
+        catch (DomainException ex)
         {
-            return TypedResults.NotFound();
-        }
-        catch (Exception ex)
-        {
-            return TypedResults.Problem(detail: ex.Message);
+            return Problems.ToProblemResult(ex);
         }
     }
 
-    private static async Task<Results<Ok, NotFound, ProblemHttpResult>> ChangeRoomFunction(
+    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomFunction(
         Guid buildingId,
         Guid roomId,
         ChangeRoomAttributeRequest request,
@@ -253,17 +214,13 @@ public static class RoomEndpoints
             await handler.Handle(command, cancellationToken);
             return TypedResults.Ok();
         }
-        catch (InvalidOperationException)
+        catch (DomainException ex)
         {
-            return TypedResults.NotFound();
-        }
-        catch (Exception ex)
-        {
-            return TypedResults.Problem(detail: ex.Message);
+            return Problems.ToProblemResult(ex);
         }
     }
 
-    private static async Task<Results<Ok, NotFound, ProblemHttpResult>> ChangeRoomExposure(
+    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomExposure(
         Guid buildingId,
         Guid roomId,
         ChangeRoomAttributeRequest request,
@@ -276,17 +233,13 @@ public static class RoomEndpoints
             await handler.Handle(command, cancellationToken);
             return TypedResults.Ok();
         }
-        catch (InvalidOperationException)
+        catch (DomainException ex)
         {
-            return TypedResults.NotFound();
-        }
-        catch (Exception ex)
-        {
-            return TypedResults.Problem(detail: ex.Message);
+            return Problems.ToProblemResult(ex);
         }
     }
 
-    private static async Task<Results<Ok, NotFound, ProblemHttpResult>> ChangeRoomGeometry(
+    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomGeometry(
         Guid buildingId,
         Guid roomId,
         ChangeRoomGeometryRequest request,
@@ -299,17 +252,13 @@ public static class RoomEndpoints
             await handler.Handle(command, cancellationToken);
             return TypedResults.Ok();
         }
-        catch (InvalidOperationException)
+        catch (DomainException ex)
         {
-            return TypedResults.NotFound();
-        }
-        catch (Exception ex)
-        {
-            return TypedResults.Problem(detail: ex.Message);
+            return Problems.ToProblemResult(ex);
         }
     }
 
-    private static async Task<Results<Ok, NotFound, ProblemHttpResult>> ChangeRoomVentilation(
+    private static async Task<Results<Ok, ProblemHttpResult>> ChangeRoomVentilation(
         Guid buildingId,
         Guid roomId,
         ChangeRoomAttributeRequest request,
@@ -322,17 +271,13 @@ public static class RoomEndpoints
             await handler.Handle(command, cancellationToken);
             return TypedResults.Ok();
         }
-        catch (InvalidOperationException)
+        catch (DomainException ex)
         {
-            return TypedResults.NotFound();
-        }
-        catch (Exception ex)
-        {
-            return TypedResults.Problem(detail: ex.Message);
+            return Problems.ToProblemResult(ex);
         }
     }
 
-    private static async Task<Results<Ok, NotFound, ProblemHttpResult>> AddPollutionSource(
+    private static async Task<Results<Ok, ProblemHttpResult>> AddPollutionSource(
         Guid buildingId,
         Guid roomId,
         AddPollutionSourceRequest request,
@@ -345,17 +290,13 @@ public static class RoomEndpoints
             await handler.Handle(command, cancellationToken);
             return TypedResults.Ok();
         }
-        catch (InvalidOperationException)
+        catch (DomainException ex)
         {
-            return TypedResults.NotFound();
-        }
-        catch (Exception ex)
-        {
-            return TypedResults.Problem(detail: ex.Message);
+            return Problems.ToProblemResult(ex);
         }
     }
 
-    private static async Task<Results<Ok, NotFound, ProblemHttpResult>> RemovePollutionSource(
+    private static async Task<Results<Ok, ProblemHttpResult>> RemovePollutionSource(
         Guid buildingId,
         Guid roomId,
         string sourceCode,
@@ -363,24 +304,34 @@ public static class RoomEndpoints
         HttpContext context,
         CancellationToken cancellationToken)
     {
+        var validToError = Problems.TryParseValidTo(context, out var validTo);
+        if (validToError is not null)
+            return validToError;
+
         try
         {
-            var validToQuery = context.Request.Query["validTo"].ToString();
-            var validTo = !string.IsNullOrEmpty(validToQuery)
-                ? DateTime.Parse(validToQuery, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind)
-                : DateTime.UtcNow;
-
             var command = new RemoveRoomPollutionSourceCommand(roomId, sourceCode, validTo);
             await handler.Handle(command, cancellationToken);
             return TypedResults.Ok();
         }
-        catch (InvalidOperationException)
+        catch (DomainException ex)
         {
-            return TypedResults.NotFound();
-        }
-        catch (Exception ex)
-        {
-            return TypedResults.Problem(detail: ex.Message);
+            return Problems.ToProblemResult(ex);
         }
     }
+
+    private static RoomSnapshotResponse ToResponse(RoomSnapshot snapshot) =>
+        new(
+            Id: snapshot.Id,
+            UriSlug: snapshot.UriSlug,
+            BuildingId: snapshot.BuildingId,
+            Name: snapshot.Name,
+            Floor: snapshot.Floor,
+            FunctionCode: snapshot.FunctionCode,
+            ExposureCode: snapshot.ExposureCode,
+            AreaM2: snapshot.AreaM2,
+            CeilingHeightM: snapshot.CeilingHeightM,
+            VentilationType: snapshot.VentilationType,
+            PollutionSources: snapshot.PollutionSources,
+            AsOf: snapshot.AsOf);
 }

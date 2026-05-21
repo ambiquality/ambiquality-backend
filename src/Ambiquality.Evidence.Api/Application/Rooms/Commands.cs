@@ -2,6 +2,7 @@ namespace Ambiquality.Evidence.Api.Application.Rooms;
 
 public sealed record RegisterRoomCommand(
     Guid BuildingId,
+    string UriSlug,
     string Name,
     byte Floor,
     string? FunctionCode,

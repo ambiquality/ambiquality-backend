@@ -12,7 +12,7 @@ public sealed class ChangeRoomExposureHandler(
     {
         var room = await repository.GetByIdAsync(command.RoomId, ct);
         if (room == null)
-            throw new InvalidOperationException($"Room {command.RoomId} not found");
+            throw new RoomNotFoundException(command.RoomId);
 
         room.ChangeExposure(command.NewExposureCode, command.ValidFrom, currentUser.ProjectionId);
         await repository.SaveChangesAsync(ct);

@@ -19,7 +19,6 @@ public sealed class BuildingLocationHistory
         DateTime recordedAt,
         Guid recordedBy)
     {
-        Id = Guid.NewGuid();
         Coordinates = coordinates;
         Anonymization = anonymization;
         Validity = validity;
@@ -27,7 +26,6 @@ public sealed class BuildingLocationHistory
         RecordedBy = recordedBy;
     }
 
-    public Guid Id { get; private set; }
     public Coordinates? Coordinates { get; private set; }
     public AnonymizationLevel Anonymization { get; private set; }
     public NpgsqlRange<DateTime> Validity { get; private set; }

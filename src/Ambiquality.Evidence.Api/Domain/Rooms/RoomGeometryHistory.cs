@@ -13,13 +13,13 @@ public sealed class RoomGeometryHistory
 
     private RoomGeometryHistory() { }
 
-    public RoomGeometryHistory(Guid roomId, NpgsqlRange<DateTime> validity, double? areaM2, double? ceilingHeightM, Guid recordedBy)
+    public RoomGeometryHistory(Guid roomId, NpgsqlRange<DateTime> validity, double? areaM2, double? ceilingHeightM, Guid recordedBy, DateTime recordedAt)
     {
         RoomId = roomId;
         Validity = validity;
         AreaM2 = areaM2;
         CeilingHeightM = ceilingHeightM;
-        RecordedAt = DateTime.UtcNow;
+        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
         RecordedBy = recordedBy;
     }
 

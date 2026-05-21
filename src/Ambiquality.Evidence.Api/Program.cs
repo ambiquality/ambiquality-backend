@@ -49,6 +49,32 @@ builder.Services.AddProblemDetails();
 var app = builder.Build();
 
 // --- Middleware -------------------------------------------------------
+
+// HEAD must mirror GET (same status + headers) with an empty body
+// (RFC 9110 §9.3.2). Routes are registered with MapMethods(["GET","HEAD"]) so
+// the GET handler also runs for HEAD and serializes a body; discard it here
+// while leaving headers such as Content-Type intact.
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsHead(context.Request.Method))
+    {
+        var originalBody = context.Response.Body;
+        context.Response.Body = Stream.Null;
+        try
+        {
+            await next(context);
+        }
+        finally
+        {
+            context.Response.Body = originalBody;
+        }
+    }
+    else
+    {
+        await next(context);
+    }
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

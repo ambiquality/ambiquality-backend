@@ -12,7 +12,7 @@ public sealed class ChangeRoomNameHandler(
     {
         var room = await repository.GetByIdAsync(command.RoomId, ct);
         if (room == null)
-            throw new InvalidOperationException($"Room {command.RoomId} not found");
+            throw new RoomNotFoundException(command.RoomId);
 
         room.ChangeName(command.NewName, command.ValidFrom, currentUser.ProjectionId);
         await repository.SaveChangesAsync(ct);

@@ -12,12 +12,12 @@ public sealed class RoomVentilationHistory
 
     private RoomVentilationHistory() { }
 
-    public RoomVentilationHistory(Guid roomId, NpgsqlRange<DateTime> validity, string? ventilationType, Guid recordedBy)
+    public RoomVentilationHistory(Guid roomId, NpgsqlRange<DateTime> validity, string? ventilationType, Guid recordedBy, DateTime recordedAt)
     {
         RoomId = roomId;
         Validity = validity;
         VentilationType = ventilationType;
-        RecordedAt = DateTime.UtcNow;
+        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
         RecordedBy = recordedBy;
     }
 
