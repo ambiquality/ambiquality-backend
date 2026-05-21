@@ -144,3 +144,11 @@ dotnet test tests/Ambiquality.Ingestion.Api.Tests   # single project
 - **No cross-database foreign keys**: User identity is propagated via JWT `sub` claim (GUID), stored as plain column — no FK from `ieq` to `auth`
 - **Code-first migrations**: Schema is designed conceptually first, implemented via EF Core migrations; do not use `dotnet ef dbcontext scaffold`
 - **Measurement immutability**: Soft-invalidation only — add an `is_invalid` flag and `invalidated_reason`, never DELETE or UPDATE measurement values
+
+## Git rules
+
+- Before any fresh changes, check the branch you are on.  
+- Never make changes on `main` branch - it's protected.
+- Always pull the `origin/main` before creating branches from `main`
+- Always create a new branch based on `main` for a brand new feature and name it properly.
+- In presence of not commited changes, ask the user if you should commit the changes first. If yes, then you should wait for the user to merge them into `main` and he should instruct you to continue.
