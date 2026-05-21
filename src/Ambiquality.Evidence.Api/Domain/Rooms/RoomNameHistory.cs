@@ -1,0 +1,25 @@
+using NpgsqlTypes;
+
+namespace Ambiquality.Evidence.Api.Domain.Rooms;
+
+public sealed class RoomNameHistory
+{
+    public Guid RoomId { get; init; }
+    public NpgsqlRange<DateTime> Validity { get; set; }
+    public string Name { get; init; } = null!;
+    public DateTime RecordedAt { get; init; }
+    public Guid RecordedBy { get; init; }
+
+    private RoomNameHistory() { }
+
+    public RoomNameHistory(Guid roomId, NpgsqlRange<DateTime> validity, string name, Guid recordedBy, DateTime recordedAt)
+    {
+        RoomId = roomId;
+        Validity = validity;
+        Name = name;
+        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
+        RecordedBy = recordedBy;
+    }
+
+    public void Close(DateTime validFrom) => Validity = new NpgsqlRange<DateTime>(Validity.LowerBound, validFrom);
+}

@@ -1,3 +1,9 @@
 :80 {
-	reverse_proxy auth-api:6100
+	handle_path /evidence/* {
+		reverse_proxy evidence-api:6200
+	}
+
+	handle {
+		reverse_proxy auth-api:6100
+	}
 }

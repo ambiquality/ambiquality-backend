@@ -1,0 +1,25 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY ["src/Ambiquality.Evidence.Api/Ambiquality.Evidence.Api.csproj", "src/Ambiquality.Evidence.Api/"]
+RUN dotnet restore "src/Ambiquality.Evidence.Api/Ambiquality.Evidence.Api.csproj"
+COPY src/ src/
+RUN dotnet publish "src/Ambiquality.Evidence.Api/Ambiquality.Evidence.Api.csproj" -c Release -o /app/publish
+
+RUN dotnet tool install --global dotnet-ef
+ENV PATH="$PATH:/root/.dotnet/tools"
+RUN dotnet ef migrations bundle \
+    --project src/Ambiquality.Evidence.Api/Ambiquality.Evidence.Api.csproj \
+    --output /app/efbundle \
+    --self-contained
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS migrator
+RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build /app/efbundle .
+ENTRYPOINT ["/app/efbundle"]
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 6200
+ENTRYPOINT ["dotnet", "Ambiquality.Evidence.Api.dll"]
