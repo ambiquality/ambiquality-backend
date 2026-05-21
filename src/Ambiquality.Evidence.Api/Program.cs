@@ -1,9 +1,11 @@
 using Ambiquality.Evidence.Api.Api;
 using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Application.Rooms;
+using Ambiquality.Evidence.Api.Application.Sensors;
 using Ambiquality.Evidence.Api.Application.Abstractions;
 using Ambiquality.Evidence.Api.Domain.Buildings;
 using Ambiquality.Evidence.Api.Domain.Rooms;
+using Ambiquality.Evidence.Api.Domain.Sensors;
 using Ambiquality.Evidence.Api.Infrastructure;
 using Ambiquality.Evidence.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +21,7 @@ builder.Services.AddDbContext<EvidenceDbContext>(options =>
 
 builder.Services.AddScoped<IBuildingRepository, BuildingRepository>();
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
+builder.Services.AddScoped<ISensorRepository, SensorRepository>();
 
 // --- Infrastructure -----------------------------------------------------------
 builder.Services.AddSingleton<IClock, SystemClock>();
@@ -41,6 +44,13 @@ builder.Services.AddScoped<ChangeRoomGeometryHandler>();
 builder.Services.AddScoped<ChangeRoomVentilationHandler>();
 builder.Services.AddScoped<AddRoomPollutionSourceHandler>();
 builder.Services.AddScoped<RemoveRoomPollutionSourceHandler>();
+
+builder.Services.AddScoped<RegisterSensorHandler>();
+builder.Services.AddScoped<ChangeSensorIdentityHandler>();
+builder.Services.AddScoped<ChangeSensorPlacementHandler>();
+builder.Services.AddScoped<ChangeSensorStatusHandler>();
+builder.Services.AddScoped<AddSensorMeasuredParameterHandler>();
+builder.Services.AddScoped<RemoveSensorMeasuredParameterHandler>();
 
 // --- OpenAPI / Swagger -------------------------------------------------------
 builder.Services.AddOpenApi();
@@ -84,6 +94,7 @@ if (app.Environment.IsDevelopment())
 // --- Routing -------------------------------------------------------
 app.MapBuildingEndpoints();
 app.MapRoomEndpoints();
+app.MapSensorEndpoints();
 
 app.Run();
 

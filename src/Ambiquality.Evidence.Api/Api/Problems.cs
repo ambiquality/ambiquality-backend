@@ -3,6 +3,7 @@ using Ambiquality.Evidence.Api.Application;
 using Ambiquality.Evidence.Api.Domain;
 using Ambiquality.Evidence.Api.Domain.Buildings;
 using Ambiquality.Evidence.Api.Domain.Rooms;
+using Ambiquality.Evidence.Api.Domain.Sensors;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Ambiquality.Evidence.Api.Api;
@@ -31,6 +32,18 @@ public static class Problems
             StatusCodes.Status404NotFound,
             TypePrefix + "pollution-source-not-found",
             "Pollution source not found",
+            exception.Message),
+
+        SensorNotFoundException => new ProblemDescriptor(
+            StatusCodes.Status404NotFound,
+            TypePrefix + "sensor-not-found",
+            "Sensor not found",
+            exception.Message),
+
+        MeasuredParameterNotFoundException => new ProblemDescriptor(
+            StatusCodes.Status404NotFound,
+            TypePrefix + "measured-parameter-not-found",
+            "Measured parameter not found",
             exception.Message),
 
         ForbiddenException => new ProblemDescriptor(
