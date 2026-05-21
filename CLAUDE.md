@@ -11,16 +11,23 @@ Backend for **Ambiquality** — an IEQ (Indoor Environmental Quality) monitoring
 ```
 ambiquality-backend.slnx        ← single solution, two solution folders
 src/
-  Ambiquality.Core/             ← shared library: EF Core DbContext, domain models, migrations ownership
-  Ambiquality.Auth.Api/         ← authentication service (register, login, logout, token management)
-  Ambiquality.Ingestion.Api/    ← write-only: receives measurements from sensors
-  Ambiquality.Public.Api/       ← read-only: public API, filtering, pagination, open data
+  Ambiquality.Core/             ← [EMPTY/PLANNED] shared library: EF Core IeqDbContext, measurement models
+  Ambiquality.Auth.Api/         ← [BUILT] authentication service (register, login, token management)
+  Ambiquality.Evidence.Api/     ← [BUILT] building & room registration / lifecycle catalog (F05–F09)
+  Ambiquality.Ingestion.Api/    ← [SKELETON] write-only: receives measurements from sensors
+  Ambiquality.Public.Api/       ← [SKELETON] read-only: public API, filtering, pagination, open data
 tests/
   Ambiquality.Core.Tests/
   Ambiquality.Auth.Api.Tests/
+  Ambiquality.Evidence.Api.Tests/
   Ambiquality.Ingestion.Api.Tests/
   Ambiquality.Public.Api.Tests/
 ```
+
+Only **Auth.Api** and **Evidence.Api** are implemented. `Core` is an empty class library;
+`Ingestion.Api` and `Public.Api` are default minimal-API skeletons. See each project's
+`README.md` for detail. Per-project READMEs and the root `README.md` are the human-facing docs;
+this file is the agent guide.
 
 ## Tech Stack
 
@@ -34,48 +41,44 @@ tests/
 
 ## Database Architecture
 
-### Two databases, one Postgres instance
+### Databases, one Postgres instance
 
-| Database | Owner | Purpose |
-|----------|-------|---------|
-| `auth` | Auth.Api | Users, password hashes, sessions, tokens |
-| `ieq` | Ingestion.Api + Public.Api | Everything else |
+Provisioned by `init-databases.sql` on first container start. **Current reality:**
 
-### Schemas in `ieq`
+| Database | Schema | Owner role | Used by |
+|----------|--------|-----------|---------|
+| `auth` | `auth` | `auth_api` | Auth.Api — users, password hashes, tokens |
+| `evidence` | `evidence` | `evidence_api` | Evidence.Api — buildings, rooms + their attribute history |
 
-| Schema | Content |
-|--------|---------|
-| `devices` | Buildings, rooms, sensors, sensor lifecycle |
-| `measurements` | TimescaleDB hypertables — the core time-series data |
-| `app` | User preferences, alert configs, dashboard settings |
-
-### Database users
-
-| User | Access | Used by |
-|------|--------|---------|
-| `auth_api` | Full DML on `auth` | Auth.Api |
-| `ingestion_api` | INSERT/SELECT on `measurements.*`, SELECT on `devices.*` | Ingestion.Api |
-| `public_api` | SELECT on `measurements.*`, `devices.*`; full DML on `app.*` | Public.Api |
-| `migrator` | DDL owner of both databases | CI/CD migration runner only |
+- The Postgres image is `timescale/timescaledb` (TimescaleDB preloaded) and the `evidence`
+  database has the `btree_gist` extension enabled for temporal exclusion constraints.
+- **Planned (not yet built):** an `ieq` database with `devices` / `measurements` (TimescaleDB
+  hypertables) / `app` schemas, owned by Ingestion.Api and read by Public.Api, with
+  least-privilege `ingestion_api` / `public_api` roles.
 
 ### EF Core ownership
 
-- `AuthDbContext` lives in **Ambiquality.Auth.Api** and owns the `auth` database
-- `IeqDbContext` lives in **Ambiquality.Core**, referenced by both Ingestion and Public APIs
-- **Ingestion.Api** owns and runs EF migrations for the `ieq` database
-- **Public.Api** references `IeqDbContext` read-only — never runs migrations
+- `AuthDbContext` lives in **Ambiquality.Auth.Api** and owns the `auth` database; migrations
+  run at startup via the `migrate` container.
+- `EvidenceDbContext` lives in **Ambiquality.Evidence.Api** and owns the `evidence` database;
+  migrations run at startup via the `evidence-migrate` container.
+- *Planned:* `IeqDbContext` in **Ambiquality.Core**, with Ingestion.Api owning its migrations
+  and Public.Api referencing it read-only.
 
 ## Key Functional Requirements (from thesis)
 
 | ID | Responsibility | Service |
 |----|---------------|---------|
-| F01–F04 | User registration, login, logout, credential change | Auth.Api |
-| F05–F09 | Building, room, sensor registration and lifecycle | Public.Api (write for operators) |
-| F10 | Measurement validation on ingestion | Ingestion.Api |
-| F11–F15 | Public read API, filtering, pagination, search, OpenAPI spec | Public.Api |
-| F16 | DCAT-AP-CZ catalog metadata publication | Public.Api |
-| F17 | Downloadable data archive (CSV) | Public.Api |
+| F01–F04 | User registration, login, logout, credential change | Auth.Api ✅ |
+| F05–F09 | Building & room registration and lifecycle | **Evidence.Api** ✅ |
+| F10 | Measurement validation on ingestion | Ingestion.Api (planned) |
+| F11–F15 | Public read API, filtering, pagination, search, OpenAPI spec | Public.Api (planned) |
+| F16 | DCAT-AP-CZ catalog metadata publication | Public.Api (planned) |
+| F17 | Downloadable data archive (CSV) | Public.Api (planned) |
 | F18 | (Frontend) Interactive map — not in this repo |
+
+Note: F05–F09 were originally scoped to Public.Api but were implemented in a dedicated
+`Evidence.Api` service instead.
 
 ## Key Non-Functional Constraints
 
@@ -89,15 +92,20 @@ tests/
 
 ```bash
 dotnet run --project src/Ambiquality.Auth.Api
-dotnet run --project src/Ambiquality.Ingestion.Api
-dotnet run --project src/Ambiquality.Public.Api
+dotnet run --project src/Ambiquality.Evidence.Api
+# Ingestion.Api / Public.Api are skeletons (return "Hello World!")
 ```
 
-Start infrastructure (Postgres, Redis, Caddy) with Podman Compose before running services:
+Start the full stack (Postgres, Redis, Caddy, Mailpit, both APIs, migrations) with the dev
+helper, which wraps `podman compose --profile development`:
 
 ```bash
-podman compose up -d
+./dev.sh up        # start (foreground)
+./dev.sh down      # stop and remove volumes
+./dev-build.sh     # rebuild images then start (after code changes)
 ```
+
+Behind Caddy (`:8080`): `/evidence/*` → `evidence-api:6200`, everything else → `auth-api:6100`.
 
 ## Running Tests
 
@@ -108,7 +116,15 @@ dotnet test tests/Ambiquality.Ingestion.Api.Tests   # single project
 
 ## Architecture Decisions
 
-- **Ingestion/Public split**: Deliberate separation for independent scaling — ingestion is write-heavy, public is read-heavy
+- **Service-per-bounded-context**: Independently deployable services (Auth, Evidence, and the
+  planned Ingestion/Public split) so write-heavy and read-heavy paths scale separately. Built
+  services use DDD layering `Api → Application → Domain ← Infrastructure`.
+- **Attribute-level temporal versioning (Evidence.Api)**: Building and room attributes are not
+  mutable columns — each is a stream of history rows carrying a half-open UTC `tstzrange`
+  validity period (`Domain/Common/Validity.cs`). Changes close the open row and open a new one;
+  nothing is overwritten. `btree_gist` exclusion constraints forbid overlapping periods. Reads
+  accept an `asOf` query param to project past state. Rationale: the open-data catalog needs an
+  immutable, auditable record of how each object changed over time.
 - **TimescaleDB**: Chosen for time-series performance on `measurements` hypertable; use TimescaleDB-specific functions (time_bucket, continuous aggregates) where appropriate
 - **No cross-database foreign keys**: User identity is propagated via JWT `sub` claim (GUID), stored as plain column — no FK from `ieq` to `auth`
 - **Code-first migrations**: Schema is designed conceptually first, implemented via EF Core migrations; do not use `dotnet ef dbcontext scaffold`
