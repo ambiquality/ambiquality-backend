@@ -60,6 +60,37 @@ services:
       - db
     restart: "no"
 
+  evidence-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.evidence
+      target: migrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=postgres;Password=postgres"
+    networks:
+      - db
+    restart: "no"
+
+  evidence-api: # on port 6200
+    build:
+      context: .
+      dockerfile: Dockerfile.evidence
+    depends_on:
+      evidence-migrate:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:6200
+      ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=evidence_api;Password=evidence_api_dev_password"
+    ports:
+      - "6200:6200"
+    networks:
+      - db
+      - public
+
   auth-api: # on port 6100
     build:
       context: .
