@@ -10,8 +10,10 @@ public static class RoomEndpoints
 {
     public static void MapRoomEndpoints(this WebApplication app)
     {
+        // Mutations require a valid bearer token; reads opt out via AllowAnonymous.
         var group = app.MapGroup("/buildings/{buildingId:guid}/rooms")
-            .WithTags("Rooms");
+            .WithTags("Rooms")
+            .RequireAuthorization();
 
         group.MapPost("/", RegisterRoom)
             .WithName("RegisterRoom")
@@ -23,11 +25,13 @@ public static class RoomEndpoints
         // omitted here because it throws on multi-method routes.
         group.MapMethods("/{roomId:guid}", ["GET", "HEAD"], GetRoomById)
             .WithName("GetRoomById")
-            .WithDescription("Get a room by ID");
+            .WithDescription("Get a room by ID")
+            .AllowAnonymous();
 
         group.MapMethods("/{slug}", ["GET", "HEAD"], GetRoomBySlug)
             .WithName("GetRoomBySlug")
-            .WithDescription("Get a room by slug");
+            .WithDescription("Get a room by slug")
+            .AllowAnonymous();
 
         group.MapPut("/{roomId:guid}/name", ChangeRoomName)
             .WithName("ChangeRoomName")

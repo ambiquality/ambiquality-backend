@@ -204,13 +204,39 @@ through the change path, on two complementary mechanisms:
   the item code — `(sensor_id, parameter_code, validity)` for measured parameters and
   `(room_id, source_code, validity)` for room pollution sources.
 
+## Authentication & authorization
+
+The service validates the **HMAC-SHA256 JWT access tokens issued by Auth.Api** (it shares the
+`Jwt` issuer / audience / signing secret, but only validates — it never issues). Bearer auth is
+wired in `Program.cs`; `MapInboundClaims` is disabled so the raw `sub` claim survives.
+
+- **Identity (`UserProjection`).** The catalog never stores the raw auth `sub` GUID on its rows.
+  `CurrentUserMiddleware` runs after authentication and, for any authenticated request, lazily
+  upserts a local `evidence.user_projections` row keyed by the unique `auth_user_id` (the `sub`).
+  `ICurrentUser` then exposes `AuthUserId` (the `sub`) and `ProjectionId` (the local row id);
+  ownership and audit columns (`OwnerId`, `recorded_by`) store the `ProjectionId`. The upsert
+  tolerates a concurrent first-request race via the unique index.
+- **Mutations require a token.** Every `POST` / `PUT` / `DELETE` is `RequireAuthorization()`
+  (group-level); an unauthenticated mutation gets `401`. Reads (`GET` / `HEAD`) are
+  `AllowAnonymous` — the catalog is open data — but authentication still runs so an owner can be
+  recognised on read.
+- **Ownership.** A building's `OwnerId` is its registrar. `BuildingAuthorizer` rejects non-owners
+  with `403 forbidden`. Rooms and sensors have no owner of their own — ownership derives from the
+  containing building, enforced by `RoomAuthorizer` / `SensorAuthorizer` (a sensor move checks
+  both the source and destination building).
+- **Coordinate masking on read.** Owners see precise GPS; everyone else (including anonymous
+  readers) sees coordinates coarsened per the building's `anonymization_level` — `street` rounds
+  to 3 decimal places (~110 m), `municipality` to 2 (~1.1 km), `precise` is untouched. Coordinates
+  are never hidden outright (`CoordinateMasking`).
+
+The interactive OpenAPI reference advertises the `Bearer` scheme; mutation operations carry the
+security requirement, reads do not.
+
 ## Known gaps
 
-- **Authentication is stubbed.** `CurrentUserStub` in `Program.cs` returns a hardcoded user
-  GUID; there is no JWT validation yet. Ownership checks (`BuildingAuthorizer`,
-  `ForbiddenException`) run against that stub. Wiring real JWT bearer auth (as Auth.Api issues)
-  and extracting the `sub` claim into `ICurrentUser` is outstanding. Sensor mutations, like room
-  mutations, currently perform no ownership check.
+- **Idempotent PUT.** Replaying an identical attribute `PUT` still `409`s instead of being a
+  silent `204` no-op (see the *Idempotency caveat* above); making the open-history rows idempotent
+  on identical re-PUT is the remaining follow-up.
 
 ## Database & migrations
 

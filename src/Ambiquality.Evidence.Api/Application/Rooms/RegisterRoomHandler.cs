@@ -1,4 +1,6 @@
 using Ambiquality.Evidence.Api.Application.Abstractions;
+using Ambiquality.Evidence.Api.Application.Buildings;
+using Ambiquality.Evidence.Api.Domain.Buildings;
 using Ambiquality.Evidence.Api.Domain.Common;
 using Ambiquality.Evidence.Api.Domain.Rooms;
 
@@ -7,10 +9,14 @@ namespace Ambiquality.Evidence.Api.Application.Rooms;
 public sealed class RegisterRoomHandler(
     IClock clock,
     ICurrentUser currentUser,
-    IRoomRepository repository)
+    IRoomRepository repository,
+    IBuildingRepository buildingRepository)
 {
     public async Task<RegisterRoomResponse> Handle(RegisterRoomCommand command, CancellationToken ct)
     {
+        await BuildingAuthorizer.LoadOwnedAsync(
+            buildingRepository, command.BuildingId, currentUser, ct);
+
         var slug = UriSlug.Create(command.UriSlug);
 
         var room = Room.Register(

@@ -1,5 +1,6 @@
 using Ambiquality.Evidence.Api.Application.Abstractions;
 using Ambiquality.Evidence.Api.Application.Rooms;
+using Ambiquality.Evidence.Api.Domain.Buildings;
 using Ambiquality.Evidence.Api.Domain.Common;
 using Ambiquality.Evidence.Api.Domain.Rooms;
 using NSubstitute;
@@ -12,8 +13,25 @@ public class RegisterRoomHandlerTests
     private static readonly Guid UserId = Guid.NewGuid();
     private static readonly DateTime Now = DateTime.UtcNow;
 
-    private readonly IRoomRepository _repository = Substitute.For<IRoomRepository>();
-    private readonly RegisterRoomHandler _handler = new(Substitute.For<IClock>(), Substitute.For<ICurrentUser>(), Substitute.For<IRoomRepository>());
+    private static IBuildingRepository BuildingRepoOwnedBy(Guid ownerId)
+    {
+        var building = Building.Register(
+            slug: UriSlug.Create("owned-building"),
+            ownerId: ownerId,
+            createdBy: ownerId,
+            name: "Owned Building",
+            address: Address.Create("Street 1", "City", "12345", "CZ"),
+            buildingTypeCode: "office",
+            coordinates: null,
+            anonymization: AnonymizationLevel.Precise,
+            yearBuilt: null,
+            yearRenovated: null,
+            now: Now);
+
+        var repo = Substitute.For<IBuildingRepository>();
+        repo.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(building);
+        return repo;
+    }
 
     [Fact]
     public async Task Handle_RegistersRoomAndSavesChanges()
@@ -38,7 +56,7 @@ public class RegisterRoomHandlerTests
 
         var mockRepo = Substitute.For<IRoomRepository>();
 
-        var handler = new RegisterRoomHandler(mockClock, mockCurrentUser, mockRepo);
+        var handler = new RegisterRoomHandler(mockClock, mockCurrentUser, mockRepo, BuildingRepoOwnedBy(UserId));
         var result = await handler.Handle(command, CancellationToken.None);
 
         Assert.NotEqual(Guid.Empty, result.RoomId);
@@ -74,7 +92,7 @@ public class RegisterRoomHandlerTests
         mockRepo.When(r => r.Add(Arg.Any<Room>()))
             .Do(info => capturedRoom = info.Arg<Room>());
 
-        var handler = new RegisterRoomHandler(mockClock, mockCurrentUser, mockRepo);
+        var handler = new RegisterRoomHandler(mockClock, mockCurrentUser, mockRepo, BuildingRepoOwnedBy(UserId));
         await handler.Handle(command, CancellationToken.None);
 
         Assert.NotNull(capturedRoom);

@@ -142,7 +142,7 @@ dotnet test tests/Ambiquality.Ingestion.Api.Tests   # single project
 - **Sensors = canonical device registry**: Evidence owns sensor/device identity; planned
   ingestion measurements reference `sensor_id` (GUID), no separate devices table.
 - **TimescaleDB**: Chosen for time-series performance on `measurements` hypertable; use TimescaleDB-specific functions (time_bucket, continuous aggregates) where appropriate
-- **No cross-database foreign keys**: User identity is propagated via JWT `sub` claim (GUID), stored as plain column — no FK from `ieq` to `auth`
+- **No cross-database foreign keys**: User identity is propagated via the JWT `sub` claim (GUID); there is no FK to `auth`. Evidence.Api validates Auth.Api's tokens (shared `Jwt` secret) and maps each `sub` to a local `evidence.user_projections` row (lazy upsert in `CurrentUserMiddleware`); ownership/audit columns store that projection id. Mutations require a bearer token; reads are anonymous but mask non-owners' building coordinates per `anonymization_level`.
 - **Code-first migrations**: Schema is designed conceptually first, implemented via EF Core migrations; do not use `dotnet ef dbcontext scaffold`
 - **Measurement immutability**: Soft-invalidation only — add an `is_invalid` flag and `invalidated_reason`, never DELETE or UPDATE measurement values
 
