@@ -163,6 +163,9 @@ public sealed class Room
         if (current is null)
             throw new PollutionSourceNotFoundException(sourceCode);
 
+        if (validTo <= current.Validity.LowerBound)
+            throw new DomainException("ValidTo must be after the pollution source's start");
+
         current.Close(validTo);
     }
 

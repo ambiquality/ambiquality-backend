@@ -186,22 +186,23 @@ at `/scalar/v1` and `/openapi/v1.json` — directly at <http://localhost:6200/sc
 | Any other domain-rule violation (bad valid-from, empty value, non-UTC timestamp) | `400` | `domain-rule-violation` |
 | Missing open history row (data corruption — should be impossible) | `500` | `internal-server-error` |
 
-## Temporal integrity (sensors)
+## Temporal integrity
 
-The sensor history tables are the first to enforce the no-overlap invariant **end-to-end**
-through the change path, which surfaced two subtleties the building/room code never exercised:
+All three aggregates — buildings, rooms and sensors — enforce the no-overlap invariant **end-to-end**
+through the change path, on two complementary mechanisms:
 
 - **Half-open closing.** Closing a history row writes a `[lower, validFrom)` range with an
   **exclusive** upper bound, so the closed row and the next open row (which starts at
-  `validFrom`) do not both contain the boundary instant. The raw two-argument `NpgsqlRange`
-  constructor produces an *inclusive* upper bound — the building/room `Close` methods use it and
-  therefore write `[lower, validFrom]`; they get away with it only because rooms have no
-  exclusion constraint and building change handlers are unit-tested against an in-memory repo.
+  `validFrom`) do not both contain the boundary instant. Every aggregate's `Close` routes
+  through the `Validity.Closed` factory (or the equivalent explicit half-open `NpgsqlRange`
+  ctor for sensors); none uses the raw two-argument `NpgsqlRange` constructor, which would
+  produce an *inclusive* upper bound `[lower, validFrom]` that overlaps the next row.
 - **Deferred GiST constraints.** A change closes the open row (UPDATE) and opens a new one
   (INSERT) in one transaction, and EF may emit the INSERT first. The `btree_gist` exclusion
   constraints are `DEFERRABLE INITIALLY DEFERRED` so the no-overlap check runs at COMMIT, after
-  both rows have settled. Single-value attributes exclude on `(sensor_id, validity)`; the
-  measured-parameter collection excludes on `(sensor_id, parameter_code, validity)`.
+  both rows have settled. Single-value attributes exclude on `(<id>, validity)`; collections add
+  the item code — `(sensor_id, parameter_code, validity)` for measured parameters and
+  `(room_id, source_code, validity)` for room pollution sources.
 
 ## Known gaps
 
@@ -210,9 +211,6 @@ through the change path, which surfaced two subtleties the building/room code ne
   `ForbiddenException`) run against that stub. Wiring real JWT bearer auth (as Auth.Api issues)
   and extracting the `sub` claim into `ICurrentUser` is outstanding. Sensor mutations, like room
   mutations, currently perform no ownership check.
-- **Building/room history close is inclusive-upper** (see *Temporal integrity* above) and the
-  room history tables have **no GiST exclusion constraints** at all — both latent, masked by the
-  current tests. Worth aligning with the sensor approach when auth/idempotency are revisited.
 
 ## Database & migrations
 

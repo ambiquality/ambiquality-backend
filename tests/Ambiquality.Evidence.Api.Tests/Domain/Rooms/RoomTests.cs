@@ -235,4 +235,35 @@ public class RoomTests
 
         Assert.Contains("after", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void ChangeName_ClosesPreviousAsHalfOpenRange()
+    {
+        var room = RegisterRoom();
+
+        room.ChangeName("New Room Name", T1, Creator);
+
+        var closed = room.NameHistory.Single(h => !h.Validity.UpperBoundInfinite);
+        var open = room.NameHistory.Single(h => h.Validity.UpperBoundInfinite);
+
+        // Half-open [T0, T1): the closed row's upper bound must be exclusive so it
+        // does not share the boundary instant T1 with the next open row [T1, +inf).
+        // An inclusive upper bound here would overlap and trip the GiST constraint.
+        Assert.True(closed.Validity.LowerBoundIsInclusive);
+        Assert.False(closed.Validity.UpperBoundIsInclusive);
+        Assert.Equal(T1, closed.Validity.UpperBound);
+        Assert.Equal(T1, open.Validity.LowerBound);
+    }
+
+    [Fact]
+    public void RemovePollutionSource_WithValidToBeforeOpen_Throws()
+    {
+        var room = RegisterRoom();
+        room.AddPollutionSource("traffic", T1);
+
+        var ex = Assert.Throws<DomainException>(() =>
+            room.RemovePollutionSource("traffic", T1.AddSeconds(-1)));
+
+        Assert.Contains("after", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }
