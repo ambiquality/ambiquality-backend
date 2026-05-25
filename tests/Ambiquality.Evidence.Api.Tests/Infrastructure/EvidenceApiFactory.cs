@@ -1,7 +1,7 @@
 using Ambiquality.Evidence.Api;
-using Ambiquality.Evidence.Api.Application.Abstractions;
 using Ambiquality.Evidence.Api.Infrastructure.Persistence;
 using Ambiquality.Evidence.Api.Tests.TestSupport;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -41,11 +41,12 @@ public sealed class EvidenceApiFactory : WebApplicationFactory<Program>, IAsyncL
                 options.UseNpgsql(_postgres.ConnectionString,
                     o => o.MigrationsHistoryTable("__EFMigrationsHistory", "evidence")));
 
-            // Replace ICurrentUser with test stub
-            services.AddScoped<ICurrentUser>(_ =>
-                new StubCurrentUser(
-                    Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                    Guid.Parse("22222222-2222-2222-2222-222222222222")));
+            // Swap real JWT bearer validation for a test scheme that authenticates
+            // from request headers. The real CurrentUser middleware still runs and
+            // upserts a UserProjection, so ownership behaves as in production.
+            services.AddAuthentication(TestAuthHandler.SchemeName)
+                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                    TestAuthHandler.SchemeName, _ => { });
         });
     }
 }
