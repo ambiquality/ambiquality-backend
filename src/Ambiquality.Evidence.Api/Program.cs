@@ -1,3 +1,4 @@
+using System.Text;
 using Ambiquality.Evidence.Api.Api;
 using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Application.Rooms;
@@ -8,10 +9,19 @@ using Ambiquality.Evidence.Api.Domain.Rooms;
 using Ambiquality.Evidence.Api.Domain.Sensors;
 using Ambiquality.Evidence.Api.Infrastructure;
 using Ambiquality.Evidence.Api.Infrastructure.Persistence;
+using Ambiquality.Evidence.Api.Infrastructure.Security;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// --- Configuration / options -------------------------------------------------
+var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
+builder.Services.AddSingleton(jwtOptions);
 
 // --- Persistence ---------------------------------------------------------------
 builder.Services.AddDbContext<EvidenceDbContext>(options =>
@@ -22,10 +32,35 @@ builder.Services.AddDbContext<EvidenceDbContext>(options =>
 builder.Services.AddScoped<IBuildingRepository, BuildingRepository>();
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<ISensorRepository, SensorRepository>();
+builder.Services.AddScoped<IUserProjectionRepository, UserProjectionRepository>();
 
 // --- Infrastructure -----------------------------------------------------------
 builder.Services.AddSingleton<IClock, SystemClock>();
-builder.Services.AddScoped<ICurrentUser, CurrentUserStub>();
+builder.Services.AddScoped<CurrentUser>();
+builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
+
+// --- AuthN / AuthZ -----------------------------------------------------------
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        // Keep the raw "sub" claim instead of remapping it to the long
+        // ClaimTypes.NameIdentifier URI, so the middleware can read it directly.
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidAudience = jwtOptions.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtOptions.Secret)),
+            ClockSkew = TimeSpan.FromSeconds(30)
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 // --- Application handlers -------------------------------------------------------
 builder.Services.AddScoped<RegisterBuildingHandler>();
@@ -53,7 +88,37 @@ builder.Services.AddScoped<AddSensorMeasuredParameterHandler>();
 builder.Services.AddScoped<RemoveSensorMeasuredParameterHandler>();
 
 // --- OpenAPI / Swagger -------------------------------------------------------
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, ct) =>
+    {
+        var components = document.Components ??= new OpenApiComponents();
+        components.SecuritySchemes = new Dictionary<string, IOpenApiSecurityScheme>();
+        components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = "JWT access token issued by the Ambiquality Auth API."
+        };
+        return Task.CompletedTask;
+    });
+
+    // Advertise the Bearer requirement only on endpoints that require authorization.
+    options.AddOperationTransformer((operation, context, ct) =>
+    {
+        if (context.Description.ActionDescriptor.EndpointMetadata
+            .OfType<IAuthorizeData>().Any())
+        {
+            operation.Security ??= [];
+            operation.Security.Add(new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Bearer")] = []
+            });
+        }
+        return Task.CompletedTask;
+    });
+});
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
@@ -85,6 +150,13 @@ app.Use(async (context, next) =>
     }
 });
 
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Resolve the current user's projection once the JWT is validated, so handlers
+// can read ICurrentUser. Must run after authentication and before the endpoints.
+app.UseMiddleware<CurrentUserMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -100,13 +172,3 @@ app.Run();
 
 /// <summary>Exposed so WebApplicationFactory-based integration tests can boot the API.</summary>
 public partial class Program;
-
-/// <summary>
-/// Stub implementation of ICurrentUser. In production, this should extract
-/// user information from JWT claims via authentication middleware.
-/// </summary>
-public sealed class CurrentUserStub : ICurrentUser
-{
-    public Guid AuthUserId => Guid.Parse("00000000-0000-0000-0000-000000000001");
-    public Guid ProjectionId => Guid.Parse("00000000-0000-0000-0000-000000000001");
-}
