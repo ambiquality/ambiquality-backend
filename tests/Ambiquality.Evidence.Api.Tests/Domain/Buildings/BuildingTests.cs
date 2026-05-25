@@ -228,4 +228,143 @@ public class BuildingTests
         var building = RegisterBuilding(coordinates: SampleCoords);
         Assert.Throws<DomainException>(() => building.SnapshotAt(T0.AddDays(-1)));
     }
+
+    // ---- idempotent re-PUT (exact replay) ----------------------------------
+    // An identical re-PUT - same value AND same validFrom as the current open
+    // row - is a silent no-op: no new history row, no throw. A same-validFrom
+    // change with a DIFFERENT value still throws; a same-value change at a
+    // strictly later validFrom still appends a row.
+
+    [Fact]
+    public void ChangeName_ExactReplay_IsNoOp()
+    {
+        var building = RegisterBuilding(coordinates: SampleCoords);
+
+        // Same value ("Sídlo VŠE") at the same instant the open row starts (T0).
+        building.ChangeName("Sídlo VŠE", T0, Creator);
+
+        var open = Assert.Single(building.NameHistory);
+        Assert.True(open.Validity.UpperBoundInfinite);
+        Assert.Equal("Sídlo VŠE", open.Name);
+    }
+
+    [Fact]
+    public void ChangeName_SameValidFromDifferentValue_StillThrows()
+    {
+        var building = RegisterBuilding(coordinates: SampleCoords);
+
+        Assert.Throws<DomainException>(() => building.ChangeName("Different", T0, Creator));
+    }
+
+    [Fact]
+    public void ChangeName_SameValueLaterValidFrom_StillAppends()
+    {
+        var building = RegisterBuilding(coordinates: SampleCoords);
+
+        building.ChangeName("Sídlo VŠE", T1, Creator);
+
+        Assert.Equal(2, building.NameHistory.Count);
+    }
+
+    [Fact]
+    public void ChangeAddress_ExactReplay_IsNoOp()
+    {
+        var building = RegisterBuilding(coordinates: SampleCoords);
+
+        building.ChangeAddress(SampleAddress, T0, Creator);
+
+        Assert.Single(building.AddressHistory);
+    }
+
+    [Fact]
+    public void ChangeAddress_SameValidFromDifferentValue_StillThrows()
+    {
+        var building = RegisterBuilding(coordinates: SampleCoords);
+        var other = Address.Create("Jiná 2", "Brno", "60200", "CZ");
+
+        Assert.Throws<DomainException>(() => building.ChangeAddress(other, T0, Creator));
+    }
+
+    [Fact]
+    public void ChangeType_ExactReplay_IsNoOp()
+    {
+        var building = RegisterBuilding(coordinates: SampleCoords);
+
+        building.ChangeType("office", T0, Creator);
+
+        Assert.Single(building.TypeHistory);
+    }
+
+    [Fact]
+    public void ChangeLocation_ExactReplay_IsNoOp()
+    {
+        var building = RegisterBuilding(coordinates: SampleCoords);
+
+        // Coordinates (record) + Anonymization (IEquatable) both match the open row.
+        building.ChangeLocation(SampleCoords, AnonymizationLevel.Precise, T0, Creator);
+
+        Assert.Single(building.LocationHistory);
+    }
+
+    [Fact]
+    public void ChangeLocation_ExactReplayWithNullCoordinates_IsNoOp()
+    {
+        var building = RegisterBuilding(
+            coordinates: null,
+            anonymization: AnonymizationLevel.Municipality);
+
+        building.ChangeLocation(null, AnonymizationLevel.Municipality, T0, Creator);
+
+        Assert.Single(building.LocationHistory);
+    }
+
+    [Fact]
+    public void ChangeLocation_SameValidFromDifferentAnonymization_StillThrows()
+    {
+        var building = RegisterBuilding(coordinates: SampleCoords);
+
+        // Same coordinates but a different anonymization level is NOT an exact replay.
+        Assert.Throws<DomainException>(() =>
+            building.ChangeLocation(SampleCoords, AnonymizationLevel.Street, T0, Creator));
+    }
+
+    [Fact]
+    public void ChangeLocation_SameValidFromDifferentCoordinates_StillThrows()
+    {
+        var building = RegisterBuilding(coordinates: SampleCoords);
+        var moved = Coordinates.Create(48.0, 16.0);
+
+        Assert.Throws<DomainException>(() =>
+            building.ChangeLocation(moved, AnonymizationLevel.Precise, T0, Creator));
+    }
+
+    [Fact]
+    public void ChangeYears_ExactReplay_IsNoOp()
+    {
+        var building = RegisterBuilding(yearBuilt: 1990, yearRenovated: null);
+
+        building.ChangeYears(1990, null, T0, Creator);
+
+        Assert.Single(building.YearsHistory);
+    }
+
+    [Fact]
+    public void ChangeYears_SameValidFromDifferentValue_StillThrows()
+    {
+        var building = RegisterBuilding(yearBuilt: 1990, yearRenovated: null);
+
+        // YearRenovated differs (null -> 2020) at the same validFrom.
+        Assert.Throws<DomainException>(() => building.ChangeYears(1990, 2020, T0, Creator));
+    }
+
+    [Fact]
+    public void ChangeYears_SameValueLaterValidFrom_StillAppends()
+    {
+        var building = RegisterBuilding(yearBuilt: 1990, yearRenovated: null);
+
+        building.ChangeYears(1990, null, T1, Creator);
+
+        Assert.Equal(2, building.YearsHistory.Count);
+    }
 }
+

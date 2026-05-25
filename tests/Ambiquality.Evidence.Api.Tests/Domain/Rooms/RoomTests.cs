@@ -266,4 +266,125 @@ public class RoomTests
 
         Assert.Contains("after", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    // ---- idempotent re-PUT (exact replay) ----------------------------------
+
+    [Fact]
+    public void ChangeName_ExactReplay_IsNoOp()
+    {
+        var room = RegisterRoom(name: "Office Room 101");
+
+        room.ChangeName("Office Room 101", T0, Creator);
+
+        var open = Assert.Single(room.NameHistory);
+        Assert.True(open.Validity.UpperBoundInfinite);
+        Assert.Equal("Office Room 101", open.Name);
+    }
+
+    [Fact]
+    public void ChangeName_SameValidFromDifferentValue_StillThrows()
+    {
+        var room = RegisterRoom(name: "Office Room 101");
+
+        Assert.Throws<DomainException>(() => room.ChangeName("Different", T0, Creator));
+    }
+
+    [Fact]
+    public void ChangeName_SameValueLaterValidFrom_StillAppends()
+    {
+        var room = RegisterRoom(name: "Office Room 101");
+
+        room.ChangeName("Office Room 101", T1, Creator);
+
+        Assert.Equal(2, room.NameHistory.Count);
+    }
+
+    [Fact]
+    public void ChangeFloor_ExactReplay_IsNoOp()
+    {
+        var room = RegisterRoom(floor: 1);
+
+        // FloorNumber.Value (1) matches the open row's .Floor.
+        room.ChangeFloor(FloorNumber.Create(1), T0, Creator);
+
+        Assert.Single(room.FloorHistory);
+    }
+
+    [Fact]
+    public void ChangeFloor_SameValidFromDifferentValue_StillThrows()
+    {
+        var room = RegisterRoom(floor: 1);
+
+        Assert.Throws<DomainException>(() => room.ChangeFloor(FloorNumber.Create(2), T0, Creator));
+    }
+
+    [Fact]
+    public void ChangeFunction_ExactReplay_IsNoOp()
+    {
+        var room = RegisterRoom(functionCode: "office");
+
+        room.ChangeFunction("office", T0, Creator);
+
+        Assert.Single(room.FunctionHistory);
+    }
+
+    [Fact]
+    public void ChangeFunction_ExactReplayWithNull_IsNoOp()
+    {
+        var room = RegisterRoom(functionCode: null);
+
+        room.ChangeFunction(null, T0, Creator);
+
+        Assert.Single(room.FunctionHistory);
+    }
+
+    [Fact]
+    public void ChangeExposure_ExactReplay_IsNoOp()
+    {
+        var room = RegisterRoom(exposureCode: "kratkodoby");
+
+        room.ChangeExposure("kratkodoby", T0, Creator);
+
+        Assert.Single(room.ExposureHistory);
+    }
+
+    [Fact]
+    public void ChangeGeometry_ExactReplay_IsNoOp()
+    {
+        var room = RegisterRoom(areaM2: 25.5, ceilingHeightM: 2.8);
+
+        room.ChangeGeometry(25.5, 2.8, T0, Creator);
+
+        Assert.Single(room.GeometryHistory);
+    }
+
+    [Fact]
+    public void ChangeGeometry_SameValidFromDifferentValue_StillThrows()
+    {
+        var room = RegisterRoom(areaM2: 25.5, ceilingHeightM: 2.8);
+
+        // CeilingHeightM differs at the same validFrom.
+        Assert.Throws<DomainException>(() => room.ChangeGeometry(25.5, 3.0, T0, Creator));
+    }
+
+    [Fact]
+    public void ChangeGeometry_SameValueLaterValidFrom_StillAppends()
+    {
+        var room = RegisterRoom(areaM2: 25.5, ceilingHeightM: 2.8);
+
+        room.ChangeGeometry(25.5, 2.8, T1, Creator);
+
+        Assert.Equal(2, room.GeometryHistory.Count);
+    }
+
+    [Fact]
+    public void ChangeVentilation_ExactReplay_IsNoOp()
+    {
+        var room = RegisterRoom(ventilationType: "vzt");
+
+        room.ChangeVentilation("vzt", T0, Creator);
+
+        Assert.Single(room.VentilationHistory);
+    }
 }
+

@@ -78,6 +78,13 @@ public sealed class Sensor
     {
         var current = _identityHistory.Single(h => h.Validity.UpperBoundInfinite);
 
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound
+            && current.Manufacturer == manufacturer
+            && current.Model == model
+            && current.SerialNumber == serialNumber)
+            return;
+
         if (validFrom <= current.Validity.LowerBound)
             throw new DomainException("ValidFrom must be after the current open range's start");
 
@@ -88,6 +95,13 @@ public sealed class Sensor
     public void ChangePlacement(Guid newBuildingId, Guid newRoomId, DateTime validFrom, Guid recordedBy)
     {
         var current = _placementHistory.Single(h => h.Validity.UpperBoundInfinite);
+
+        // Idempotent replay: re-applying the same value at the same instant is a no-op
+        // (also leaves the denormalised CurrentBuildingId/CurrentRoomId untouched).
+        if (validFrom == current.Validity.LowerBound
+            && current.BuildingId == newBuildingId
+            && current.RoomId == newRoomId)
+            return;
 
         if (validFrom <= current.Validity.LowerBound)
             throw new DomainException("ValidFrom must be after the current open range's start");
@@ -102,6 +116,10 @@ public sealed class Sensor
     public void ChangeStatus(SensorStatus newStatus, DateTime validFrom, Guid recordedBy)
     {
         var current = _statusHistory.Single(h => h.Validity.UpperBoundInfinite);
+
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound && current.StatusCode == newStatus.Code)
+            return;
 
         if (validFrom <= current.Validity.LowerBound)
             throw new DomainException("ValidFrom must be after the current open range's start");

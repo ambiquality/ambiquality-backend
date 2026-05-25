@@ -3,6 +3,9 @@ using System.Net.Http.Json;
 using Ambiquality.Evidence.Api.Api;
 using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Tests.Infrastructure;
+using Ambiquality.Evidence.Api.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Ambiquality.Evidence.Api.Tests.Api;
 
@@ -223,6 +226,42 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
         var response = await _client.GetAsync($"/buildings/{building.Id}?asOf=not-a-timestamp");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+        [Fact]
+    public async Task ChangeBuildingName_IdenticalRePut_IsIdempotent()
+    {
+        var building = await RegisterBuildingAsync("building-idempotent-name", "Idem Building");
+
+        // A fixed, microsecond-clean instant so the value round-trips through
+        // Postgres (tstzrange has microsecond resolution) byte-identically; the
+        // second PUT then compares equal and short-circuits to a no-op.
+        var validFrom = new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc);
+        var changeRequest = new ChangeBuildingNameRequest(NewName: "Renamed", ValidFrom: validFrom);
+
+        // First PUT applies the change.
+        var first = await _client.PutAsJsonAsync($"/buildings/{building.Id}/name", changeRequest);
+        Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
+
+        // Identical re-PUT (same value AND same validFrom) is a silent no-op.
+        var second = await _client.PutAsJsonAsync($"/buildings/{building.Id}/name", changeRequest);
+        Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
+
+        // The history is not duplicated: original open row was closed and exactly
+        // one new row opened - two rows total, not three.
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<EvidenceDbContext>();
+        var persisted = await db.Buildings.FirstAsync(b => b.Id == building.Id);
+        Assert.Equal(2, persisted.NameHistory.Count);
+
+        // And the value at/after validFrom reflects the single applied change.
+        // (validFrom is in the future, so we must project as-of that instant.)
+        var asOf = Uri.EscapeDataString(validFrom.AddSeconds(1).ToString("O"));
+        var getResponse = await _client.GetAsync($"/buildings/{building.Id}?asOf={asOf}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var snapshot = await getResponse.Content.ReadFromJsonAsync<BuildingSnapshotResponse>();
+        Assert.NotNull(snapshot);
+        Assert.Equal("Renamed", snapshot.Name);
     }
 
     private async Task<RegisterBuildingResult> RegisterBuildingAsync(string slug, string name)
