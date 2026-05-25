@@ -21,5 +21,5 @@ public sealed class RoomFunctionHistory
         RecordedBy = recordedBy;
     }
 
-    public void Close(DateTime validFrom) => Validity = new NpgsqlRange<DateTime>(Validity.LowerBound, validFrom);
+    public void Close(DateTime validFrom) => Validity = Common.Validity.Closed(Validity.LowerBound, validFrom);
 }

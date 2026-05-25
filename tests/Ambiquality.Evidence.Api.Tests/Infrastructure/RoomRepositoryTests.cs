@@ -5,6 +5,7 @@ using Ambiquality.Evidence.Api.Domain.Rooms;
 using Ambiquality.Evidence.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using Xunit;
 
 namespace Ambiquality.Evidence.Api.Tests.Infrastructure;
@@ -312,6 +313,97 @@ public sealed class RoomRepositoryTests(PostgresFixture postgres)
 
             Assert.Contains("traffic", snapshotBefore.PollutionSources);
             Assert.DoesNotContain("traffic", snapshotAfter.PollutionSources);
+        }
+        finally
+        {
+            await context.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task ChangeName_AppliesCleanlyUnderExclusionConstraint()
+    {
+        var (context, repository, building) = await SetupAsync();
+        try
+        {
+            var t0 = new DateTime(2026, 5, 20, 10, 0, 0, DateTimeKind.Utc);
+            var t1 = new DateTime(2026, 5, 20, 11, 0, 0, DateTimeKind.Utc);
+            var t2 = new DateTime(2026, 5, 20, 12, 0, 0, DateTimeKind.Utc);
+            var recordedBy = Guid.NewGuid();
+
+            var room = Room.Register(
+                slug: UriSlug.Create("room-constraint"),
+                buildingId: building.Id,
+                createdBy: recordedBy,
+                name: "Name 0",
+                floor: FloorNumber.Create(1),
+                functionCode: null,
+                exposureCode: null,
+                areaM2: null,
+                ceilingHeightM: null,
+                ventilationType: null,
+                pollutionSources: Array.Empty<string>(),
+                now: t0);
+
+            repository.Add(room);
+            await repository.SaveChangesAsync();
+
+            // Each change closes the open row (UPDATE) and opens a new one (INSERT)
+            // in one SaveChanges. With half-open ranges and the DEFERRABLE GiST
+            // constraint this must commit without an overlap violation.
+            room.ChangeName("Name 1", t1, recordedBy);
+            await repository.SaveChangesAsync();
+            room.ChangeName("Name 2", t2, recordedBy);
+            await repository.SaveChangesAsync();
+
+            var retrieved = await repository.GetByIdAsync(room.Id);
+            Assert.Equal("Name 0", retrieved!.SnapshotAt(t0).Name);
+            Assert.Equal("Name 1", retrieved.SnapshotAt(t1).Name);
+            Assert.Equal("Name 2", retrieved.SnapshotAt(t2).Name);
+        }
+        finally
+        {
+            await context.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task OverlappingNameHistory_IsRejectedByExclusionConstraint()
+    {
+        var (context, repository, building) = await SetupAsync();
+        try
+        {
+            var now = new DateTime(2026, 5, 20, 10, 0, 0, DateTimeKind.Utc);
+            var recordedBy = Guid.NewGuid();
+
+            var room = Room.Register(
+                slug: UriSlug.Create("room-overlap"),
+                buildingId: building.Id,
+                createdBy: recordedBy,
+                name: "Original",
+                floor: FloorNumber.Create(1),
+                functionCode: null,
+                exposureCode: null,
+                areaM2: null,
+                ceilingHeightM: null,
+                ventilationType: null,
+                pollutionSources: Array.Empty<string>(),
+                now: now);
+
+            repository.Add(room);
+            await repository.SaveChangesAsync();
+
+            // The room already has an open [now, +inf) name row. Inserting a second
+            // open row for the same room, bypassing the aggregate, must be rejected
+            // by the no-overlap exclusion constraint (SqlState 23P01).
+            var ex = await Assert.ThrowsAsync<PostgresException>(async () =>
+                await context.Database.ExecuteSqlRawAsync(
+                    "INSERT INTO evidence.room_name_history " +
+                    "(room_id, recorded_at, validity, name, recorded_by) " +
+                    "VALUES ({0}, {1}, tstzrange({2}, NULL, '[)'), {3}, {4})",
+                    room.Id, now.AddMinutes(1), now.AddMinutes(1), "Overlap", recordedBy));
+
+            Assert.Equal("23P01", ex.SqlState);
         }
         finally
         {

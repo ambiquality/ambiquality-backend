@@ -130,14 +130,15 @@ dotnet test tests/Ambiquality.Ingestion.Api.Tests   # single project
   accept an `asOf` query param to project past state. Rationale: the open-data catalog needs an
   immutable, auditable record of how each object changed over time.
   - **Closing a row uses an exclusive upper bound** (`[lower, validFrom)`); the raw 2-arg
-    `NpgsqlRange` ctor makes it *inclusive*, which overlaps the next row's lower bound. Sensor
-    history `Close` methods do this correctly; building/room `Close` do **not** (latent — masked
-    because rooms lack exclusion constraints and building change handlers are unit-tested with an
-    in-memory repo). See `Evidence.Api/README.md` → *Temporal integrity*.
-  - **Exclusion constraints are `DEFERRABLE INITIALLY DEFERRED`** on the sensor history tables: a
-    change emits an UPDATE (close) + INSERT (open) in one transaction and EF may order the INSERT
-    first, so the no-overlap check must run at COMMIT. Single-value attributes exclude on
-    `(id, validity)`; collections add the item code (e.g. `(sensor_id, parameter_code, validity)`).
+    `NpgsqlRange` ctor makes it *inclusive*, which overlaps the next row's lower bound. All three
+    aggregates (building, room, sensor) close correctly — buildings/rooms via the
+    `Validity.Closed` factory, sensors via an explicit half-open ctor. See
+    `Evidence.Api/README.md` → *Temporal integrity*.
+  - **Exclusion constraints are `DEFERRABLE INITIALLY DEFERRED`** on every history table
+    (building, room and sensor): a change emits an UPDATE (close) + INSERT (open) in one
+    transaction and EF may order the INSERT first, so the no-overlap check must run at COMMIT.
+    Single-value attributes exclude on `(id, validity)`; collections add the item code (e.g.
+    `(sensor_id, parameter_code, validity)`, `(room_id, source_code, validity)`).
 - **Sensors = canonical device registry**: Evidence owns sensor/device identity; planned
   ingestion measurements reference `sensor_id` (GUID), no separate devices table.
 - **TimescaleDB**: Chosen for time-series performance on `measurements` hypertable; use TimescaleDB-specific functions (time_bucket, continuous aggregates) where appropriate
