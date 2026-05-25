@@ -86,6 +86,10 @@ public sealed class Room
     {
         var current = _nameHistory.Single(h => h.Validity.UpperBoundInfinite);
 
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound && current.Name == newName)
+            return;
+
         if (validFrom <= current.Validity.LowerBound)
             throw new DomainException("ValidFrom must be after the current open range's start");
 
@@ -96,6 +100,10 @@ public sealed class Room
     public void ChangeFloor(FloorNumber newFloor, DateTime validFrom, Guid recordedBy)
     {
         var current = _floorHistory.Single(h => h.Validity.UpperBoundInfinite);
+
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound && current.Floor == newFloor.Value)
+            return;
 
         if (validFrom <= current.Validity.LowerBound)
             throw new DomainException("ValidFrom must be after the current open range's start");
@@ -108,6 +116,10 @@ public sealed class Room
     {
         var current = _functionHistory.Single(h => h.Validity.UpperBoundInfinite);
 
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound && current.FunctionCode == newFunctionCode)
+            return;
+
         if (validFrom <= current.Validity.LowerBound)
             throw new DomainException("ValidFrom must be after the current open range's start");
 
@@ -118,6 +130,10 @@ public sealed class Room
     public void ChangeExposure(string? newExposureCode, DateTime validFrom, Guid recordedBy)
     {
         var current = _exposureHistory.Single(h => h.Validity.UpperBoundInfinite);
+
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound && current.ExposureCode == newExposureCode)
+            return;
 
         if (validFrom <= current.Validity.LowerBound)
             throw new DomainException("ValidFrom must be after the current open range's start");
@@ -130,6 +146,12 @@ public sealed class Room
     {
         var current = _geometryHistory.Single(h => h.Validity.UpperBoundInfinite);
 
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound
+            && current.AreaM2 == areaM2
+            && current.CeilingHeightM == ceilingHeightM)
+            return;
+
         if (validFrom <= current.Validity.LowerBound)
             throw new DomainException("ValidFrom must be after the current open range's start");
 
@@ -140,6 +162,10 @@ public sealed class Room
     public void ChangeVentilation(string? newVentilationType, DateTime validFrom, Guid recordedBy)
     {
         var current = _ventilationHistory.Single(h => h.Validity.UpperBoundInfinite);
+
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound && current.VentilationType == newVentilationType)
+            return;
 
         if (validFrom <= current.Validity.LowerBound)
             throw new DomainException("ValidFrom must be after the current open range's start");

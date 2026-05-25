@@ -96,6 +96,9 @@ public sealed class Building
             throw new DomainException("Building name cannot be empty.");
 
         var current = OpenRow(_nameHistory, "name");
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound && current.Name == newName)
+            return;
         EnsureAdvancing(current.Validity.LowerBound, validFrom, "name");
 
         current.Close(validFrom);
@@ -108,6 +111,9 @@ public sealed class Building
         ArgumentNullException.ThrowIfNull(newAddress);
 
         var current = OpenRow(_addressHistory, "address");
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound && current.Address == newAddress)
+            return;
         EnsureAdvancing(current.Validity.LowerBound, validFrom, "address");
 
         current.Close(validFrom);
@@ -121,6 +127,9 @@ public sealed class Building
             throw new DomainException("Building type code cannot be empty.");
 
         var current = OpenRow(_typeHistory, "type");
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound && current.BuildingTypeCode == newTypeCode)
+            return;
         EnsureAdvancing(current.Validity.LowerBound, validFrom, "type");
 
         current.Close(validFrom);
@@ -137,6 +146,11 @@ public sealed class Building
         ArgumentNullException.ThrowIfNull(anonymization);
 
         var current = OpenRow(_locationHistory, "location");
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound
+            && current.Coordinates == newCoordinates
+            && current.Anonymization.Equals(anonymization))
+            return;
         EnsureAdvancing(current.Validity.LowerBound, validFrom, "location");
 
         current.Close(validFrom);
@@ -147,6 +161,11 @@ public sealed class Building
     public void ChangeYears(short? yearBuilt, short? yearRenovated, DateTime validFrom, Guid recordedBy)
     {
         var current = OpenRow(_yearsHistory, "years");
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound
+            && current.YearBuilt == yearBuilt
+            && current.YearRenovated == yearRenovated)
+            return;
         EnsureAdvancing(current.Validity.LowerBound, validFrom, "years");
 
         current.Close(validFrom);

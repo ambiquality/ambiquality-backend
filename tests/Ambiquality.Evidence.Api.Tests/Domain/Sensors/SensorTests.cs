@@ -184,4 +184,94 @@ public class SensorTests
     {
         Assert.Throws<ArgumentException>(() => MeasuredParameter.FromCode("radiation"));
     }
+
+    // ---- idempotent re-PUT (exact replay) ----------------------------------
+
+    [Fact]
+    public void ChangeIdentity_ExactReplay_IsNoOp()
+    {
+        var sensor = RegisterSensor(manufacturer: "Aranet", model: "Aranet4", serialNumber: "SN-0001");
+
+        sensor.ChangeIdentity("Aranet", "Aranet4", "SN-0001", T0, Creator);
+
+        var open = Assert.Single(sensor.IdentityHistory);
+        Assert.True(open.Validity.UpperBoundInfinite);
+        Assert.Equal("SN-0001", open.SerialNumber);
+    }
+
+    [Fact]
+    public void ChangeIdentity_SameValidFromDifferentValue_StillThrows()
+    {
+        var sensor = RegisterSensor(serialNumber: "SN-0001");
+
+        // SerialNumber differs at the same validFrom.
+        Assert.Throws<DomainException>(() =>
+            sensor.ChangeIdentity("Aranet", "Aranet4", "SN-9999", T0, Creator));
+    }
+
+    [Fact]
+    public void ChangeIdentity_SameValueLaterValidFrom_StillAppends()
+    {
+        var sensor = RegisterSensor(manufacturer: "Aranet", model: "Aranet4", serialNumber: "SN-0001");
+
+        sensor.ChangeIdentity("Aranet", "Aranet4", "SN-0001", T1, Creator);
+
+        Assert.Equal(2, sensor.IdentityHistory.Count);
+    }
+
+    [Fact]
+    public void ChangePlacement_ExactReplay_IsNoOp()
+    {
+        var sensor = RegisterSensor();
+
+        // BuildingId + RoomId match the open placement row.
+        sensor.ChangePlacement(BuildingId, RoomId, T0, Creator);
+
+        Assert.Single(sensor.PlacementHistory);
+        // The denormalised pointers must remain at the original placement.
+        Assert.Equal(BuildingId, sensor.CurrentBuildingId);
+        Assert.Equal(RoomId, sensor.CurrentRoomId);
+    }
+
+    [Fact]
+    public void ChangePlacement_SameValidFromDifferentValue_StillThrows()
+    {
+        var sensor = RegisterSensor();
+        var newRoom = Guid.NewGuid();
+
+        Assert.Throws<DomainException>(() =>
+            sensor.ChangePlacement(BuildingId, newRoom, T0, Creator));
+    }
+
+    [Fact]
+    public void ChangeStatus_ExactReplay_IsNoOp()
+    {
+        var sensor = RegisterSensor(status: SensorStatus.Active);
+
+        // SensorStatus.Code ("active") matches the open row's .StatusCode.
+        sensor.ChangeStatus(SensorStatus.Active, T0, Creator);
+
+        var open = Assert.Single(sensor.StatusHistory);
+        Assert.Equal("active", open.StatusCode);
+    }
+
+    [Fact]
+    public void ChangeStatus_SameValidFromDifferentValue_StillThrows()
+    {
+        var sensor = RegisterSensor(status: SensorStatus.Active);
+
+        Assert.Throws<DomainException>(() =>
+            sensor.ChangeStatus(SensorStatus.Maintenance, T0, Creator));
+    }
+
+    [Fact]
+    public void ChangeStatus_SameValueLaterValidFrom_StillAppends()
+    {
+        var sensor = RegisterSensor(status: SensorStatus.Active);
+
+        sensor.ChangeStatus(SensorStatus.Active, T1, Creator);
+
+        Assert.Equal(2, sensor.StatusHistory.Count);
+    }
 }
+

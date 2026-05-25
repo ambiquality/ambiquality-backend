@@ -160,12 +160,19 @@ would imply the body is a partial *patch document* (JSON Patch / Merge Patch); i
 Pollution sources are a *collection* on the room, not a single attribute, so they use
 `POST` (add) / `DELETE` (remove) rather than `PUT`.
 
-**Idempotency caveat (known limitation).** `PUT` is defined to be idempotent. Because the
-store is append-only temporal, replaying the *same* `PUT` with an identical `validFrom`
-currently fails with `409 overlapping-validity-range` instead of being a silent no-op. The
-state still ends up correct, but a strictly idempotent `PUT` would treat the duplicate as a
-`204` no-op. Making the open-history rows idempotent on identical re-PUT is tracked as a
-follow-up (it touches the aggregates and the `btree_gist` invariant, so it needs its own tests).
+**Idempotency.** `PUT` is defined to be idempotent (RFC 9110 §9.3.4). Replaying the *same*
+single-attribute `PUT` — identical new value **and** identical `validFrom` as the current open
+history row — is a silent no-op: each `Change*` method short-circuits and returns before
+appending, so no new history row is written and the endpoint still answers `204`. This makes a
+client retry after a dropped response safe. Two cases remain genuine conflicts and still return
+`400 domain-rule-violation`: a `validFrom` equal to the current row's start but with a
+*different* value, and any `validFrom` at or before the current row's start. (Sending the same
+value at a *strictly later* `validFrom` is not a replay — it appends a new row, as intended.)
+
+Note this idempotency applies to single-attribute `PUT`s only. The `409 overlapping-validity-range`
+seen in the error table below is reachable for *collection* re-adds (pollution sources, measured
+parameters), which use `POST`/`DELETE` and have no domain-level no-op — making those idempotent is
+a separate, out-of-scope follow-up.
 
 The interactive OpenAPI reference (Scalar) and raw document are exposed **only in Development**
 at `/scalar/v1` and `/openapi/v1.json` — directly at <http://localhost:6200/scalar/v1>.
@@ -234,9 +241,10 @@ security requirement, reads do not.
 
 ## Known gaps
 
-- **Idempotent PUT.** Replaying an identical attribute `PUT` still `409`s instead of being a
-  silent `204` no-op (see the *Idempotency caveat* above); making the open-history rows idempotent
-  on identical re-PUT is the remaining follow-up.
+- **Idempotent collection re-adds.** Single-attribute `PUT`s are now idempotent (an identical
+  re-PUT returns `204`; see *Idempotency* above). Collection operations (pollution sources,
+  measured parameters) use `POST`/`DELETE` and still surface `409 overlapping-validity-range` on a
+  duplicate re-add; making those a silent no-op is the remaining follow-up.
 
 ## Database & migrations
 
