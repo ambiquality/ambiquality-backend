@@ -1,4 +1,5 @@
 using Ambiquality.Evidence.Api.Application;
+using Ambiquality.Evidence.Api.Application.Abstractions;
 using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Domain;
 using Ambiquality.Evidence.Api.Domain.Buildings;
@@ -11,8 +12,12 @@ public static class BuildingEndpoints
 {
     public static void MapBuildingEndpoints(this WebApplication app)
     {
+        // Mutations require a valid bearer token; reads opt out via AllowAnonymous
+        // below (the open-data catalog is publicly readable). Authentication still
+        // runs on reads so an authenticated owner can be recognised.
         var group = app.MapGroup("/buildings")
-            .WithTags("Buildings");
+            .WithTags("Buildings")
+            .RequireAuthorization();
 
         group.MapPost("/", RegisterBuilding)
             .WithName("RegisterBuilding")
@@ -24,11 +29,13 @@ public static class BuildingEndpoints
         // omitted here because it throws on multi-method routes.
         group.MapMethods("/{buildingId:guid}", ["GET", "HEAD"], GetBuildingById)
             .WithName("GetBuildingById")
-            .WithDescription("Get a building by ID");
+            .WithDescription("Get a building by ID")
+            .AllowAnonymous();
 
         group.MapMethods("/{slug}", ["GET", "HEAD"], GetBuildingBySlug)
             .WithName("GetBuildingBySlug")
-            .WithDescription("Get a building by slug");
+            .WithDescription("Get a building by slug")
+            .AllowAnonymous();
 
         group.MapPut("/{buildingId:guid}/name", ChangeBuildingName)
             .WithName("ChangeBuildingName")
@@ -94,6 +101,7 @@ public static class BuildingEndpoints
     private static async Task<Results<Ok<BuildingSnapshotResponse>, NotFound, ProblemHttpResult>> GetBuildingById(
         Guid buildingId,
         IBuildingRepository repository,
+        ICurrentUser currentUser,
         HttpContext context,
         CancellationToken cancellationToken)
     {
@@ -105,9 +113,11 @@ public static class BuildingEndpoints
         if (building is null)
             return TypedResults.NotFound();
 
+        var isOwner = currentUser.IsAuthenticated && building.OwnerId == currentUser.ProjectionId;
+
         try
         {
-            return TypedResults.Ok(ToResponse(building.SnapshotAt(asOf)));
+            return TypedResults.Ok(ToResponse(building.SnapshotAt(asOf), isOwner));
         }
         catch (DomainException ex)
         {
@@ -118,6 +128,7 @@ public static class BuildingEndpoints
     private static async Task<Results<Ok<BuildingSnapshotResponse>, NotFound, ProblemHttpResult>> GetBuildingBySlug(
         string slug,
         IBuildingRepository repository,
+        ICurrentUser currentUser,
         HttpContext context,
         CancellationToken cancellationToken)
     {
@@ -129,9 +140,11 @@ public static class BuildingEndpoints
         if (building is null)
             return TypedResults.NotFound();
 
+        var isOwner = currentUser.IsAuthenticated && building.OwnerId == currentUser.ProjectionId;
+
         try
         {
-            return TypedResults.Ok(ToResponse(building.SnapshotAt(asOf)));
+            return TypedResults.Ok(ToResponse(building.SnapshotAt(asOf), isOwner));
         }
         catch (DomainException ex)
         {
@@ -139,8 +152,15 @@ public static class BuildingEndpoints
         }
     }
 
-    private static BuildingSnapshotResponse ToResponse(BuildingSnapshot snapshot) =>
-        new(
+    private static BuildingSnapshotResponse ToResponse(BuildingSnapshot snapshot, bool isOwner)
+    {
+        var (latitude, longitude) = CoordinateMasking.Apply(
+            snapshot.Coordinates?.Latitude,
+            snapshot.Coordinates?.Longitude,
+            snapshot.Anonymization.Code,
+            isOwner);
+
+        return new(
             Id: snapshot.Id,
             UriSlug: snapshot.UriSlug,
             OwnerId: snapshot.OwnerId,
@@ -150,12 +170,13 @@ public static class BuildingEndpoints
             Postcode: snapshot.Address.Postcode,
             Country: snapshot.Address.Country,
             BuildingTypeCode: snapshot.BuildingTypeCode,
-            Latitude: snapshot.Coordinates?.Latitude,
-            Longitude: snapshot.Coordinates?.Longitude,
+            Latitude: latitude,
+            Longitude: longitude,
             AnonymizationLevel: snapshot.Anonymization.Code,
             YearBuilt: snapshot.YearBuilt,
             YearRenovated: snapshot.YearRenovated,
             AsOf: snapshot.AsOf);
+    }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> ChangeBuildingName(
         Guid buildingId,

@@ -10,8 +10,10 @@ public static class SensorEndpoints
 {
     public static void MapSensorEndpoints(this WebApplication app)
     {
+        // Mutations require a valid bearer token; reads opt out via AllowAnonymous.
         var group = app.MapGroup("/buildings/{buildingId:guid}/rooms/{roomId:guid}/sensors")
-            .WithTags("Sensors");
+            .WithTags("Sensors")
+            .RequireAuthorization();
 
         group.MapPost("/", RegisterSensor)
             .WithName("RegisterSensor")
@@ -22,11 +24,13 @@ public static class SensorEndpoints
         // methods from route metadata, so .WithOpenApi() is omitted here.
         group.MapMethods("/{sensorId:guid}", ["GET", "HEAD"], GetSensorById)
             .WithName("GetSensorById")
-            .WithDescription("Get a sensor by ID");
+            .WithDescription("Get a sensor by ID")
+            .AllowAnonymous();
 
         group.MapMethods("/{slug}", ["GET", "HEAD"], GetSensorBySlug)
             .WithName("GetSensorBySlug")
-            .WithDescription("Get a sensor by slug");
+            .WithDescription("Get a sensor by slug")
+            .AllowAnonymous();
 
         group.MapPut("/{sensorId:guid}/identity", ChangeSensorIdentity)
             .WithName("ChangeSensorIdentity")
