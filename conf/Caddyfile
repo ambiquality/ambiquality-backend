@@ -3,6 +3,10 @@
 		reverse_proxy evidence-api:6200
 	}
 
+	handle_path /ingestion/* {
+		reverse_proxy ingestion-api:6300
+	}
+
 	handle_path /auth/* {
 		reverse_proxy auth-api:6100
 	}

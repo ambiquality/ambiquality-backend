@@ -91,6 +91,43 @@ services:
       - db
       - public
 
+  ingestion-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+      target: migrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Runs as postgres (superuser) so the migration can CREATE EXTENSION
+      # timescaledb (idempotent) and create_hypertable on the ieq schema.
+      ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=postgres;Password=postgres"
+    networks:
+      - db
+    restart: "no"
+
+  ingestion-api: # on port 6300
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    depends_on:
+      ingestion-migrate:
+        condition: service_completed_successfully
+      evidence-migrate:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:6300
+      # ingestion_api: read-write on ieq, read-only on the evidence catalog.
+      ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=ingestion_api;Password=ingestion_api_dev_password"
+      ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=ingestion_api;Password=ingestion_api_dev_password"
+    ports:
+      - "6300:6300"
+    networks:
+      - db
+      - public
+
   auth-api: # on port 6100
     build:
       context: .
