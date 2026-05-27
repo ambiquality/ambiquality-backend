@@ -16,6 +16,7 @@ public sealed class Sensor
     private Sensor()
     {
         UriSlug = null!;
+        ApiKeyHash = null!;
     }
 
     public Guid Id { get; private set; }
@@ -24,6 +25,13 @@ public sealed class Sensor
     public Guid CurrentRoomId { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public Guid CreatedBy { get; private set; }
+
+    /// <summary>
+    /// SHA-256 hash of the sensor's API key. The plaintext is returned once at
+    /// registration and never stored; ingestion authenticates by hashing the
+    /// presented key and comparing against this value.
+    /// </summary>
+    public string ApiKeyHash { get; private set; }
 
     private readonly List<SensorIdentityHistory> _identityHistory = [];
     public IReadOnlyCollection<SensorIdentityHistory> IdentityHistory => _identityHistory.AsReadOnly();
@@ -47,6 +55,7 @@ public sealed class Sensor
         string serialNumber,
         SensorStatus status,
         IReadOnlyCollection<MeasuredParameter> measuredParameters,
+        string apiKeyHash,
         DateTime now)
     {
         var id = Guid.NewGuid();
@@ -60,6 +69,7 @@ public sealed class Sensor
             CurrentRoomId = roomId,
             CreatedAt = now,
             CreatedBy = createdBy,
+            ApiKeyHash = apiKeyHash,
         };
 
         sensor._identityHistory.Add(new SensorIdentityHistory(id, validity, manufacturer, model, serialNumber, createdBy, now));

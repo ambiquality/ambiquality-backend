@@ -58,7 +58,7 @@ public static class SensorEndpoints
             .WithDescription("Remove a measured parameter capability from the sensor");
     }
 
-    private static async Task<Results<Created<SensorSnapshotResponse>, ProblemHttpResult>> RegisterSensor(
+    private static async Task<Results<Created<SensorRegisteredResponse>, ProblemHttpResult>> RegisterSensor(
         Guid buildingId,
         Guid roomId,
         RegisterSensorRequest request,
@@ -78,7 +78,7 @@ public static class SensorEndpoints
                 MeasuredParameters: request.MeasuredParameters);
 
             var result = await handler.Handle(command, cancellationToken);
-            var response = new SensorSnapshotResponse(
+            var response = new SensorRegisteredResponse(
                 Id: result.SensorId,
                 UriSlug: result.UriSlug,
                 BuildingId: buildingId,
@@ -88,7 +88,8 @@ public static class SensorEndpoints
                 SerialNumber: request.SerialNumber,
                 StatusCode: request.StatusCode,
                 MeasuredParameters: request.MeasuredParameters,
-                AsOf: DateTime.UtcNow);
+                AsOf: DateTime.UtcNow,
+                ApiKey: result.ApiKey);
 
             return TypedResults.Created(
                 $"/buildings/{buildingId}/rooms/{roomId}/sensors/{result.SensorId}", response);

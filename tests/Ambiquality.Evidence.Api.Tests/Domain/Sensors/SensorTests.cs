@@ -18,7 +18,8 @@ public class SensorTests
         string model = "Aranet4",
         string serialNumber = "SN-0001",
         SensorStatus? status = null,
-        IReadOnlyCollection<MeasuredParameter>? parameters = null)
+        IReadOnlyCollection<MeasuredParameter>? parameters = null,
+        string apiKeyHash = "test-hash")
     {
         return Sensor.Register(
             slug: UriSlug.Create("aranet4-0001"),
@@ -30,6 +31,7 @@ public class SensorTests
             serialNumber: serialNumber,
             status: status ?? SensorStatus.Active,
             measuredParameters: parameters ?? [MeasuredParameter.Co2, MeasuredParameter.Temperature],
+            apiKeyHash: apiKeyHash,
             now: T0);
     }
 
@@ -44,6 +46,14 @@ public class SensorTests
         Assert.Equal(RoomId, sensor.CurrentRoomId);
         Assert.Equal(Creator, sensor.CreatedBy);
         Assert.Equal(T0, sensor.CreatedAt);
+    }
+
+    [Fact]
+    public void Register_StoresApiKeyHash()
+    {
+        var sensor = RegisterSensor(apiKeyHash: "deadbeef");
+
+        Assert.Equal("deadbeef", sensor.ApiKeyHash);
     }
 
     [Fact]

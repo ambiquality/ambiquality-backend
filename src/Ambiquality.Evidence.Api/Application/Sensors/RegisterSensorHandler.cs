@@ -10,7 +10,8 @@ public sealed class RegisterSensorHandler(
     IClock clock,
     ICurrentUser currentUser,
     ISensorRepository repository,
-    IBuildingRepository buildingRepository)
+    IBuildingRepository buildingRepository,
+    ISensorApiKeyService apiKeyService)
 {
     public async Task<RegisterSensorResponse> Handle(RegisterSensorCommand command, CancellationToken ct)
     {
@@ -20,6 +21,8 @@ public sealed class RegisterSensorHandler(
         var slug = UriSlug.Create(command.UriSlug);
         var status = SensorCodelists.ParseStatus(command.StatusCode);
         var parameters = command.MeasuredParameters.Select(SensorCodelists.ParseParameter).ToList();
+
+        var (apiKey, apiKeyHash) = apiKeyService.Generate();
 
         var sensor = Sensor.Register(
             slug: slug,
@@ -31,11 +34,12 @@ public sealed class RegisterSensorHandler(
             serialNumber: command.SerialNumber,
             status: status,
             measuredParameters: parameters,
+            apiKeyHash: apiKeyHash,
             now: clock.UtcNow);
 
         repository.Add(sensor);
         await repository.SaveChangesAsync(ct);
 
-        return new RegisterSensorResponse(sensor.Id, sensor.UriSlug);
+        return new RegisterSensorResponse(sensor.Id, sensor.UriSlug, apiKey);
     }
 }

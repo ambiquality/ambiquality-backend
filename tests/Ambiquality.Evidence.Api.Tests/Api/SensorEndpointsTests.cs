@@ -99,6 +99,40 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task RegisterSensor_ReturnsPlaintextApiKeyOnce()
+    {
+        var request = new RegisterSensorRequest(
+            UriSlug: "aranet4-key",
+            Manufacturer: "Aranet",
+            Model: "Aranet4",
+            SerialNumber: "SN-0001",
+            StatusCode: "active",
+            MeasuredParameters: new[] { "co2" });
+
+        var response = await _client.PostAsJsonAsync(
+            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors", request);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var registered = await response.Content.ReadFromJsonAsync<SensorRegisteredResponse>();
+        Assert.NotNull(registered!.ApiKey);
+        Assert.StartsWith("amq_sk_", registered.ApiKey);
+    }
+
+    [Fact]
+    public async Task GetSensor_DoesNotLeakApiKey()
+    {
+        var registered = await RegisterSensorAsync("aranet4-nokey");
+
+        var response = await _client.GetAsync(
+            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain("apiKey", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("amq_sk_", body);
+    }
+
+    [Fact]
     public async Task GetSensorById_WithValidId_Returns200Ok()
     {
         var registered = await RegisterSensorAsync("aranet4-202");

@@ -36,6 +36,7 @@ builder.Services.AddScoped<IUserProjectionRepository, UserProjectionRepository>(
 
 // --- Infrastructure -----------------------------------------------------------
 builder.Services.AddSingleton<IClock, SystemClock>();
+builder.Services.AddSingleton<ISensorApiKeyService, SensorApiKeyService>();
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
 

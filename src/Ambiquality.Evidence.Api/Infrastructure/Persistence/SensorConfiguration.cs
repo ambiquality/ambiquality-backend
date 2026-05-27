@@ -43,6 +43,12 @@ public sealed class SensorConfiguration : IEntityTypeConfiguration<Sensor>
             .HasColumnName("created_at")
             .IsRequired();
 
+        // SHA-256 hex digest (64 chars) of the sensor's API key; plaintext is never stored.
+        builder.Property(s => s.ApiKeyHash)
+            .HasColumnName("api_key_hash")
+            .HasMaxLength(64)
+            .IsRequired();
+
         // Foreign key to the room the sensor is currently placed in.
         builder.HasOne<Room>()
             .WithMany()
