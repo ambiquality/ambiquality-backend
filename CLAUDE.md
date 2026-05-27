@@ -11,10 +11,10 @@ Backend for **Ambiquality** — an IEQ (Indoor Environmental Quality) monitoring
 ```
 ambiquality-backend.slnx        ← single solution, two solution folders
 src/
-  Ambiquality.Core/             ← [EMPTY/PLANNED] shared library: EF Core IeqDbContext, measurement models
+  Ambiquality.Core/             ← [BUILT] shared library: EF Core IeqDbContext, Measurement + ParameterRange models
   Ambiquality.Auth.Api/         ← [BUILT] authentication service (register, login, token management)
   Ambiquality.Evidence.Api/     ← [BUILT] building, room & sensor registration / lifecycle catalog (F05–F09)
-  Ambiquality.Ingestion.Api/    ← [SKELETON] write-only: receives measurements from sensors
+  Ambiquality.Ingestion.Api/    ← [BUILT] write-only: validates & stores sensor measurements (F10/UC10)
   Ambiquality.Public.Api/       ← [SKELETON] read-only: public API, filtering, pagination, open data
 tests/
   Ambiquality.Core.Tests/
@@ -24,10 +24,10 @@ tests/
   Ambiquality.Public.Api.Tests/
 ```
 
-Only **Auth.Api** and **Evidence.Api** are implemented. `Core` is an empty class library;
-`Ingestion.Api` and `Public.Api` are default minimal-API skeletons. See each project's
-`README.md` for detail. Per-project READMEs and the root `README.md` are the human-facing docs;
-this file is the agent guide.
+**Auth.Api**, **Evidence.Api** and **Ingestion.Api** are implemented, and `Core` holds the shared
+measurement model + `IeqDbContext`. `Public.Api` is still a default minimal-API skeleton. See each
+project's `README.md` for detail. Per-project READMEs and the root `README.md` are the human-facing
+docs; this file is the agent guide.
 
 ## Tech Stack
 
@@ -49,16 +49,19 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
 |----------|--------|-----------|---------|
 | `auth` | `auth` | `auth_api` | Auth.Api — users, password hashes, tokens |
 | `evidence` | `evidence` | `evidence_api` | Evidence.Api — buildings, rooms, sensors + their attribute history |
+| `ieq` | `ieq` | `ingestion_api` (rw), `public_api` (ro) | Ingestion.Api — `measurements` hypertable + `parameter_ranges` |
 
 - The Postgres image is `timescale/timescaledb` (TimescaleDB preloaded) and the `evidence`
   database has the `btree_gist` extension enabled for temporal exclusion constraints.
 - **Sensors are the canonical device registry.** Evidence.Api owns sensor (device) identity;
-  ingested measurements will reference a sensor's `Id` (GUID). There is no separate `devices`
+  ingested measurements reference a sensor's `Id` (GUID). There is no separate `devices`
   table — the originally-planned `ieq.devices` is superseded by `evidence.sensors`.
-- **Planned (not yet built):** an `ieq` database with `measurements` (TimescaleDB hypertables)
-  and an `app` schema, owned by Ingestion.Api and read by Public.Api, with least-privilege
-  `ingestion_api` / `public_api` roles. Measurements carry `sensor_id` referencing the evidence
-  catalog (no cross-database FK).
+- **The `ieq` database is built.** `measurements` is a TimescaleDB hypertable (partitioned on
+  `received_at`) and `parameter_ranges` seeds the permitted value ranges. Ingestion.Api owns its
+  migrations (`ingestion_api`, rw); the planned Public.Api will read it (`public_api`, ro).
+  Measurements carry `sensor_id` referencing the evidence catalog with no cross-database FK;
+  Ingestion.Api validates against the catalog via a read-only SQL connection to the evidence
+  schema (the `ingestion_api` role has SELECT there).
 
 ### EF Core ownership
 
@@ -66,8 +69,9 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
   run at startup via the `migrate` container.
 - `EvidenceDbContext` lives in **Ambiquality.Evidence.Api** and owns the `evidence` database;
   migrations run at startup via the `evidence-migrate` container.
-- *Planned:* `IeqDbContext` in **Ambiquality.Core**, with Ingestion.Api owning its migrations
-  and Public.Api referencing it read-only.
+- `IeqDbContext` lives in **Ambiquality.Core** and owns the `ieq` database; **Ingestion.Api**
+  holds its migrations (`MigrationsAssembly`) and runs them via the `ingestion-migrate` container.
+  The planned Public.Api will reference it read-only.
 
 ## Key Functional Requirements (from thesis)
 
@@ -75,7 +79,7 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
 |----|---------------|---------|
 | F01–F04 | User registration, login, logout, credential change | Auth.Api ✅ |
 | F05–F09 | Building, room & sensor registration and lifecycle | **Evidence.Api** ✅ |
-| F10 | Measurement validation on ingestion | Ingestion.Api (planned) |
+| F10 | Measurement validation on ingestion | Ingestion.Api ✅ |
 | F11–F15 | Public read API, filtering, pagination, search, OpenAPI spec | Public.Api (planned) |
 | F16 | DCAT-AP-CZ catalog metadata publication | Public.Api (planned) |
 | F17 | Downloadable data archive (CSV) | Public.Api (planned) |
@@ -97,10 +101,11 @@ Note: F05–F09 were originally scoped to Public.Api but were implemented in a d
 ```bash
 dotnet run --project src/Ambiquality.Auth.Api
 dotnet run --project src/Ambiquality.Evidence.Api
-# Ingestion.Api / Public.Api are skeletons (return "Hello World!")
+dotnet run --project src/Ambiquality.Ingestion.Api   # needs ieq + evidence databases
+# Public.Api is still a skeleton (returns "Hello World!")
 ```
 
-Start the full stack (Postgres, Redis, Caddy, Mailpit, both APIs, migrations) with the dev
+Start the full stack (Postgres, Redis, Caddy, Mailpit, the APIs, migrations) with the dev
 helper, which wraps `podman compose --profile development`:
 
 ```bash
@@ -109,7 +114,8 @@ helper, which wraps `podman compose --profile development`:
 ./dev-build.sh     # rebuild images then start (after code changes)
 ```
 
-Behind Caddy (`:8080`): `/evidence/*` → `evidence-api:6200`, everything else → `auth-api:6100`.
+Behind Caddy (`:8080`): `/evidence/*` → `evidence-api:6200`, `/ingestion/*` → `ingestion-api:6300`,
+everything else → `auth-api:6100`.
 
 ## Running Tests
 
