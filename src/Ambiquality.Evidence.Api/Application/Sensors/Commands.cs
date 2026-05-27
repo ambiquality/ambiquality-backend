@@ -10,7 +10,7 @@ public sealed record RegisterSensorCommand(
     string StatusCode,
     IReadOnlyCollection<string> MeasuredParameters);
 
-public sealed record RegisterSensorResponse(Guid SensorId, string UriSlug);
+public sealed record RegisterSensorResponse(Guid SensorId, string UriSlug, string ApiKey);
 
 public sealed record ChangeSensorIdentityCommand(
     Guid SensorId,

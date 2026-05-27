@@ -131,6 +131,12 @@ registers them. All read routes answer both `GET` and `HEAD`.
 
 The slug is **globally unique** (not per-room), since the sensor's identity is stable.
 
+**Per-sensor API key.** Registration generates a secret key (`amq_sk_…`) returned **once** in the
+`POST` response (`apiKey`) and never again — only its SHA-256 hash is stored (`sensors.api_key_hash`).
+The planned Ingestion service authenticates each sensor by hashing the presented key and comparing
+against this hash. SHA-256 (not a password KDF) is deliberate: keys are high-entropy random values,
+so one fast hash is safe and keeps ingestion verification cheap under the ≥100 msg/s target.
+
 Status codes (`sensor_status`): `active`, `maintenance`, `decommissioned`. Measured parameters
 (`measured_parameter`): `co2`, `temperature`, `humidity`, `pm`, `voc`, `acoustics`, `light`. An
 unknown code is a `400 unknown-codelist-code`.
