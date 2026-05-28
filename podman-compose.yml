@@ -22,6 +22,13 @@ services:
 
   redis:
     image: docker.io/library/redis:7-alpine
+    # AOF with per-write fsync: the ingestion stream is the durable write-ahead log
+    # the HTTP 202 depends on, so an XADD must hit disk before it is acknowledged.
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - db
     ports:
       - "6379"
     healthcheck:
@@ -116,17 +123,38 @@ services:
         condition: service_completed_successfully
       evidence-migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:6300
       # ingestion_api: read-write on ieq, read-only on the evidence catalog.
       ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=ingestion_api;Password=ingestion_api_dev_password"
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=ingestion_api;Password=ingestion_api_dev_password"
+      # The API only enqueues; the worker drains the stream and writes to ieq.
+      ConnectionStrings__Redis: "redis:6379"
     ports:
       - "6300:6300"
     networks:
       - db
       - public
+
+  ingestion-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    depends_on:
+      ingestion-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      # ingestion_api role: read-write on ieq (the worker is the only measurements writer).
+      ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=ingestion_api;Password=ingestion_api_dev_password"
+      ConnectionStrings__Redis: "redis:6379"
+    networks:
+      - db
 
   auth-api: # on port 6100
     build:
@@ -172,6 +200,7 @@ services:
 volumes:
   postgres-data:
   mailpit-data:
+  redis-data:
   caddy_data:
   caddy_config:
 

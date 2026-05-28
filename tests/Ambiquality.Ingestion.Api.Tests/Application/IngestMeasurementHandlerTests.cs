@@ -1,5 +1,6 @@
 using Ambiquality.Core.Domain.Measurements;
 using Ambiquality.Core.Infrastructure.Persistence;
+using Ambiquality.Core.Messaging;
 using Ambiquality.Ingestion.Api.Application;
 using Ambiquality.Ingestion.Api.Application.Abstractions;
 using Ambiquality.Ingestion.Api.Infrastructure.Security;
@@ -10,8 +11,9 @@ namespace Ambiquality.Ingestion.Api.Tests.Application;
 
 /// <summary>
 /// Branch coverage for the UC10 validation pipeline using an in-memory ieq context
-/// and a substituted catalog — fast, no container. The cross-schema SQL and the
-/// hypertable insert are covered by the endpoint integration test.
+/// (for parameter-range reads), a substituted catalog and a fake queue — fast, no
+/// container. The handler validates then enqueues; the durable write and the
+/// cross-schema SQL are covered by the worker and endpoint integration tests.
 /// </summary>
 public class IngestMeasurementHandlerTests
 {
@@ -22,6 +24,22 @@ public class IngestMeasurementHandlerTests
     private sealed class FixedClock(DateTime now) : IClock
     {
         public DateTime UtcNow { get; } = now;
+    }
+
+    /// <summary>Captures what was enqueued; optionally simulates an unreachable queue.</summary>
+    private sealed class FakeQueue : IMeasurementQueuePublisher
+    {
+        private readonly bool _throws;
+        public FakeQueue(bool throws = false) => _throws = throws;
+        public List<MeasurementMessage> Published { get; } = [];
+
+        public Task PublishAsync(MeasurementMessage message, CancellationToken cancellationToken)
+        {
+            if (_throws)
+                throw new InvalidOperationException("queue down");
+            Published.Add(message);
+            return Task.CompletedTask;
+        }
     }
 
     private static IeqDbContext NewIeq()
@@ -45,78 +63,105 @@ public class IngestMeasurementHandlerTests
     private static IngestMeasurementCommand Command(double value = 800, string parameterCode = "co2") =>
         new(SensorId, PlainKey, parameterCode, value, DateTime.UtcNow);
 
+    private static IngestMeasurementHandler Handler(
+        SensorValidationView? view, FakeQueue queue, DateTime? now = null) =>
+        new(new FixedClock(now ?? DateTime.UtcNow), CatalogReturning(view), NewIeq(), queue);
+
     [Fact]
-    public async Task UnknownSensor_IsUnauthorized()
+    public async Task UnknownSensor_IsUnauthorized_AndNotEnqueued()
     {
-        var handler = new IngestMeasurementHandler(new FixedClock(DateTime.UtcNow), CatalogReturning(null), NewIeq());
+        var queue = new FakeQueue();
+        var handler = Handler(view: null, queue);
 
         var result = await handler.Handle(Command(), CancellationToken.None);
 
-        Assert.False(result.IsAccepted);
         Assert.Equal(IngestRejectionReason.Unauthorized, result.Rejection);
+        Assert.Empty(queue.Published);
     }
 
     [Fact]
-    public async Task WrongKey_IsUnauthorized()
+    public async Task WrongKey_IsUnauthorized_AndNotEnqueued()
     {
+        var queue = new FakeQueue();
         var view = new SensorValidationView(SensorKeyHasher.Hash("amq_sk_other"), "active", ["co2"]);
-        var handler = new IngestMeasurementHandler(new FixedClock(DateTime.UtcNow), CatalogReturning(view), NewIeq());
+        var handler = Handler(view, queue);
 
         var result = await handler.Handle(Command(), CancellationToken.None);
 
         Assert.Equal(IngestRejectionReason.Unauthorized, result.Rejection);
+        Assert.Empty(queue.Published);
     }
 
     [Fact]
-    public async Task InactiveSensor_IsRejected()
+    public async Task InactiveSensor_IsRejected_AndNotEnqueued()
     {
+        var queue = new FakeQueue();
         var view = new SensorValidationView(KeyHash, "maintenance", ["co2"]);
-        var handler = new IngestMeasurementHandler(new FixedClock(DateTime.UtcNow), CatalogReturning(view), NewIeq());
+        var handler = Handler(view, queue);
 
         var result = await handler.Handle(Command(), CancellationToken.None);
 
         Assert.Equal(IngestRejectionReason.SensorNotActive, result.Rejection);
+        Assert.Empty(queue.Published);
     }
 
     [Fact]
-    public async Task UndeclaredParameter_IsRejected()
+    public async Task UndeclaredParameter_IsRejected_AndNotEnqueued()
     {
+        var queue = new FakeQueue();
         var view = new SensorValidationView(KeyHash, "active", ["temperature"]);
-        var handler = new IngestMeasurementHandler(new FixedClock(DateTime.UtcNow), CatalogReturning(view), NewIeq());
+        var handler = Handler(view, queue);
 
         var result = await handler.Handle(Command(parameterCode: "co2"), CancellationToken.None);
 
         Assert.Equal(IngestRejectionReason.ParameterNotDeclared, result.Rejection);
+        Assert.Empty(queue.Published);
     }
 
     [Fact]
-    public async Task ValueOutOfRange_IsRejected()
+    public async Task ValueOutOfRange_IsRejected_AndNotEnqueued()
     {
+        var queue = new FakeQueue();
         var view = new SensorValidationView(KeyHash, "active", ["co2"]);
-        var handler = new IngestMeasurementHandler(new FixedClock(DateTime.UtcNow), CatalogReturning(view), NewIeq());
+        var handler = Handler(view, queue);
 
         var result = await handler.Handle(Command(value: 999_999), CancellationToken.None);
 
         Assert.Equal(IngestRejectionReason.ValueOutOfRange, result.Rejection);
+        Assert.Empty(queue.Published);
     }
 
     [Fact]
-    public async Task ValidObservation_IsAcceptedAndPersisted()
+    public async Task ValidObservation_IsEnqueued_WithReceivedAtStampedAtAcceptance()
     {
+        var queue = new FakeQueue();
         var view = new SensorValidationView(KeyHash, "active", ["co2"]);
-        var ieq = NewIeq();
         var now = new DateTime(2026, 5, 27, 10, 0, 0, DateTimeKind.Utc);
-        var handler = new IngestMeasurementHandler(new FixedClock(now), CatalogReturning(view), ieq);
+        var handler = Handler(view, queue, now);
 
         var result = await handler.Handle(Command(value: 800), CancellationToken.None);
 
         Assert.True(result.IsAccepted);
         Assert.Equal(now, result.ReceivedAt);
-        var stored = Assert.Single(ieq.Measurements);
-        Assert.Equal(SensorId, stored.SensorId);
-        Assert.Equal("co2", stored.ParameterCode);
-        Assert.Equal(800, stored.Value);
-        Assert.Equal(now, stored.ReceivedAt);
-        Assert.False(stored.IsInvalid);
+
+        var message = Assert.Single(queue.Published);
+        Assert.Equal(result.MeasurementId, message.Id);
+        Assert.Equal(SensorId, message.SensorId);
+        Assert.Equal("co2", message.ParameterCode);
+        Assert.Equal(800, message.Value);
+        Assert.Equal(now, message.ReceivedAt);
+    }
+
+    [Fact]
+    public async Task QueueUnreachable_IsRejectedAsQueueUnavailable()
+    {
+        var queue = new FakeQueue(throws: true);
+        var view = new SensorValidationView(KeyHash, "active", ["co2"]);
+        var handler = Handler(view, queue);
+
+        var result = await handler.Handle(Command(value: 800), CancellationToken.None);
+
+        Assert.False(result.IsAccepted);
+        Assert.Equal(IngestRejectionReason.QueueUnavailable, result.Rejection);
     }
 }

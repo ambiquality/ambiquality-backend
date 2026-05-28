@@ -15,6 +15,8 @@ internal static class Problems
             detail, statusCode: StatusCodes.Status422UnprocessableEntity, title: "Parameter not declared"),
         IngestRejectionReason.ValueOutOfRange => TypedResults.Problem(
             detail, statusCode: StatusCodes.Status422UnprocessableEntity, title: "Value out of range"),
+        IngestRejectionReason.QueueUnavailable => TypedResults.Problem(
+            detail, statusCode: StatusCodes.Status503ServiceUnavailable, title: "Ingestion queue unavailable"),
         _ => TypedResults.Problem(detail, statusCode: StatusCodes.Status400BadRequest),
     };
 }

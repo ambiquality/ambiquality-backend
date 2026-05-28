@@ -11,29 +11,37 @@ Backend for **Ambiquality** — an IEQ (Indoor Environmental Quality) monitoring
 ```
 ambiquality-backend.slnx        ← single solution, two solution folders
 src/
-  Ambiquality.Core/             ← [BUILT] shared library: EF Core IeqDbContext, Measurement + ParameterRange models
+  Ambiquality.Core/             ← [BUILT] shared library: EF Core IeqDbContext, Measurement + ParameterRange models, queue message contract (Messaging/)
   Ambiquality.Auth.Api/         ← [BUILT] authentication service (register, login, token management)
   Ambiquality.Evidence.Api/     ← [BUILT] building, room & sensor registration / lifecycle catalog (F05–F09)
-  Ambiquality.Ingestion.Api/    ← [BUILT] write-only: validates & stores sensor measurements (F10/UC10)
+  Ambiquality.Ingestion.Api/    ← [BUILT] validates sensor measurements & enqueues them to Redis (F10/UC10); does NOT write the DB
+  Ambiquality.Ingestion.Worker/ ← [BUILT] background service: drains the Redis stream and bulk-writes measurements to the ieq hypertable
   Ambiquality.Public.Api/       ← [SKELETON] read-only: public API, filtering, pagination, open data
 tests/
   Ambiquality.Core.Tests/
   Ambiquality.Auth.Api.Tests/
   Ambiquality.Evidence.Api.Tests/
   Ambiquality.Ingestion.Api.Tests/
+  Ambiquality.Ingestion.Worker.Tests/
   Ambiquality.Public.Api.Tests/
 ```
 
-**Auth.Api**, **Evidence.Api** and **Ingestion.Api** are implemented, and `Core` holds the shared
-measurement model + `IeqDbContext`. `Public.Api` is still a default minimal-API skeleton. See each
-project's `README.md` for detail. Per-project READMEs and the root `README.md` are the human-facing
-docs; this file is the agent guide.
+**Auth.Api**, **Evidence.Api**, **Ingestion.Api** and **Ingestion.Worker** are implemented, and
+`Core` holds the shared measurement model, `IeqDbContext` and the queue message contract.
+`Public.Api` is still a default minimal-API skeleton. See each project's `README.md` for detail.
+Per-project READMEs and the root `README.md` are the human-facing docs; this file is the agent guide.
+
+**Ingestion is a queue + worker write path.** Ingestion.Api validates an observation synchronously
+(authenticate sensor, active, parameter declared, value in range), stamps `received_at` at
+acceptance, then appends it to a durable Redis stream and returns **202 Accepted** — it never
+touches the `measurements` table. Ingestion.Worker drains the stream's consumer group in batches and
+bulk-inserts into the `ieq` hypertable. See *Architecture Decisions → Ingestion queue + worker*.
 
 ## Tech Stack
 
 - **.NET 10**, ASP.NET Core minimal APIs
 - **PostgreSQL + TimescaleDB** — time-series measurements
-- **Redis** — cache layer
+- **Redis** — durable ingestion queue (Streams + consumer groups, AOF `appendfsync always`); also available as a cache layer
 - **Caddy** — reverse proxy / ingress
 - **Podman** — container runtime (not Docker)
 - **EF Core** — code-first migrations, Npgsql provider
@@ -49,7 +57,7 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
 |----------|--------|-----------|---------|
 | `auth` | `auth` | `auth_api` | Auth.Api — users, password hashes, tokens |
 | `evidence` | `evidence` | `evidence_api` | Evidence.Api — buildings, rooms, sensors + their attribute history |
-| `ieq` | `ieq` | `ingestion_api` (rw), `public_api` (ro) | Ingestion.Api — `measurements` hypertable + `parameter_ranges` |
+| `ieq` | `ieq` | `ingestion_api` (rw), `public_api` (ro) | Ingestion.Worker writes the `measurements` hypertable; Ingestion.Api reads `parameter_ranges` for validation |
 
 - The Postgres image is `timescale/timescaledb` (TimescaleDB preloaded) and the `evidence`
   database has the `btree_gist` extension enabled for temporal exclusion constraints.
@@ -57,11 +65,15 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
   ingested measurements reference a sensor's `Id` (GUID). There is no separate `devices`
   table — the originally-planned `ieq.devices` is superseded by `evidence.sensors`.
 - **The `ieq` database is built.** `measurements` is a TimescaleDB hypertable (partitioned on
-  `received_at`) and `parameter_ranges` seeds the permitted value ranges. Ingestion.Api owns its
-  migrations (`ingestion_api`, rw); the planned Public.Api will read it (`public_api`, ro).
-  Measurements carry `sensor_id` referencing the evidence catalog with no cross-database FK;
-  Ingestion.Api validates against the catalog via a read-only SQL connection to the evidence
-  schema (the `ingestion_api` role has SELECT there).
+  `received_at`, composite key `(id, received_at)`) and `parameter_ranges` seeds the permitted
+  value ranges. Ingestion.Api owns its migrations (`ingestion_api`, rw); the planned Public.Api
+  will read it (`public_api`, ro). Measurements carry `sensor_id` referencing the evidence catalog
+  with no cross-database FK; Ingestion.Api validates against the catalog via a read-only SQL
+  connection to the evidence schema (the `ingestion_api` role has SELECT there).
+- **The `measurements` hypertable is written only by Ingestion.Worker**, which bulk-inserts drained
+  queue batches with `ON CONFLICT (id, received_at) DO NOTHING` — the queue is at-least-once, so the
+  measurement id (generated by the API at enqueue) makes redelivery idempotent (exactly-once effect).
+  `received_at` is stamped by the API and stored to microsecond precision (the `timestamptz` limit).
 
 ### EF Core ownership
 
@@ -71,7 +83,8 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
   migrations run at startup via the `evidence-migrate` container.
 - `IeqDbContext` lives in **Ambiquality.Core** and owns the `ieq` database; **Ingestion.Api**
   holds its migrations (`MigrationsAssembly`) and runs them via the `ingestion-migrate` container.
-  The planned Public.Api will reference it read-only.
+  Ingestion.Worker references `IeqDbContext` (for reads in tests) but writes via raw Npgsql bulk
+  inserts; it does **not** own or run migrations. The planned Public.Api will reference it read-only.
 
 ## Key Functional Requirements (from thesis)
 
@@ -79,7 +92,7 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
 |----|---------------|---------|
 | F01–F04 | User registration, login, logout, credential change | Auth.Api ✅ |
 | F05–F09 | Building, room & sensor registration and lifecycle | **Evidence.Api** ✅ |
-| F10 | Measurement validation on ingestion | Ingestion.Api ✅ |
+| F10 | Measurement validation on ingestion | Ingestion.Api (validate + enqueue) + Ingestion.Worker (persist) ✅ |
 | F11–F15 | Public read API, filtering, pagination, search, OpenAPI spec | Public.Api (planned) |
 | F16 | DCAT-AP-CZ catalog metadata publication | Public.Api (planned) |
 | F17 | Downloadable data archive (CSV) | Public.Api (planned) |
@@ -91,7 +104,11 @@ Note: F05–F09 were originally scoped to Public.Api but were implemented in a d
 ## Key Non-Functional Constraints
 
 - **Availability**: Public API ≥ 99% uptime per calendar month
-- **Durability**: Measurements must be persisted before HTTP 2xx is returned (no ack before write)
+- **Durability**: No ack before a durable write. Reinterpreted for the queue path as *durably
+  enqueued before 2xx*: the API returns 202 only after the measurement is committed to the Redis
+  stream (AOF `appendfsync always` = fsync per XADD); the stream is the write-ahead log and the
+  worker's hypertable insert is its materialization. If the enqueue fails the API returns **503**
+  and acks nothing.
 - **Immutability**: Published measurements must never be silently modified or deleted; invalidation via explicit flag only
 - **Performance**: Read API p95 < 1 s, p99 < 3 s for pages ≤ 100 records; ingestion ≥ 100 measurements/s sustained
 - **Concurrency**: Read API must handle ≥ 50 concurrent requests within latency bounds
@@ -101,12 +118,13 @@ Note: F05–F09 were originally scoped to Public.Api but were implemented in a d
 ```bash
 dotnet run --project src/Ambiquality.Auth.Api
 dotnet run --project src/Ambiquality.Evidence.Api
-dotnet run --project src/Ambiquality.Ingestion.Api   # needs ieq + evidence databases
+dotnet run --project src/Ambiquality.Ingestion.Api      # validate + enqueue; needs evidence db + Redis
+dotnet run --project src/Ambiquality.Ingestion.Worker   # drain + persist; needs ieq db + Redis
 # Public.Api is still a skeleton (returns "Hello World!")
 ```
 
-Start the full stack (Postgres, Redis, Caddy, Mailpit, the APIs, migrations) with the dev
-helper, which wraps `podman compose --profile development`:
+Start the full stack (Postgres, Redis, Caddy, Mailpit, the APIs, the ingestion worker, migrations)
+with the dev helper, which wraps `podman compose --profile development`:
 
 ```bash
 ./dev.sh up        # start (foreground)
@@ -129,6 +147,26 @@ dotnet test tests/Ambiquality.Ingestion.Api.Tests   # single project
 - **Service-per-bounded-context**: Independently deployable services (Auth, Evidence, and the
   planned Ingestion/Public split) so write-heavy and read-heavy paths scale separately. Built
   services use DDD layering `Api → Application → Domain ← Infrastructure`.
+- **Ingestion queue + worker write path**: Ingestion.Api validates synchronously and enqueues to a
+  Redis stream; Ingestion.Worker drains it and bulk-writes to TimescaleDB. This decouples
+  accept-from-sensor from persist-to-DB so write spikes don't couple to request throughput
+  (NFR ≥ 100 measurements/s).
+  - **Queue tech = Redis Streams** (already in the stack): consumer groups + acks + replay, AOF
+    `appendfsync always` for per-write durability. The shared wire contract is
+    `Core/Messaging/MeasurementMessage` (+ `MeasurementMessageSerializer`, JSON, round-trippable so
+    `received_at` survives the queue byte-for-byte); stream key / group / batch sizing live in
+    `MeasurementQueueOptions`. Producer: `Ingestion.Api/Infrastructure/Queue/RedisMeasurementQueuePublisher`
+    (XADD). Consumer: `Ingestion.Worker/MeasurementDrainService` (XREADGROUP → write → XACK,
+    `XAUTOCLAIM` to recover a crashed consumer's pending entries) + `MeasurementBatchWriter`
+    (idempotent bulk insert).
+  - **`received_at` is stamped by the API at acceptance**, before enqueue — so however long the
+    queue takes to drain, the recorded ingestion time never shifts. The hypertable partitions on it.
+  - **Ack semantics**: API returns **202 Accepted** (durably enqueued, not yet materialized), or
+    **503** if the enqueue fails. The worker acks a stream entry only after its row is committed, so
+    a crash between write and ack merely redelivers an entry the idempotent writer skips.
+  - StackExchange.Redis has no blocking `XREADGROUP`; the drain loop polls on
+    `MeasurementQueueOptions.BlockMilliseconds` when the stream is idle and loops immediately while
+    entries are flowing.
 - **Attribute-level temporal versioning (Evidence.Api)**: Building, room and sensor attributes
   are not mutable columns — each is a stream of history rows carrying a half-open UTC `tstzrange`
   validity period (`Domain/Common/Validity.cs`). Changes close the open row and open a new one;

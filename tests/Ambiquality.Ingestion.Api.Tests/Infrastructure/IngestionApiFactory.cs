@@ -1,5 +1,6 @@
 extern alias evidence;
 using Ambiquality.Core.Infrastructure.Persistence;
+using Ambiquality.Core.Messaging;
 using Ambiquality.Ingestion.Api.Application.Abstractions;
 using Ambiquality.Ingestion.Api.Infrastructure.Catalog;
 using Ambiquality.Ingestion.Api.Infrastructure.Security;
@@ -19,6 +20,9 @@ namespace Ambiquality.Ingestion.Api.Tests.Infrastructure;
 public sealed class IngestionApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly IngestionPostgresFixture _postgres = new();
+
+    /// <summary>Captures what the endpoint enqueued, replacing the real Redis publisher.</summary>
+    public CapturingQueuePublisher Queue { get; } = new();
 
     public async Task InitializeAsync() => await _postgres.InitializeAsync();
 
@@ -49,6 +53,16 @@ public sealed class IngestionApiFactory : WebApplicationFactory<Program>, IAsync
 
             services.AddSingleton<ISensorCatalog>(
                 _ => new SensorCatalog(NpgsqlDataSource.Create(_postgres.ConnectionString)));
+
+            // Replace the Redis publisher with an in-memory capture so the endpoint
+            // tests need no broker; removing it also means the lazy IConnectionMultiplexer
+            // is never resolved (no socket opened).
+            var publisherDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(IMeasurementQueuePublisher));
+            if (publisherDescriptor is not null)
+                services.Remove(publisherDescriptor);
+
+            services.AddSingleton<IMeasurementQueuePublisher>(Queue);
         });
     }
 
@@ -90,14 +104,6 @@ public sealed class IngestionApiFactory : WebApplicationFactory<Program>, IAsync
         await db.SaveChangesAsync();
 
         return (sensor.Id, plainKey);
-    }
-
-    public async Task<int> CountMeasurementsAsync(Guid sensorId)
-    {
-        var options = new DbContextOptionsBuilder<IeqDbContext>()
-            .UseNpgsql(_postgres.ConnectionString).Options;
-        await using var db = new IeqDbContext(options);
-        return await db.Measurements.CountAsync(m => m.SensorId == sensorId);
     }
 
     private EvidenceDb NewEvidenceContext()

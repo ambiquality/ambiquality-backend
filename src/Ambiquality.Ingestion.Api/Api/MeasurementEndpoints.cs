@@ -15,7 +15,7 @@ public static class MeasurementEndpoints
             .WithDescription("Validate and store a single sensor observation (F10/UC10).");
     }
 
-    private static async Task<Results<Created<MeasurementAcceptedResponse>, ProblemHttpResult>> IngestMeasurement(
+    private static async Task<Results<Accepted<MeasurementAcceptedResponse>, ProblemHttpResult>> IngestMeasurement(
         IngestMeasurementRequest request,
         HttpContext context,
         IngestMeasurementHandler handler,
@@ -32,8 +32,10 @@ public static class MeasurementEndpoints
                 ObservedAt: request.ObservedAt),
             cancellationToken);
 
+        // 202, not 201: the measurement is durably enqueued but not yet materialized
+        // into the hypertable — the worker performs the write asynchronously.
         if (result.IsAccepted)
-            return TypedResults.Created(
+            return TypedResults.Accepted(
                 (string?)null,
                 new MeasurementAcceptedResponse(result.MeasurementId!.Value, result.ReceivedAt!.Value));
 
