@@ -10,26 +10,43 @@ small and cheap to load into context.
 
 ---
 
-## Architecture
+## API testing using Podman & Newman
 
-### Ingestion: introduce a queue + worker write path
-**Why:** Ingestion currently validates and writes each measurement to the
-database synchronously on the request thread. Under sustained load (NFR: ≥ 100
-measurements/s) this couples request throughput directly to database write
-capacity, risking DB overload and dropped readings when bursts exceed write
-throughput.
+The `postman/collections/ambiquality-api` suite now has a request for every
+endpoint of Auth, Evidence and Ingestion — including the F10
+`POST /ingestion/measurements` (happy + 401 bad-key + 422 out-of-range) and a
+real register → confirm → login → change-email E2E that pulls confirmation
+links from Mailpit. Edits live in the Postman **cloud** collection.
 
-**Goal:** Decouple accept-from-sensor from persist-to-DB. The ingestion endpoint
-should validate and enqueue, then one or more workers drain the queue and write
-to the `ieq` database in batches.
+**Still pending:**
+- **Reorder + sync (do first).** In the Postman Runner move *Confirm Email* to
+  run after Register (before Login) and the three *Ingest Measurement* requests
+  to run after Create Sensor (before Update Status flips the sensor to
+  `maintenance`). Then sync cloud → repo YAML files and commit — the repo files
+  are stale (new ingestion requests, renamed confirm requests, the Mailpit
+  pre-request scripts, the Logout URL fix, and the Change Email body all live
+  only in cloud). Note: the Postman API/MCP can't reorder items and its WAF
+  blocks pre-request scripts that call `pm.sendRequest`, so these are manual.
+- **Broaden unhappy paths.** Only ingestion and the confirm flow exercise
+  failures today; the rest are happy-path only. Add 401 on protected
+  Evidence/Account routes, 404 / 422 on bad payloads, etc.
+- **Cosmetic:** collection description still reads "Auth.Api + Evidence.Api"
+  (changing it via API needs a full-collection rewrite).
 
-**Open design questions to resolve before implementing:**
-- Queue technology — in-process channel vs. external broker (Redis is already in
-  the stack; alternatives: RabbitMQ, NATS).
-- Durability contract: NFR requires measurements persisted before HTTP 2xx
-  ("no ack before write"). A fire-and-forget queue breaks this. Reconcile the
-  queue design with the durability constraint (e.g. durable queue that the ack
-  can depend on, or accept a relaxed contract).
-- Backpressure / overflow behavior when the queue fills (reject with 503 vs.
-  block vs. shed).
-- Worker batching strategy and TimescaleDB bulk-insert approach.
+
+## OpenAPI for public
+
+When the app will be published out of dev env, it must provided an openapi enpoint
+
+
+## Docs
+
+The API docs is handled by the openapi and a frontend for the openapi docs.
+However, there is not docs that explain the low level architeture decisions. There is only in code docs, no web.  
+
+The docs should include:
+
+- ER diagrams
+- architecture overview (handled by the archimate repo)
+
+That's only a rough plan - we need to chat about it 
