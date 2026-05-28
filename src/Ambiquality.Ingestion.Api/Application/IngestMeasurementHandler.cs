@@ -1,20 +1,24 @@
-using Ambiquality.Core.Domain.Measurements;
 using Ambiquality.Core.Infrastructure.Persistence;
+using Ambiquality.Core.Messaging;
 using Ambiquality.Ingestion.Api.Application.Abstractions;
 using Ambiquality.Ingestion.Api.Infrastructure.Security;
-using Microsoft.EntityFrameworkCore;
 
 namespace Ambiquality.Ingestion.Api.Application;
 
 /// <summary>
-/// Validates and persists a single observation per UC10: authenticate the sensor,
-/// confirm it is active and declares the parameter, check the value range, then
-/// store durably before the caller is acked (Durability NFR — no ack before write).
+/// Validates a single observation per UC10 (authenticate the sensor, confirm it is
+/// active and declares the parameter, check the value range) then hands it to the
+/// durable ingestion queue. The acceptance timestamp (<c>ReceivedAt</c>) is stamped
+/// here, on the request thread, so subsequent queue lag never shifts it. Durability
+/// NFR is reinterpreted as "durably enqueued before ack": a publish failure yields
+/// <see cref="IngestRejectionReason.QueueUnavailable"/> (→ 503) and acks nothing;
+/// the actual hypertable write is performed asynchronously by Ingestion.Worker.
 /// </summary>
 public sealed class IngestMeasurementHandler(
     IClock clock,
     ISensorCatalog catalog,
-    IeqDbContext ieq)
+    IeqDbContext ieq,
+    IMeasurementQueuePublisher queue)
 {
     private const string ActiveStatusCode = "active";
 
@@ -46,17 +50,26 @@ public sealed class IngestMeasurementHandler(
                 IngestRejectionReason.ValueOutOfRange,
                 $"Value {command.Value} is outside the permitted range [{range.MinValue}, {range.MaxValue}] for '{command.ParameterCode}'.");
 
-        var measurement = Measurement.Record(
-            sensorId: command.SensorId,
-            parameterCode: command.ParameterCode,
-            value: command.Value,
-            unit: null,
-            observedAt: command.ObservedAt,
-            receivedAt: clock.UtcNow);
+        var message = new MeasurementMessage(
+            Id: Guid.NewGuid(),
+            SensorId: command.SensorId,
+            ParameterCode: command.ParameterCode,
+            Value: command.Value,
+            Unit: null,
+            ObservedAt: command.ObservedAt,
+            ReceivedAt: clock.UtcNow);
 
-        ieq.Measurements.Add(measurement);
-        await ieq.SaveChangesAsync(ct);
+        try
+        {
+            await queue.PublishAsync(message, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return IngestMeasurementResult.Reject(
+                IngestRejectionReason.QueueUnavailable,
+                "The ingestion queue is unavailable; the measurement was not accepted.");
+        }
 
-        return IngestMeasurementResult.Accepted(measurement.Id, measurement.ReceivedAt);
+        return IngestMeasurementResult.Accepted(message.Id, message.ReceivedAt);
     }
 }

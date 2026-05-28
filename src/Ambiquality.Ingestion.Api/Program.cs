@@ -1,12 +1,15 @@
 using Ambiquality.Core.Infrastructure.Persistence;
+using Ambiquality.Core.Messaging;
 using Ambiquality.Ingestion.Api.Api;
 using Ambiquality.Ingestion.Api.Application;
 using Ambiquality.Ingestion.Api.Application.Abstractions;
 using Ambiquality.Ingestion.Api.Infrastructure;
 using Ambiquality.Ingestion.Api.Infrastructure.Catalog;
+using Ambiquality.Ingestion.Api.Infrastructure.Queue;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Scalar.AspNetCore;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +29,19 @@ builder.Services.AddSingleton<ISensorCatalog>(sp =>
         ?? throw new InvalidOperationException("Missing 'EvidenceDb' connection string.");
     return new SensorCatalog(NpgsqlDataSource.Create(connectionString));
 });
+
+// --- Ingestion queue: durable write-ahead log (Redis stream) -----------------
+// The connection is resolved lazily so design-time tooling and tests that
+// override the publisher never open a socket to Redis.
+builder.Services.Configure<MeasurementQueueOptions>(
+    builder.Configuration.GetSection(MeasurementQueueOptions.SectionName));
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString("Redis")
+        ?? throw new InvalidOperationException("Missing 'Redis' connection string.");
+    return ConnectionMultiplexer.Connect(connectionString);
+});
+builder.Services.AddSingleton<IMeasurementQueuePublisher, RedisMeasurementQueuePublisher>();
 
 // --- Application -------------------------------------------------------------
 builder.Services.AddSingleton<IClock, SystemClock>();

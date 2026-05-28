@@ -21,6 +21,9 @@ public enum IngestRejectionReason
 
     /// <summary>Value lies outside the permitted range (UC10 alt. B) → 422.</summary>
     ValueOutOfRange,
+
+    /// <summary>The durable queue could not accept the measurement → 503; nothing is acked.</summary>
+    QueueUnavailable,
 }
 
 /// <summary>Outcome of an ingestion attempt: either accepted (persisted) or rejected.</summary>
