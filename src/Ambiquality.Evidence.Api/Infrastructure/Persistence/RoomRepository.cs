@@ -8,7 +8,7 @@ namespace Ambiquality.Evidence.Api.Infrastructure.Persistence;
 
 public sealed class RoomRepository(EvidenceDbContext dbContext) : IRoomRepository
 {
-    private const string DuplicateSlugConstraint = "IX_room_building_uri_slug_unique";
+    private const string DuplicateSlugConstraint = "IX_room_uri_slug_unique";
     private const string OverlappingValidityConstraint = "room_*_history_no_overlapping_validity";
 
     public async Task<Room?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -22,6 +22,11 @@ public sealed class RoomRepository(EvidenceDbContext dbContext) : IRoomRepositor
             .FirstOrDefaultAsync(
                 r => r.BuildingId == buildingId && r.UriSlug == slug.Value,
                 cancellationToken);
+    }
+
+    public async Task<bool> SlugExistsAsync(UriSlug slug, CancellationToken cancellationToken = default)
+    {
+        return await dbContext.Rooms.AnyAsync(r => r.UriSlug == slug.Value, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Room>> GetByBuildingIdAsync(Guid buildingId, CancellationToken cancellationToken = default)

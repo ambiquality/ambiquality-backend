@@ -70,7 +70,6 @@ public static class SensorEndpoints
             var command = new RegisterSensorCommand(
                 BuildingId: buildingId,
                 RoomId: roomId,
-                UriSlug: request.UriSlug,
                 Manufacturer: request.Manufacturer,
                 Model: request.Model,
                 SerialNumber: request.SerialNumber,

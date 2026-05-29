@@ -9,6 +9,9 @@ namespace Ambiquality.Evidence.Api.Tests.Api;
 
 public sealed class RoomEndpointsTests : IAsyncLifetime
 {
+    // Server-generated slug shape: prefix + 8-char base32 token (see RandomSlugGenerator).
+    private const string SlugPattern = "^rm-[a-z0-9]{8}$";
+
     private EvidenceApiFactory _factory = null!;
     private HttpClient _client = null!;
     private Guid _buildingId;
@@ -22,7 +25,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
         // Create a test building for room tests
         var buildingRequest = new
         {
-            UriSlug = "test-building-rooms",
             Name = "Test Building",
             Street = "123 Main St",
             City = "Prague",
@@ -51,7 +53,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     public async Task RegisterRoom_WithValidData_Returns201Created()
     {
         var request = new RegisterRoomRequest(
-            UriSlug: "room-101",
             Name: "Conference Room",
             Floor: 1,
             FunctionCode: "conference",
@@ -67,7 +68,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
         var result = await response.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         Assert.NotNull(result);
         Assert.NotEqual(Guid.Empty, result.Id);
-        Assert.Equal("room-101", result.UriSlug);
+        Assert.Matches(SlugPattern, result.UriSlug);
         Assert.Equal("Conference Room", result.Name);
         Assert.Equal(1, result.Floor);
     }
@@ -77,7 +78,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     {
         // Register a room first
         var registerRequest = new RegisterRoomRequest(
-            UriSlug: "room-202",
             Name: "Lab Room",
             Floor: 2,
             FunctionCode: "lab",
@@ -98,7 +98,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
         var retrievedRoom = await getResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         Assert.NotNull(retrievedRoom);
         Assert.Equal(roomId, retrievedRoom.Id);
-        Assert.Equal("room-202", retrievedRoom.UriSlug);
+        Assert.Equal(registeredRoom.UriSlug, retrievedRoom.UriSlug);
         Assert.Equal("Lab Room", retrievedRoom.Name);
         Assert.Equal(2, retrievedRoom.Floor);
     }
@@ -108,7 +108,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     {
         // Register a room first
         var registerRequest = new RegisterRoomRequest(
-            UriSlug: "storage-303",
             Name: "Storage Room",
             Floor: 3,
             FunctionCode: "storage",
@@ -121,13 +120,13 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
         var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
 
-        // Now retrieve it by slug
-        var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/storage-303");
+        // Now retrieve it by its server-generated slug
+        var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{registeredRoom!.UriSlug}");
 
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
         var retrievedRoom = await getResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         Assert.NotNull(retrievedRoom);
-        Assert.Equal("storage-303", retrievedRoom.UriSlug);
+        Assert.Equal(registeredRoom.UriSlug, retrievedRoom.UriSlug);
         Assert.Equal("Storage Room", retrievedRoom.Name);
         Assert.Equal(3, retrievedRoom.Floor);
     }
@@ -137,7 +136,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     {
         // Register a room first
         var registerRequest = new RegisterRoomRequest(
-            UriSlug: "office-404",
             Name: "Original Office Name",
             Floor: 4,
             FunctionCode: "office",
@@ -184,7 +182,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     {
         // Register a room
         var registerRequest = new RegisterRoomRequest(
-            UriSlug: "room-505",
             Name: "Test Room",
             Floor: 5,
             FunctionCode: "office",
@@ -210,7 +207,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     {
         // Register a room first
         var registerRequest = new RegisterRoomRequest(
-            UriSlug: "room-606",
             Name: "Original Name",
             Floor: 6,
             FunctionCode: "office",
@@ -246,7 +242,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     {
         // Register a room first
         var registerRequest = new RegisterRoomRequest(
-            UriSlug: "room-707",
             Name: "Floor Test Room",
             Floor: 1,
             FunctionCode: null,
@@ -282,7 +277,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     {
         // Register a room first
         var registerRequest = new RegisterRoomRequest(
-            UriSlug: "room-808",
             Name: "Pollution Test Room",
             Floor: 2,
             FunctionCode: "lab",
@@ -318,7 +312,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     {
         // Register a room with pollution source
         var registerRequest = new RegisterRoomRequest(
-            UriSlug: "room-909",
             Name: "Remove Source Test",
             Floor: 3,
             FunctionCode: null,
@@ -353,7 +346,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     public async Task ChangeRoomName_WithNonAdvancingValidFrom_Returns400BadRequest()
     {
         var registerRequest = new RegisterRoomRequest(
-            UriSlug: "room-bad-validfrom",
             Name: "Original Name",
             Floor: 1,
             FunctionCode: null,
@@ -398,7 +390,6 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     public async Task GetRoomById_WithInvalidAsOf_Returns400BadRequest()
     {
         var registerRequest = new RegisterRoomRequest(
-            UriSlug: "room-bad-asof",
             Name: "As-Of Room",
             Floor: 1,
             FunctionCode: null,

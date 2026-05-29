@@ -6,22 +6,21 @@ namespace Ambiquality.Evidence.Api.Application.Buildings;
 
 /// <summary>
 /// UC05 — registers a new building owned by the authenticated user. Builds
-/// the aggregate, persists it, and surfaces a DB-side slug collision as a
-/// <see cref="DuplicateUriSlugException"/>.
+/// the aggregate with a server-generated <c>bld-</c> slug and persists it.
 /// </summary>
 public sealed class RegisterBuildingHandler(
     IBuildingRepository repository,
     IClock clock,
-    ICurrentUser currentUser)
+    ICurrentUser currentUser,
+    ISlugGenerator slugGenerator)
 {
     public async Task<RegisterBuildingResult> HandleAsync(
         RegisterBuildingCommand command, CancellationToken cancellationToken = default)
     {
-        var slug = UriSlug.Create(command.UriSlug);
-
-        // First-line slug check (DB has a UNIQUE index as the source of truth).
-        if (await repository.GetBySlugAsync(slug, cancellationToken) is not null)
-            throw new DuplicateUriSlugException();
+        var slug = await slugGenerator.NextAsync(
+            "bld",
+            async (candidate, ct) => await repository.GetBySlugAsync(candidate, ct) is not null,
+            cancellationToken);
 
         var address = Address.Create(command.Street, command.City, command.Postcode, command.Country);
         var anonymization = ParseAnonymization(command.AnonymizationLevel);

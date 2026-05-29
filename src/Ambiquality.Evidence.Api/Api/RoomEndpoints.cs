@@ -84,7 +84,6 @@ public static class RoomEndpoints
         {
             var command = new RegisterRoomCommand(
                 BuildingId: buildingId,
-                UriSlug: request.UriSlug,
                 Name: request.Name,
                 Floor: request.Floor,
                 FunctionCode: request.FunctionCode,

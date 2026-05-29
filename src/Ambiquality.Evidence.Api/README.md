@@ -74,6 +74,14 @@ Public path prefix is **`/evidence`** when accessed through the Caddy proxy (e.g
 `http://localhost:8080/evidence/buildings`); the table below shows the routes as the service
 registers them. All read routes answer both `GET` and `HEAD`.
 
+**URI slugs are server-generated, not client-supplied.** Registration ignores any slug in the
+request body and assigns an opaque, globally-unique handle: a type prefix plus an 8-char
+base32 token — `bld-7gk2qp` (building), `rm-k2p8wz` (room), `sns-3vh6nd` (sensor). Generation
+lives in `Infrastructure/RandomSlugGenerator.cs` (behind `ISlugGenerator`); the slug is immutable
+and remains the public read handle (`GET /buildings/{slug}` etc.). Because the server owns it,
+registration never fails with "slug already in use". Room slugs are **globally** unique (not
+per-building) — same as sensors.
+
 ### Buildings
 
 | Method | Path | Description |
@@ -193,7 +201,7 @@ at `/scalar/v1` and `/openapi/v1.json` — directly at <http://localhost:6200/sc
 | Building / room / sensor not found | `404` | `building-not-found`, `room-not-found`, `sensor-not-found` |
 | Pollution source / measured parameter not found | `404` | `pollution-source-not-found`, `measured-parameter-not-found` |
 | Not the owner | `403` | `forbidden` |
-| Slug already taken | `409` | `duplicate-uri-slug` |
+| Slug already taken (DB race safety net; unreachable on the create path now slugs are server-generated) | `409` | `duplicate-uri-slug` |
 | Validity period overlaps an existing one | `409` | `overlapping-validity-range` |
 | Code not in the relevant codelist | `400` | `unknown-codelist-code` |
 | Any other domain-rule violation (bad valid-from, empty value, non-UTC timestamp) | `400` | `domain-rule-violation` |
