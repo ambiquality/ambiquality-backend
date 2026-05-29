@@ -92,6 +92,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:6200
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=evidence_api;Password=evidence_api_dev_password"
+      Jwt__Issuer: "ambiquality-auth"
+      Jwt__Audience: "ambiquality"
+      Jwt__Secret: ${JWT_SECRET:?error}
     ports:
       - "6200:6200"
     networks:
