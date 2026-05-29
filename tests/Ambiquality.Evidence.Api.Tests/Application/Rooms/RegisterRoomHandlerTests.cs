@@ -3,6 +3,7 @@ using Ambiquality.Evidence.Api.Application.Rooms;
 using Ambiquality.Evidence.Api.Domain.Buildings;
 using Ambiquality.Evidence.Api.Domain.Common;
 using Ambiquality.Evidence.Api.Domain.Rooms;
+using Ambiquality.Evidence.Api.Tests.TestSupport;
 using NSubstitute;
 
 namespace Ambiquality.Evidence.Api.Tests.Application.Rooms;
@@ -38,7 +39,6 @@ public class RegisterRoomHandlerTests
     {
         var command = new RegisterRoomCommand(
             BuildingId: BuildingId,
-            UriSlug: "room-101",
             Name: "Room 101",
             Floor: 1,
             FunctionCode: "office",
@@ -56,7 +56,7 @@ public class RegisterRoomHandlerTests
 
         var mockRepo = Substitute.For<IRoomRepository>();
 
-        var handler = new RegisterRoomHandler(mockClock, mockCurrentUser, mockRepo, BuildingRepoOwnedBy(UserId));
+        var handler = new RegisterRoomHandler(mockClock, mockCurrentUser, mockRepo, BuildingRepoOwnedBy(UserId), new StubSlugGenerator());
         var result = await handler.Handle(command, CancellationToken.None);
 
         Assert.NotEqual(Guid.Empty, result.RoomId);
@@ -71,7 +71,6 @@ public class RegisterRoomHandlerTests
     {
         var command = new RegisterRoomCommand(
             BuildingId: BuildingId,
-            UriSlug: "room-101",
             Name: "Room 101",
             Floor: 1,
             FunctionCode: "kitchen",
@@ -92,7 +91,7 @@ public class RegisterRoomHandlerTests
         mockRepo.When(r => r.Add(Arg.Any<Room>()))
             .Do(info => capturedRoom = info.Arg<Room>());
 
-        var handler = new RegisterRoomHandler(mockClock, mockCurrentUser, mockRepo, BuildingRepoOwnedBy(UserId));
+        var handler = new RegisterRoomHandler(mockClock, mockCurrentUser, mockRepo, BuildingRepoOwnedBy(UserId), new StubSlugGenerator());
         await handler.Handle(command, CancellationToken.None);
 
         Assert.NotNull(capturedRoom);

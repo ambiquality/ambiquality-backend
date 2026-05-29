@@ -132,7 +132,7 @@ public sealed class RoomRepositoryTests(PostgresFixture postgres)
     }
 
     [Fact]
-    public async Task DuplicateUriSlugPerBuilding_ThrowsException()
+    public async Task DuplicateUriSlug_SameBuilding_ThrowsException()
     {
         var (context, repository, building) = await SetupAsync();
         try
@@ -176,6 +176,75 @@ public sealed class RoomRepositoryTests(PostgresFixture postgres)
             repository.Add(room2);
 
             // Act & Assert
+            await Assert.ThrowsAsync<DuplicateUriSlugException>(
+                async () => await repository.SaveChangesAsync());
+        }
+        finally
+        {
+            await context.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task DuplicateUriSlug_AcrossBuildings_ThrowsException()
+    {
+        // Slugs are now globally unique, so the same slug in a *different*
+        // building is also rejected (previously allowed under the per-building index).
+        var (context, repository, building) = await SetupAsync();
+        try
+        {
+            var otherBuilding = Building.Register(
+                slug: UriSlug.Create($"other-building-{Guid.NewGuid().ToString()[..8]}"),
+                ownerId: Guid.NewGuid(),
+                createdBy: Guid.NewGuid(),
+                name: "Other Building",
+                address: Address.Create("Test St 2", "Test City", "12345", "CZ"),
+                buildingTypeCode: "office",
+                coordinates: null,
+                anonymization: AnonymizationLevel.Precise,
+                yearBuilt: 2020,
+                yearRenovated: null,
+                now: DateTime.UtcNow);
+            context.Buildings.Add(otherBuilding);
+            await context.SaveChangesAsync();
+
+            var slug = UriSlug.Create("shared-slug");
+            var recordedBy = Guid.NewGuid();
+            var now = DateTime.UtcNow;
+
+            var room1 = Room.Register(
+                slug: slug,
+                buildingId: building.Id,
+                createdBy: recordedBy,
+                name: "Room in building 1",
+                floor: FloorNumber.Create(1),
+                functionCode: null,
+                exposureCode: null,
+                areaM2: null,
+                ceilingHeightM: null,
+                ventilationType: null,
+                pollutionSources: Array.Empty<string>(),
+                now: now);
+
+            repository.Add(room1);
+            await repository.SaveChangesAsync();
+
+            var room2 = Room.Register(
+                slug: slug,
+                buildingId: otherBuilding.Id,
+                createdBy: recordedBy,
+                name: "Room in building 2",
+                floor: FloorNumber.Create(1),
+                functionCode: null,
+                exposureCode: null,
+                areaM2: null,
+                ceilingHeightM: null,
+                ventilationType: null,
+                pollutionSources: Array.Empty<string>(),
+                now: now);
+
+            repository.Add(room2);
+
             await Assert.ThrowsAsync<DuplicateUriSlugException>(
                 async () => await repository.SaveChangesAsync());
         }

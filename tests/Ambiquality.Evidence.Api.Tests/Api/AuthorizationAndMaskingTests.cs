@@ -48,14 +48,14 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
     [Fact]
     public async Task Mutation_WhenAnonymous_Returns401()
     {
-        var response = await _anonymous.PostAsJsonAsync("/buildings", BuildingRequest("anon-register"));
+        var response = await _anonymous.PostAsJsonAsync("/buildings", BuildingRequest());
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
     public async Task ChangeBuilding_ByNonOwner_Returns403()
     {
-        var building = await RegisterAsOwnerAsync("owned-by-default");
+        var building = await RegisterAsOwnerAsync();
 
         var change = new ChangeBuildingNameRequest("Hijacked", DateTime.UtcNow.AddHours(1));
         var response = await _otherUser.PutAsJsonAsync($"/buildings/{building.Id}/name", change);
@@ -66,7 +66,7 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
     [Fact]
     public async Task ChangeBuilding_ByOwner_Returns204()
     {
-        var building = await RegisterAsOwnerAsync("owner-can-change");
+        var building = await RegisterAsOwnerAsync();
 
         var change = new ChangeBuildingNameRequest("Renamed", DateTime.UtcNow.AddHours(1));
         var response = await _owner.PutAsJsonAsync($"/buildings/{building.Id}/name", change);
@@ -77,7 +77,7 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
     [Fact]
     public async Task GetBuilding_AsOwner_ReturnsPreciseCoordinates()
     {
-        var building = await RegisterAsOwnerAsync("precise-for-owner", "municipality");
+        var building = await RegisterAsOwnerAsync("municipality");
 
         var snapshot = await ReadSnapshot(_owner, building.Id);
 
@@ -88,7 +88,7 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
     [Fact]
     public async Task GetBuilding_AsNonOwner_MasksToMunicipality()
     {
-        var building = await RegisterAsOwnerAsync("masked-for-others", "municipality");
+        var building = await RegisterAsOwnerAsync("municipality");
 
         var snapshot = await ReadSnapshot(_otherUser, building.Id);
 
@@ -100,7 +100,7 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
     [Fact]
     public async Task GetBuilding_Anonymous_MasksToStreet()
     {
-        var building = await RegisterAsOwnerAsync("masked-for-anon", "street");
+        var building = await RegisterAsOwnerAsync("street");
 
         var snapshot = await ReadSnapshot(_anonymous, building.Id);
 
@@ -112,22 +112,22 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
     [Fact]
     public async Task UserProjection_IsStablePerSub_AndDistinctAcrossUsers()
     {
-        var b1 = await RegisterAsOwnerAsync("proj-stable-1");
-        var b2 = await RegisterAsOwnerAsync("proj-stable-2");
+        var b1 = await RegisterAsOwnerAsync();
+        var b2 = await RegisterAsOwnerAsync();
 
         var s1 = await ReadSnapshot(_owner, b1.Id);
         var s2 = await ReadSnapshot(_owner, b2.Id);
         Assert.Equal(s1.OwnerId, s2.OwnerId); // same sub -> same projection row
 
-        var otherResponse = await _otherUser.PostAsJsonAsync("/buildings", BuildingRequest("proj-other"));
+        var otherResponse = await _otherUser.PostAsJsonAsync("/buildings", BuildingRequest());
         var b3 = (await otherResponse.Content.ReadFromJsonAsync<RegisterBuildingResult>())!;
         var s3 = await ReadSnapshot(_owner, b3.Id);
         Assert.NotEqual(s1.OwnerId, s3.OwnerId); // different sub -> different projection row
     }
 
-    private async Task<RegisterBuildingResult> RegisterAsOwnerAsync(string slug, string anonymization = "precise")
+    private async Task<RegisterBuildingResult> RegisterAsOwnerAsync(string anonymization = "precise")
     {
-        var response = await _owner.PostAsJsonAsync("/buildings", BuildingRequest(slug, anonymization));
+        var response = await _owner.PostAsJsonAsync("/buildings", BuildingRequest(anonymization));
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<RegisterBuildingResult>())!;
     }
@@ -139,9 +139,8 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
         return (await response.Content.ReadFromJsonAsync<BuildingSnapshotResponse>())!;
     }
 
-    private static RegisterBuildingRequest BuildingRequest(string slug, string anonymization = "precise") =>
+    private static RegisterBuildingRequest BuildingRequest(string anonymization = "precise") =>
         new(
-            UriSlug: slug,
             Name: "Auth Test Building",
             Street: "123 Main St",
             City: "Prague",

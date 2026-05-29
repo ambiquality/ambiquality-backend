@@ -8,6 +8,9 @@ namespace Ambiquality.Evidence.Api.Tests.Api;
 
 public sealed class SensorEndpointsTests : IAsyncLifetime
 {
+    // Server-generated slug shape: prefix + 8-char base32 token (see RandomSlugGenerator).
+    private const string SlugPattern = "^sns-[a-z0-9]{8}$";
+
     private EvidenceApiFactory _factory = null!;
     private HttpClient _client = null!;
     private Guid _buildingId;
@@ -21,7 +24,6 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
 
         var buildingRequest = new
         {
-            UriSlug = "test-building-sensors",
             Name = "Test Building",
             Street = "123 Main St",
             City = "Prague",
@@ -39,7 +41,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         var building = await buildingResponse.Content.ReadFromJsonAsync<RegisterBuildingResult>();
         _buildingId = building?.Id ?? throw new InvalidOperationException("Failed to create test building");
 
-        _roomId = await CreateRoomAsync("sensor-host-room");
+        _roomId = await CreateRoomAsync();
     }
 
     public async Task DisposeAsync()
@@ -48,10 +50,9 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         await _factory.DisposeAsync();
     }
 
-    private async Task<Guid> CreateRoomAsync(string slug)
+    private async Task<Guid> CreateRoomAsync()
     {
         var roomRequest = new RegisterRoomRequest(
-            UriSlug: slug,
             Name: "Host Room",
             Floor: 1,
             FunctionCode: null,
@@ -67,12 +68,10 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     }
 
     private async Task<SensorSnapshotResponse> RegisterSensorAsync(
-        string slug,
         string statusCode = "active",
         string[]? parameters = null)
     {
         var request = new RegisterSensorRequest(
-            UriSlug: slug,
             Manufacturer: "Aranet",
             Model: "Aranet4",
             SerialNumber: "SN-0001",
@@ -88,10 +87,10 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task RegisterSensor_WithValidData_Returns201Created()
     {
-        var sensor = await RegisterSensorAsync("aranet4-101");
+        var sensor = await RegisterSensorAsync();
 
         Assert.NotEqual(Guid.Empty, sensor.Id);
-        Assert.Equal("aranet4-101", sensor.UriSlug);
+        Assert.Matches(SlugPattern, sensor.UriSlug);
         Assert.Equal(_roomId, sensor.RoomId);
         Assert.Equal(_buildingId, sensor.BuildingId);
         Assert.Equal("active", sensor.StatusCode);
@@ -102,7 +101,6 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     public async Task RegisterSensor_ReturnsPlaintextApiKeyOnce()
     {
         var request = new RegisterSensorRequest(
-            UriSlug: "aranet4-key",
             Manufacturer: "Aranet",
             Model: "Aranet4",
             SerialNumber: "SN-0001",
@@ -121,7 +119,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task GetSensor_DoesNotLeakApiKey()
     {
-        var registered = await RegisterSensorAsync("aranet4-nokey");
+        var registered = await RegisterSensorAsync();
 
         var response = await _client.GetAsync(
             $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
@@ -135,7 +133,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task GetSensorById_WithValidId_Returns200Ok()
     {
-        var registered = await RegisterSensorAsync("aranet4-202");
+        var registered = await RegisterSensorAsync();
 
         var response = await _client.GetAsync(
             $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
@@ -149,20 +147,20 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task GetSensorBySlug_WithValidSlug_Returns200Ok()
     {
-        await RegisterSensorAsync("aranet4-303");
+        var registered = await RegisterSensorAsync();
 
         var response = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/aranet4-303");
+            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.UriSlug}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var sensor = await response.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
-        Assert.Equal("aranet4-303", sensor!.UriSlug);
+        Assert.Equal(registered.UriSlug, sensor!.UriSlug);
     }
 
     [Fact]
     public async Task GetSensorById_WithAsOf_ReturnsSnapshotAtTime()
     {
-        var registered = await RegisterSensorAsync("aranet4-404");
+        var registered = await RegisterSensorAsync();
         var asOf = registered.AsOf.ToString("o");
 
         var response = await _client.GetAsync(
@@ -185,7 +183,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task GetSensorById_FromWrongRoom_Returns404NotFound()
     {
-        var registered = await RegisterSensorAsync("aranet4-505");
+        var registered = await RegisterSensorAsync();
         var otherRoom = Guid.NewGuid();
 
         var response = await _client.GetAsync(
@@ -197,7 +195,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task ChangeSensorIdentity_WithValidData_Returns204NoContent()
     {
-        var registered = await RegisterSensorAsync("aranet4-606");
+        var registered = await RegisterSensorAsync();
 
         var request = new ChangeSensorIdentityRequest("Aranet", "Aranet4 Pro", "SN-9999", DateTime.UtcNow);
         var response = await _client.PutAsJsonAsync(
@@ -214,7 +212,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task ChangeSensorStatus_WithValidData_Returns204NoContent()
     {
-        var registered = await RegisterSensorAsync("aranet4-707");
+        var registered = await RegisterSensorAsync();
 
         var request = new ChangeSensorStatusRequest("maintenance", DateTime.UtcNow);
         var response = await _client.PutAsJsonAsync(
@@ -230,8 +228,8 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task ChangeSensorPlacement_MovesSensorToAnotherRoom()
     {
-        var registered = await RegisterSensorAsync("aranet4-808");
-        var targetRoom = await CreateRoomAsync("sensor-target-room");
+        var registered = await RegisterSensorAsync();
+        var targetRoom = await CreateRoomAsync();
 
         var request = new ChangeSensorPlacementRequest(targetRoom, DateTime.UtcNow);
         var response = await _client.PutAsJsonAsync(
@@ -255,7 +253,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task ChangeSensorPlacement_ToNonexistentRoom_Returns404NotFound()
     {
-        var registered = await RegisterSensorAsync("aranet4-818");
+        var registered = await RegisterSensorAsync();
 
         var request = new ChangeSensorPlacementRequest(Guid.NewGuid(), DateTime.UtcNow);
         var response = await _client.PutAsJsonAsync(
@@ -267,7 +265,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task AddMeasuredParameter_WithValidData_Returns200Ok()
     {
-        var registered = await RegisterSensorAsync("aranet4-909", parameters: new[] { "co2" });
+        var registered = await RegisterSensorAsync(parameters: new[] { "co2" });
 
         var request = new AddMeasuredParameterRequest("humidity", DateTime.UtcNow);
         var response = await _client.PostAsJsonAsync(
@@ -283,7 +281,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task RemoveMeasuredParameter_WithValidData_Returns200Ok()
     {
-        var registered = await RegisterSensorAsync("aranet4-910", parameters: new[] { "co2", "voc" });
+        var registered = await RegisterSensorAsync(parameters: new[] { "co2", "voc" });
 
         var url = $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/measured-parameters/voc"
                 + $"?validTo={Uri.EscapeDataString(DateTime.UtcNow.ToString("o"))}";
@@ -301,7 +299,6 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     public async Task RegisterSensor_WithUnknownStatusCode_Returns400BadRequest()
     {
         var request = new RegisterSensorRequest(
-            UriSlug: "aranet4-badstatus",
             Manufacturer: "Aranet",
             Model: "Aranet4",
             SerialNumber: "SN-1",
@@ -318,7 +315,6 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     public async Task RegisterSensor_WithUnknownParameterCode_Returns400BadRequest()
     {
         var request = new RegisterSensorRequest(
-            UriSlug: "aranet4-badparam",
             Manufacturer: "Aranet",
             Model: "Aranet4",
             SerialNumber: "SN-1",
@@ -334,7 +330,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task ChangeSensorStatus_WithNonAdvancingValidFrom_Returns400BadRequest()
     {
-        var registered = await RegisterSensorAsync("aranet4-badvalidfrom");
+        var registered = await RegisterSensorAsync();
 
         var request = new ChangeSensorStatusRequest("maintenance", DateTime.UtcNow.AddYears(-1));
         var response = await _client.PutAsJsonAsync(
@@ -356,7 +352,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task GetSensorById_WithInvalidAsOf_Returns400BadRequest()
     {
-        var registered = await RegisterSensorAsync("aranet4-badasof");
+        var registered = await RegisterSensorAsync();
 
         var response = await _client.GetAsync(
             $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}?asOf=not-a-timestamp");
@@ -367,7 +363,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task AddMeasuredParameter_OverlappingSameParameter_Returns409Conflict()
     {
-        var registered = await RegisterSensorAsync("aranet4-overlap", parameters: new[] { "co2" });
+        var registered = await RegisterSensorAsync(parameters: new[] { "co2" });
 
         // co2 already has an open [created, +inf) row; adding it again with an
         // overlapping validity must trip the GiST exclusion constraint.

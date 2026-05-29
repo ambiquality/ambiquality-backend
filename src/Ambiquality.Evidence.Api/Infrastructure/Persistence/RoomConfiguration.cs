@@ -25,10 +25,11 @@ public sealed class RoomConfiguration : IEntityTypeConfiguration<Room>
             .HasMaxLength(255)
             .IsRequired();
 
-        // Composite unique index: (building_id, uri_slug) — rooms can reuse slug across buildings
-        builder.HasIndex(r => new { r.BuildingId, r.UriSlug })
+        // Slugs are server-generated and globally unique (like sensors), so a
+        // room slug never collides regardless of building.
+        builder.HasIndex(r => r.UriSlug)
             .IsUnique()
-            .HasDatabaseName("IX_room_building_uri_slug_unique");
+            .HasDatabaseName("IX_room_uri_slug_unique");
 
         builder.Property(r => r.CreatedBy)
             .HasColumnName("created_by")

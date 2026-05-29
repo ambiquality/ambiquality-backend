@@ -2,7 +2,6 @@ namespace Ambiquality.Evidence.Api.Application.Buildings;
 
 /// <summary>Inputs for the Building aggregate use cases (UC05, UC07).</summary>
 public sealed record RegisterBuildingCommand(
-    string UriSlug,
     string Name,
     string Street,
     string City,

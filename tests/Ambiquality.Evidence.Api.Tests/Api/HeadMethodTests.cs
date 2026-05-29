@@ -26,9 +26,7 @@ public sealed class HeadMethodTests : IAsyncLifetime
         await _factory.InitializeAsync();
         _client = _factory.CreateClient();
 
-        _buildingSlug = "head-test-building";
         var buildingRequest = new RegisterBuildingRequest(
-            UriSlug: _buildingSlug,
             Name: "Head Test Building",
             Street: "123 Main St",
             City: "Prague",
@@ -44,10 +42,9 @@ public sealed class HeadMethodTests : IAsyncLifetime
         var buildingResponse = await _client.PostAsJsonAsync("/buildings", buildingRequest);
         var building = await buildingResponse.Content.ReadFromJsonAsync<RegisterBuildingResult>();
         _buildingId = building!.Id;
+        _buildingSlug = building.UriSlug;
 
-        _roomSlug = "head-test-room";
         var roomRequest = new RegisterRoomRequest(
-            UriSlug: _roomSlug,
             Name: "Head Test Room",
             Floor: 1,
             FunctionCode: "office",
@@ -60,6 +57,7 @@ public sealed class HeadMethodTests : IAsyncLifetime
         var roomResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", roomRequest);
         var room = await roomResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         _roomId = room!.Id;
+        _roomSlug = room.UriSlug;
     }
 
     public async Task DisposeAsync()

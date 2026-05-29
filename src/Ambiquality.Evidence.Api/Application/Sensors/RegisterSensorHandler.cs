@@ -11,14 +11,18 @@ public sealed class RegisterSensorHandler(
     ICurrentUser currentUser,
     ISensorRepository repository,
     IBuildingRepository buildingRepository,
-    ISensorApiKeyService apiKeyService)
+    ISensorApiKeyService apiKeyService,
+    ISlugGenerator slugGenerator)
 {
     public async Task<RegisterSensorResponse> Handle(RegisterSensorCommand command, CancellationToken ct)
     {
         await BuildingAuthorizer.LoadOwnedAsync(
             buildingRepository, command.BuildingId, currentUser, ct);
 
-        var slug = UriSlug.Create(command.UriSlug);
+        var slug = await slugGenerator.NextAsync(
+            "sns",
+            async (candidate, token) => await repository.GetBySlugAsync(candidate, token) is not null,
+            ct);
         var status = SensorCodelists.ParseStatus(command.StatusCode);
         var parameters = command.MeasuredParameters.Select(SensorCodelists.ParseParameter).ToList();
 

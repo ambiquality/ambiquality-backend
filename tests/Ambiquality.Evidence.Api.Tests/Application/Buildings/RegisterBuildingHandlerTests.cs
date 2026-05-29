@@ -15,12 +15,12 @@ public class RegisterBuildingHandlerTests
     private readonly InMemoryBuildingRepository _repository = new();
     private readonly FakeClock _clock = new(Now);
     private readonly StubCurrentUser _currentUser = new(AuthUserId, ProjectionId);
+    private readonly StubSlugGenerator _slugGenerator = new();
 
     private RegisterBuildingHandler CreateHandler() =>
-        new(_repository, _clock, _currentUser);
+        new(_repository, _clock, _currentUser, _slugGenerator);
 
-    private static RegisterBuildingCommand SampleCommand(string slug = "praha-budova-01") => new(
-        UriSlug: slug,
+    private static RegisterBuildingCommand SampleCommand() => new(
         Name: "Sídlo VŠE",
         Street: "Náměstí 1",
         City: "Praha",
@@ -42,7 +42,8 @@ public class RegisterBuildingHandlerTests
 
         var building = Assert.Single(_repository.Buildings);
         Assert.Equal(building.Id, result.Id);
-        Assert.Equal("praha-budova-01", result.UriSlug);
+        Assert.StartsWith("bld-", result.UriSlug);
+        Assert.Equal(building.UriSlug, result.UriSlug);
         Assert.Equal(ProjectionId, building.OwnerId);
         Assert.Equal(ProjectionId, building.CreatedBy);
         Assert.Equal(Now, building.CreatedAt);
@@ -79,24 +80,17 @@ public class RegisterBuildingHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithInvalidSlug_Throws()
+    public async Task Handle_GeneratesDistinctSlugForEachBuilding()
     {
         var handler = CreateHandler();
-        var command = SampleCommand("UPPERCASE");
 
-        await Assert.ThrowsAsync<InvalidUriSlugException>(() => handler.HandleAsync(command));
-        Assert.Empty(_repository.Buildings);
-    }
+        var first = await handler.HandleAsync(SampleCommand());
+        var second = await handler.HandleAsync(SampleCommand());
 
-    [Fact]
-    public async Task Handle_WithDuplicateSlug_Throws()
-    {
-        var handler = CreateHandler();
-        await handler.HandleAsync(SampleCommand());
-
-        await Assert.ThrowsAsync<DuplicateUriSlugException>(
-            () => handler.HandleAsync(SampleCommand()));
-        Assert.Single(_repository.Buildings);
+        Assert.Equal(2, _repository.Buildings.Count);
+        Assert.StartsWith("bld-", first.UriSlug);
+        Assert.StartsWith("bld-", second.UriSlug);
+        Assert.NotEqual(first.UriSlug, second.UriSlug);
     }
 
     [Fact]

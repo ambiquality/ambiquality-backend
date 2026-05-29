@@ -10,14 +10,16 @@ public sealed class RegisterRoomHandler(
     IClock clock,
     ICurrentUser currentUser,
     IRoomRepository repository,
-    IBuildingRepository buildingRepository)
+    IBuildingRepository buildingRepository,
+    ISlugGenerator slugGenerator)
 {
     public async Task<RegisterRoomResponse> Handle(RegisterRoomCommand command, CancellationToken ct)
     {
         await BuildingAuthorizer.LoadOwnedAsync(
             buildingRepository, command.BuildingId, currentUser, ct);
 
-        var slug = UriSlug.Create(command.UriSlug);
+        var slug = await slugGenerator.NextAsync(
+            "rm", repository.SlugExistsAsync, ct);
 
         var room = Room.Register(
             slug: slug,

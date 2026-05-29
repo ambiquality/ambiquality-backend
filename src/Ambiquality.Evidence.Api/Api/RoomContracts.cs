@@ -1,7 +1,6 @@
 namespace Ambiquality.Evidence.Api.Api;
 
 public sealed record RegisterRoomRequest(
-    string UriSlug,
     string Name,
     byte Floor,
     string? FunctionCode,

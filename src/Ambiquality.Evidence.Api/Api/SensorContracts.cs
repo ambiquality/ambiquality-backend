@@ -1,7 +1,6 @@
 namespace Ambiquality.Evidence.Api.Api;
 
 public sealed record RegisterSensorRequest(
-    string UriSlug,
     string Manufacturer,
     string Model,
     string SerialNumber,

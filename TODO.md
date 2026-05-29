@@ -55,10 +55,6 @@ That's only a rough plan - we need to chat about it
 
 Use must have the option to delete their account in `Ambiquality.Auth.Api`. Add `account/{id}/delete` - only the user that has the same id can delete the account. 
 
-## Evidence Api uri slug
-
-The uri slug must be generated randomly for example `bld-0123456789` or `bld-guid`. The user should not have any control over it, as he could get very frustrated with the already in use errors. I would probably go with incremental number like `bld-1`, `bld-2` etc. The same goes for all the uri slugs, even rooms and sensors!   
-
 ## Evidence HTTP methods
 
 There are HTTP `DELETE` methods in the evidence, the semantic meanings is wrong for the endpoints. Nothing get's actually deleted, only the status changes as every change is versioned. The question is if it should be left as is or corrected with `PUT`/`PATCH`/`POST`. 

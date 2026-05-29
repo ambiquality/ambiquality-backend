@@ -3,7 +3,6 @@ namespace Ambiquality.Evidence.Api.Application.Sensors;
 public sealed record RegisterSensorCommand(
     Guid BuildingId,
     Guid RoomId,
-    string UriSlug,
     string Manufacturer,
     string Model,
     string SerialNumber,

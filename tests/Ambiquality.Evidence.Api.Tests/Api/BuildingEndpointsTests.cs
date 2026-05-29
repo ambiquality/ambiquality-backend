@@ -11,6 +11,9 @@ namespace Ambiquality.Evidence.Api.Tests.Api;
 
 public sealed class BuildingEndpointsTests : IAsyncLifetime
 {
+    // Server-generated slug shape: prefix + 8-char base32 token (see RandomSlugGenerator).
+    private const string SlugPattern = "^bld-[a-z0-9]{8}$";
+
     private EvidenceApiFactory _factory = null!;
     private HttpClient _client = null!;
 
@@ -31,7 +34,6 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     public async Task RegisterBuilding_WithValidData_Returns201Created()
     {
         var request = new RegisterBuildingRequest(
-            UriSlug: "test-building-001",
             Name: "Test Building",
             Street: "123 Main St",
             City: "Prague",
@@ -50,59 +52,26 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
         var result = await response.Content.ReadFromJsonAsync<RegisterBuildingResult>();
         Assert.NotNull(result);
         Assert.NotEqual(Guid.Empty, result.Id);
-        Assert.Equal("test-building-001", result.UriSlug);
+        Assert.Matches(SlugPattern, result.UriSlug);
     }
 
     [Fact]
-    public async Task RegisterBuilding_WithDuplicateSlug_Returns409Conflict()
+    public async Task RegisterBuilding_TwiceWithSameData_ProducesDistinctSlugs()
     {
-        var request = new RegisterBuildingRequest(
-            UriSlug: "duplicate-building",
-            Name: "Building 1",
-            Street: "123 Main St",
-            City: "Prague",
-            Postcode: "12000",
-            Country: "CZ",
-            BuildingTypeCode: "HOUSE",
-            Latitude: 50.0755,
-            Longitude: 14.4378,
-            AnonymizationLevel: "precise",
-            YearBuilt: 2000,
-            YearRenovated: null);
+        // Slugs are server-generated, so identical input never collides.
+        var first = await RegisterBuildingAsync("Building 1");
+        var second = await RegisterBuildingAsync("Building 1");
 
-        // Register first building
-        var response1 = await _client.PostAsJsonAsync("/buildings", request);
-        Assert.Equal(HttpStatusCode.Created, response1.StatusCode);
-
-        // Attempt to register duplicate
-        var response2 = await _client.PostAsJsonAsync("/buildings", request);
-        Assert.Equal(HttpStatusCode.Conflict, response2.StatusCode);
+        Assert.Matches(SlugPattern, first.UriSlug);
+        Assert.Matches(SlugPattern, second.UriSlug);
+        Assert.NotEqual(first.UriSlug, second.UriSlug);
     }
 
     [Fact]
     public async Task ChangeBuildingName_WithValidData_Returns204NoContent()
     {
-        // First register a building
-        var registerRequest = new RegisterBuildingRequest(
-            UriSlug: "building-for-name-change",
-            Name: "Original Name",
-            Street: "123 Main St",
-            City: "Prague",
-            Postcode: "12000",
-            Country: "CZ",
-            BuildingTypeCode: "HOUSE",
-            Latitude: 50.0755,
-            Longitude: 14.4378,
-            AnonymizationLevel: "precise",
-            YearBuilt: 2000,
-            YearRenovated: null);
+        var building = await RegisterBuildingAsync("Original Name");
 
-        var registerResponse = await _client.PostAsJsonAsync("/buildings", registerRequest);
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
-        var building = await registerResponse.Content.ReadFromJsonAsync<RegisterBuildingResult>();
-        Assert.NotNull(building);
-
-        // Now change the name
         var changeRequest = new ChangeBuildingNameRequest(
             NewName: "New Name",
             ValidFrom: DateTime.UtcNow.AddHours(1));
@@ -114,27 +83,8 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task ChangeBuildingAddress_WithValidData_Returns204NoContent()
     {
-        // First register a building
-        var registerRequest = new RegisterBuildingRequest(
-            UriSlug: "building-for-address-change",
-            Name: "Building Name",
-            Street: "123 Old St",
-            City: "Prague",
-            Postcode: "12000",
-            Country: "CZ",
-            BuildingTypeCode: "HOUSE",
-            Latitude: 50.0755,
-            Longitude: 14.4378,
-            AnonymizationLevel: "precise",
-            YearBuilt: 2000,
-            YearRenovated: null);
+        var building = await RegisterBuildingAsync("Building Name");
 
-        var registerResponse = await _client.PostAsJsonAsync("/buildings", registerRequest);
-        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
-        var building = await registerResponse.Content.ReadFromJsonAsync<RegisterBuildingResult>();
-        Assert.NotNull(building);
-
-        // Now change the address
         var changeRequest = new ChangeBuildingAddressRequest(
             Street: "456 New St",
             City: "Brno",
@@ -150,7 +100,6 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     public async Task RegisterBuilding_WithInvalidAnonymizationLevel_Returns400BadRequest()
     {
         var request = new RegisterBuildingRequest(
-            UriSlug: "bad-anonymization",
             Name: "Test Building",
             Street: "123 Main St",
             City: "Prague",
@@ -181,7 +130,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task GetBuildingById_WithValidId_Returns200WithData()
     {
-        var building = await RegisterBuildingAsync("building-get-by-id", "Gettable Building");
+        var building = await RegisterBuildingAsync("Gettable Building");
 
         var response = await _client.GetAsync($"/buildings/{building.Id}");
 
@@ -189,7 +138,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
         var snapshot = await response.Content.ReadFromJsonAsync<BuildingSnapshotResponse>();
         Assert.NotNull(snapshot);
         Assert.Equal(building.Id, snapshot.Id);
-        Assert.Equal("building-get-by-id", snapshot.UriSlug);
+        Assert.Equal(building.UriSlug, snapshot.UriSlug);
         Assert.Equal("Gettable Building", snapshot.Name);
         Assert.Equal("Prague", snapshot.City);
         Assert.Equal("HOUSE", snapshot.BuildingTypeCode);
@@ -199,14 +148,14 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task GetBuildingBySlug_WithValidSlug_Returns200WithData()
     {
-        await RegisterBuildingAsync("building-get-by-slug", "Slug Building");
+        var building = await RegisterBuildingAsync("Slug Building");
 
-        var response = await _client.GetAsync("/buildings/building-get-by-slug");
+        var response = await _client.GetAsync($"/buildings/{building.UriSlug}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var snapshot = await response.Content.ReadFromJsonAsync<BuildingSnapshotResponse>();
         Assert.NotNull(snapshot);
-        Assert.Equal("building-get-by-slug", snapshot.UriSlug);
+        Assert.Equal(building.UriSlug, snapshot.UriSlug);
         Assert.Equal("Slug Building", snapshot.Name);
     }
 
@@ -221,17 +170,17 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task GetBuildingById_WithInvalidAsOf_Returns400BadRequest()
     {
-        var building = await RegisterBuildingAsync("building-bad-asof", "As-Of Building");
+        var building = await RegisterBuildingAsync("As-Of Building");
 
         var response = await _client.GetAsync($"/buildings/{building.Id}?asOf=not-a-timestamp");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-        [Fact]
+    [Fact]
     public async Task ChangeBuildingName_IdenticalRePut_IsIdempotent()
     {
-        var building = await RegisterBuildingAsync("building-idempotent-name", "Idem Building");
+        var building = await RegisterBuildingAsync("Idem Building");
 
         // A fixed, microsecond-clean instant so the value round-trips through
         // Postgres (tstzrange has microsecond resolution) byte-identically; the
@@ -264,10 +213,9 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
         Assert.Equal("Renamed", snapshot.Name);
     }
 
-    private async Task<RegisterBuildingResult> RegisterBuildingAsync(string slug, string name)
+    private async Task<RegisterBuildingResult> RegisterBuildingAsync(string name)
     {
         var request = new RegisterBuildingRequest(
-            UriSlug: slug,
             Name: name,
             Street: "123 Main St",
             City: "Prague",

@@ -71,7 +71,6 @@ public static class BuildingEndpoints
         try
         {
             var command = new RegisterBuildingCommand(
-                UriSlug: request.UriSlug,
                 Name: request.Name,
                 Street: request.Street,
                 City: request.City,
@@ -340,7 +339,6 @@ public sealed record BuildingSnapshotResponse(
 
 // Request DTOs
 public sealed record RegisterBuildingRequest(
-    string UriSlug,
     string Name,
     string Street,
     string City,
