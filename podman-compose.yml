@@ -11,7 +11,7 @@ services:
       - postgres-data:/var/lib/postgresql
       - ./init-databases.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5432"
+      - "6432:5432"
     networks:
         - db
     healthcheck:
@@ -53,6 +53,24 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
 
+  pgadmin:
+    image: docker.io/dpage/pgadmin4:latest
+    profiles:
+      - development
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ambiquality.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./conf/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    networks:
+      - db
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   migrate:
     build:
       context: .
@@ -92,6 +110,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:6200
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=evidence_api;Password=evidence_api_dev_password"
+      Jwt__Issuer: "ambiquality-auth"
+      Jwt__Audience: "ambiquality"
+      Jwt__Secret: ${JWT_SECRET:?error}
     ports:
       - "6200:6200"
     networks:
@@ -199,6 +220,7 @@ services:
 
 volumes:
   postgres-data:
+  pgadmin-data:
   mailpit-data:
   redis-data:
   caddy_data:
