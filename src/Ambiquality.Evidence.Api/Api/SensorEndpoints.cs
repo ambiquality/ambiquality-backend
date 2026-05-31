@@ -86,7 +86,9 @@ public static class SensorEndpoints
                 Model: request.Model,
                 SerialNumber: request.SerialNumber,
                 StatusCode: request.StatusCode,
-                MeasuredParameters: request.MeasuredParameters,
+                MeasuredParameters: request.MeasuredParameters
+                    .Select(MeasuredParameterResponse.FromCode)
+                    .ToList(),
                 AsOf: DateTime.UtcNow,
                 ApiKey: result.ApiKey);
 
@@ -272,6 +274,8 @@ public static class SensorEndpoints
             Model: snapshot.Model,
             SerialNumber: snapshot.SerialNumber,
             StatusCode: snapshot.StatusCode,
-            MeasuredParameters: snapshot.MeasuredParameters,
+            MeasuredParameters: snapshot.MeasuredParameters
+                .Select(MeasuredParameterResponse.FromCode)
+                .ToList(),
             AsOf: snapshot.AsOf);
 }
