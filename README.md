@@ -32,20 +32,32 @@ dotnet tool install --global dotnet-ef
 
 ## Quick start
 
-All services run via Podman Compose. Secrets come from a gitignored `.env` at the repo root.
+All services run via Podman Compose. Configuration and secrets come from a gitignored `.env`
+at the repo root. `.env.example` is the source of truth for which variables are required.
 
 ```bash
-# 1. Create .env
-cat > .env <<'EOF'
-JWT_SECRET=your-secret-key-at-least-32-characters-long
-EOF
+# 1. Create your local .env from the template
+cp .env.example .env
 
-# 2. Start / stop (development profile includes Mailpit for catching emails)
+# 2. Edit .env and set a real JWT_SECRET (a 32+ character random string)
+#    e.g. `openssl rand -hex 32`. Adjust other values only if you need to.
+
+# 3. Start / stop (development profile includes Mailpit for catching emails)
 ./dev.sh up        # start all services (foreground)
 ./dev.sh down      # stop all services and remove volumes
 
 ./dev-build.sh     # rebuild container images, then start (use after code changes)
 ```
+
+> `.env` is gitignored and never committed — keep real secrets there. `.env.example` lists every
+> variable the stack expects (with safe dev defaults) and is the source of truth for required
+> configuration.
+
+> **First-init note:** the per-service database role passwords (`AUTH_API_DB_PASSWORD`,
+> `EVIDENCE_API_DB_PASSWORD`, …) are applied to Postgres only on its **first** initialization,
+> when `init-databases.sh` runs against an empty data volume. Changing them later in `.env` will
+> not update the existing roles — you must reset the volume with `./dev.sh down` (which removes
+> volumes) and start again for the new passwords to take effect.
 
 ## Topology
 
