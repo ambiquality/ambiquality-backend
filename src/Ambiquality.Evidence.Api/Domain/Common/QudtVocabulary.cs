@@ -15,7 +15,11 @@ public static class QudtVocabulary
     public static readonly string QuantityKindTemperature                = QuantityKindBase + "Temperature";
     public static readonly string QuantityKindRelativeHumidity           = QuantityKindBase + "RelativeHumidity";
     public static readonly string QuantityKindSpeed                      = QuantityKindBase + "Speed";
-    /// <summary>AtmosphericPressure + PA: one-directional (applicableUnit only, not hasQuantityKind). Accepted per QUDT semantics.</summary>
+    /// <summary>
+    /// AtmosphericPressure lists unit:PA as applicableUnit; unit:PA declares hasQuantityKind:ForcePerArea
+    /// (the generic dimensional kind). AtmosphericPressure is skos:broader Pressure — this is the
+    /// standard QUDT pattern: units point to dimensional kinds, semantic kinds point to applicable units.
+    /// </summary>
     public static readonly string QuantityKindAtmosphericPressure        = QuantityKindBase + "AtmosphericPressure";
     public static readonly string QuantityKindIlluminance                = QuantityKindBase + "Illuminance";
     /// <summary>Slug is CorrelatedColorTemperature — ColorTemperature does not exist in QUDT.</summary>
