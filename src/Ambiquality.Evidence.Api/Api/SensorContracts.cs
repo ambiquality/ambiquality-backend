@@ -1,3 +1,5 @@
+using Ambiquality.Evidence.Api.Domain.Common;
+
 namespace Ambiquality.Evidence.Api.Api;
 
 public sealed record RegisterSensorRequest(
@@ -6,6 +8,25 @@ public sealed record RegisterSensorRequest(
     string SerialNumber,
     string StatusCode,
     IReadOnlyCollection<string> MeasuredParameters);
+
+/// <summary>
+/// A measured parameter with its QUDT quantity kind and unit URIs, enabling
+/// 5-star linked open data per STA01/STA04 thesis requirements.
+/// </summary>
+/// <param name="Code">Internal parameter code (e.g. "co2").</param>
+/// <param name="QuantityKindUri">QUDT quantity kind URI, or null if unknown.</param>
+/// <param name="UnitUri">QUDT unit URI, or null if unknown.</param>
+public sealed record MeasuredParameterResponse(
+    string Code,
+    string? QuantityKindUri,
+    string? UnitUri)
+{
+    public static MeasuredParameterResponse FromCode(string code)
+    {
+        var qudt = QudtVocabulary.TryResolve(code);
+        return new MeasuredParameterResponse(code, qudt?.QuantityKindUri, qudt?.UnitUri);
+    }
+}
 
 /// <summary>
 /// Returned once from POST (register). Carries the plaintext <see cref="ApiKey"/>
@@ -21,7 +42,7 @@ public sealed record SensorRegisteredResponse(
     string Model,
     string SerialNumber,
     string StatusCode,
-    IReadOnlyCollection<string> MeasuredParameters,
+    IReadOnlyCollection<MeasuredParameterResponse> MeasuredParameters,
     DateTime AsOf,
     string ApiKey);
 
@@ -34,7 +55,7 @@ public sealed record SensorSnapshotResponse(
     string Model,
     string SerialNumber,
     string StatusCode,
-    IReadOnlyCollection<string> MeasuredParameters,
+    IReadOnlyCollection<MeasuredParameterResponse> MeasuredParameters,
     DateTime AsOf);
 
 public sealed record ChangeSensorIdentityRequest(

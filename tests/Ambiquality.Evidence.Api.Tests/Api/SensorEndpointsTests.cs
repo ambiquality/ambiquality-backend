@@ -94,7 +94,21 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         Assert.Equal(_roomId, sensor.RoomId);
         Assert.Equal(_buildingId, sensor.BuildingId);
         Assert.Equal("active", sensor.StatusCode);
-        Assert.Contains("co2", sensor.MeasuredParameters);
+        Assert.Contains(sensor.MeasuredParameters, p => p.Code == "co2");
+    }
+
+    [Fact]
+    public async Task RegisterSensor_MeasuredParametersIncludeQudtUris()
+    {
+        var sensor = await RegisterSensorAsync(parameters: new[] { "co2", "temperature" });
+
+        var co2 = sensor.MeasuredParameters.Single(p => p.Code == "co2");
+        Assert.Equal("http://qudt.org/vocab/quantitykind/AmountOfSubstanceFraction", co2.QuantityKindUri);
+        Assert.Equal("http://qudt.org/vocab/unit/PPM", co2.UnitUri);
+
+        var temp = sensor.MeasuredParameters.Single(p => p.Code == "temperature");
+        Assert.Equal("http://qudt.org/vocab/quantitykind/Temperature", temp.QuantityKindUri);
+        Assert.Equal("http://qudt.org/vocab/unit/DEG_C", temp.UnitUri);
     }
 
     [Fact]
@@ -275,7 +289,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
 
         var get = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
         var sensor = await get.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
-        Assert.Contains("humidity", sensor!.MeasuredParameters);
+        Assert.Contains(sensor!.MeasuredParameters, p => p.Code == "humidity");
     }
 
     [Fact]
@@ -291,8 +305,8 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
 
         var get = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
         var sensor = await get.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
-        Assert.DoesNotContain("voc", sensor!.MeasuredParameters);
-        Assert.Contains("co2", sensor.MeasuredParameters);
+        Assert.DoesNotContain(sensor!.MeasuredParameters, p => p.Code == "voc");
+        Assert.Contains(sensor.MeasuredParameters, p => p.Code == "co2");
     }
 
     [Fact]
