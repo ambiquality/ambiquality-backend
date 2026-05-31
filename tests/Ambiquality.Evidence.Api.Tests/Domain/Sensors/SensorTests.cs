@@ -158,7 +158,7 @@ public class SensorTests
         var sensor = RegisterSensor(parameters: [MeasuredParameter.Co2]);
 
         Assert.Throws<MeasuredParameterNotFoundException>(() =>
-            sensor.RemoveMeasuredParameter("light", T2));
+            sensor.RemoveMeasuredParameter("illuminance", T2));
     }
 
     [Fact]
