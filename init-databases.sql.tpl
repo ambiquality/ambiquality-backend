@@ -5,7 +5,7 @@ GRANT ALL PRIVILEGES ON DATABASE auth TO postgres;
 -- Connect to auth database to create auth_api user and schema
 \c auth postgres
 
-CREATE ROLE auth_api WITH LOGIN PASSWORD 'auth_api_dev_password';
+CREATE ROLE auth_api WITH LOGIN PASSWORD '${AUTH_API_DB_PASSWORD}';
 GRANT CONNECT ON DATABASE auth TO auth_api;
 
 CREATE SCHEMA IF NOT EXISTS auth AUTHORIZATION auth_api;
@@ -22,7 +22,7 @@ GRANT ALL PRIVILEGES ON DATABASE evidence TO postgres;
 -- Connect to evidence database to create evidence_api user and schema
 \c evidence postgres
 
-CREATE ROLE evidence_api WITH LOGIN PASSWORD 'evidence_api_dev_password';
+CREATE ROLE evidence_api WITH LOGIN PASSWORD '${EVIDENCE_API_DB_PASSWORD}';
 GRANT CONNECT ON DATABASE evidence TO evidence_api;
 
 CREATE SCHEMA IF NOT EXISTS evidence AUTHORIZATION evidence_api;
@@ -45,7 +45,7 @@ GRANT ALL PRIVILEGES ON DATABASE ieq TO postgres;
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
 -- Read-write role owned by Ingestion.Api (runs migrations, writes measurements)
-CREATE ROLE ingestion_api WITH LOGIN PASSWORD 'ingestion_api_dev_password';
+CREATE ROLE ingestion_api WITH LOGIN PASSWORD '${INGESTION_API_DB_PASSWORD}';
 GRANT CONNECT ON DATABASE ieq TO ingestion_api;
 
 CREATE SCHEMA IF NOT EXISTS ieq AUTHORIZATION ingestion_api;
@@ -56,7 +56,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA ieq GRANT ALL PRIVILEGES ON TABLES TO ingesti
 ALTER DEFAULT PRIVILEGES IN SCHEMA ieq GRANT ALL PRIVILEGES ON SEQUENCES TO ingestion_api;
 
 -- Read-only role for the planned Public.Api (never writes, never migrates)
-CREATE ROLE public_api WITH LOGIN PASSWORD 'public_api_dev_password';
+CREATE ROLE public_api WITH LOGIN PASSWORD '${PUBLIC_API_DB_PASSWORD}';
 GRANT CONNECT ON DATABASE ieq TO public_api;
 GRANT USAGE ON SCHEMA ieq TO public_api;
 GRANT SELECT ON ALL TABLES IN SCHEMA ieq TO public_api;
