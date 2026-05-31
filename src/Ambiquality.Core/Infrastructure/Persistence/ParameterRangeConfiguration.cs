@@ -28,16 +28,40 @@ public sealed class ParameterRangeConfiguration : IEntityTypeConfiguration<Param
             .HasColumnName("unit")
             .HasMaxLength(50);
 
-        // Seed the seven IEQ quantities the platform tracks. Ranges are sane
-        // sensor-domain bounds; tune in the table without a redeploy. Units are
-        // informational until F08 unit matching lands.
+        // Sensor-domain validity bounds for all 18 IEQ quantities the platform tracks.
+        // These are conservative physical sensor ranges, not health guidelines.
+        // Units match the QUDT unit URIs in QudtVocabulary (Evidence.Api).
         builder.HasData(
-            new ParameterRange("co2", 0, 50_000, "ppm"),
-            new ParameterRange("temperature", -40, 85, "°C"),
-            new ParameterRange("humidity", 0, 100, "%"),
-            new ParameterRange("pm", 0, 1_000, "µg/m³"),
-            new ParameterRange("voc", 0, 60_000, "ppb"),
-            new ParameterRange("acoustics", 0, 140, "dB"),
-            new ParameterRange("light", 0, 100_000, "lx"));
+            // Gases — ppm
+            new ParameterRange("co2",          0,       50_000, "ppm"),
+            new ParameterRange("eco2",         0,       65_000, "ppm"),
+            new ParameterRange("co",           0,        2_000, "ppm"),
+
+            // Gases — µg/m³ (European standard units for outdoor-origin pollutants)
+            new ParameterRange("o3",           0,          500, "µg/m³"),
+            new ParameterRange("no2",          0,          500, "µg/m³"),
+            new ParameterRange("so2",          0,          500, "µg/m³"),
+
+            // VOC — ppb
+            new ParameterRange("voc",          0,       60_000, "ppb"),
+
+            // Particulate matter — µg/m³ (PM10 can reach higher outdoors)
+            new ParameterRange("pm1",          0,          500, "µg/m³"),
+            new ParameterRange("pm2_5",        0,          500, "µg/m³"),
+            new ParameterRange("pm4",          0,        1_000, "µg/m³"),
+            new ParameterRange("pm10",         0,        1_000, "µg/m³"),
+
+            // Thermal comfort
+            new ParameterRange("temperature",  -40,          85, "°C"),
+            new ParameterRange("humidity",       0,         100, "%"),
+            new ParameterRange("air_velocity",   0,          10, "m/s"),
+            new ParameterRange("pressure",  85_000,     110_000, "Pa"),
+
+            // Light
+            new ParameterRange("illuminance",    0,     100_000, "lx"),
+            new ParameterRange("cct",        1_000,      20_000, "K"),
+
+            // Acoustics — A-weighted equivalent continuous sound level
+            new ParameterRange("laeq",           0,         140, "dB(A)"));
     }
 }

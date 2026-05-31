@@ -7,17 +7,44 @@ namespace Ambiquality.Evidence.Api.Domain.Common;
 /// </summary>
 public sealed class MeasuredParameter : IEquatable<MeasuredParameter>
 {
-    public static readonly MeasuredParameter Co2 = new("co2");
-    public static readonly MeasuredParameter Temperature = new("temperature");
-    public static readonly MeasuredParameter Humidity = new("humidity");
-    public static readonly MeasuredParameter ParticulateMatter = new("pm");
-    public static readonly MeasuredParameter Voc = new("voc");
-    public static readonly MeasuredParameter Acoustics = new("acoustics");
-    public static readonly MeasuredParameter Light = new("light");
+    // Gases — concentration
+    public static readonly MeasuredParameter Co2          = new("co2");
+    public static readonly MeasuredParameter ECo2         = new("eco2");
+    public static readonly MeasuredParameter Co           = new("co");
+    public static readonly MeasuredParameter O3           = new("o3");
+    public static readonly MeasuredParameter No2          = new("no2");
+    public static readonly MeasuredParameter So2          = new("so2");
+    public static readonly MeasuredParameter Voc          = new("voc");
+
+    // Particulate matter
+    public static readonly MeasuredParameter Pm1          = new("pm1");
+    public static readonly MeasuredParameter Pm2_5        = new("pm2_5");
+    public static readonly MeasuredParameter Pm4          = new("pm4");
+    public static readonly MeasuredParameter Pm10         = new("pm10");
+
+    // Thermal comfort
+    public static readonly MeasuredParameter Temperature  = new("temperature");
+    public static readonly MeasuredParameter Humidity     = new("humidity");
+    public static readonly MeasuredParameter AirVelocity  = new("air_velocity");
+    public static readonly MeasuredParameter Pressure     = new("pressure");
+
+    // Light
+    public static readonly MeasuredParameter Illuminance  = new("illuminance");
+    public static readonly MeasuredParameter Cct          = new("cct");
+
+    // Acoustics
+    public static readonly MeasuredParameter Laeq         = new("laeq");
 
     private static readonly IReadOnlyDictionary<string, MeasuredParameter> ByCode =
-        new[] { Co2, Temperature, Humidity, ParticulateMatter, Voc, Acoustics, Light }
-            .ToDictionary(v => v.Code, StringComparer.OrdinalIgnoreCase);
+        new[]
+        {
+            Co2, ECo2, Co, O3, No2, So2, Voc,
+            Pm1, Pm2_5, Pm4, Pm10,
+            Temperature, Humidity, AirVelocity, Pressure,
+            Illuminance, Cct,
+            Laeq,
+        }
+        .ToDictionary(v => v.Code, StringComparer.OrdinalIgnoreCase);
 
     private MeasuredParameter(string code) => Code = code;
 
