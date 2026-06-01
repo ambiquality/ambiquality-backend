@@ -3,6 +3,7 @@
     <Project Path="src/Ambiquality.Auth.Api/Ambiquality.Auth.Api.csproj" />
     <Project Path="src/Ambiquality.Core/Ambiquality.Core.csproj" />
     <Project Path="src/Ambiquality.Evidence.Api/Ambiquality.Evidence.Api.csproj" />
+    <Project Path="src/Ambiquality.Export.Worker/Ambiquality.Export.Worker.csproj" />
     <Project Path="src/Ambiquality.Ingestion.Api/Ambiquality.Ingestion.Api.csproj" />
     <Project Path="src/Ambiquality.Ingestion.Worker/Ambiquality.Ingestion.Worker.csproj" />
     <Project Path="src/Ambiquality.Public.Api/Ambiquality.Public.Api.csproj" />
@@ -11,6 +12,7 @@
     <Project Path="tests/Ambiquality.Auth.Api.Tests/Ambiquality.Auth.Api.Tests.csproj" />
     <Project Path="tests/Ambiquality.Core.Tests/Ambiquality.Core.Tests.csproj" />
     <Project Path="tests/Ambiquality.Evidence.Api.Tests/Ambiquality.Evidence.Api.Tests.csproj" />
+    <Project Path="tests/Ambiquality.Export.Worker.Tests/Ambiquality.Export.Worker.Tests.csproj" />
     <Project Path="tests/Ambiquality.Ingestion.Api.Tests/Ambiquality.Ingestion.Api.Tests.csproj" />
     <Project Path="tests/Ambiquality.Ingestion.Worker.Tests/Ambiquality.Ingestion.Worker.Tests.csproj" />
     <Project Path="tests/Ambiquality.Public.Api.Tests/Ambiquality.Public.Api.Tests.csproj" />

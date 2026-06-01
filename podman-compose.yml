@@ -8,6 +8,7 @@ services:
       EVIDENCE_API_DB_PASSWORD: ${EVIDENCE_API_DB_PASSWORD:?error}
       INGESTION_API_DB_PASSWORD: ${INGESTION_API_DB_PASSWORD:?error}
       PUBLIC_API_DB_PASSWORD: ${PUBLIC_API_DB_PASSWORD:?error}
+      EXPORT_WORKER_DB_PASSWORD: ${EXPORT_WORKER_DB_PASSWORD:?error}
     volumes:
       - postgres-data:/var/lib/postgresql
       - ./init-databases.sql.tpl:/docker-entrypoint-initdb.d/init-databases.sql.tpl:ro
@@ -179,6 +180,29 @@ services:
     networks:
       - db
 
+  export-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.export
+    depends_on:
+      ingestion-migrate:
+        condition: service_completed_successfully
+    environment:
+      ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=export_worker;Password=${EXPORT_WORKER_DB_PASSWORD:?error}"
+      Export__StorageType: ${EXPORT_STORAGE_TYPE:-FileSystem}
+      Export__FileSystem__BasePath: /exports
+      Export__S3__ServiceUrl: ${EXPORT_S3_SERVICE_URL:-}
+      Export__S3__BucketName: ${EXPORT_S3_BUCKET_NAME:-}
+      Export__S3__AccessKey: ${EXPORT_S3_ACCESS_KEY:-}
+      Export__S3__SecretKey: ${EXPORT_S3_SECRET_KEY:-}
+      Export__S3__PublicBaseUrl: ${EXPORT_S3_PUBLIC_BASE_URL:-}
+    volumes:
+      - export-data:/exports
+    networks:
+      - db
+    profiles:
+      - development
+
   auth-api: # on port 6100
     build:
       context: .
@@ -205,6 +229,31 @@ services:
     networks:
       - db
       - public
+
+  public-api: # on port 6400 (read-only open-data API; never migrates)
+    build:
+      context: .
+      dockerfile: Dockerfile.public
+    depends_on:
+      ingestion-migrate:
+        condition: service_completed_successfully
+      evidence-migrate:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:6400
+      # public_api role: read-only on both ieq (measurements) and evidence (catalog).
+      ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=public_api;Password=${PUBLIC_API_DB_PASSWORD:?error}"
+      ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=public_api;Password=${PUBLIC_API_DB_PASSWORD:?error}"
+      # Behind Caddy's path-stripping /public/* route; set the absolute base so
+      # linked-data IRIs keep the public prefix.
+      PublicApi__BaseIri: ${PUBLIC_API_BASE_IRI:-}
+    ports:
+      - "6400:6400"
+    networks:
+      - db
+      - public
+
   caddy:
     image: docker.io/library/caddy:2.11.3-alpine
     networks:
@@ -227,6 +276,7 @@ volumes:
   redis-data:
   caddy_data:
   caddy_config:
+  export-data:
 
 networks:
   db:

@@ -56,7 +56,7 @@ public class RoomTests
     {
         var room = RegisterRoom(
             functionCode: "office",
-            exposureCode: "kratkodoby",
+            exposureCode: "short",
             areaM2: 25.5,
             ceilingHeightM: 2.8,
             ventilationType: "vzt");
@@ -78,7 +78,7 @@ public class RoomTests
         Assert.True(function.Validity.UpperBoundInfinite);
 
         var exposure = Assert.Single(room.ExposureHistory);
-        Assert.Equal("kratkodoby", exposure.ExposureCode);
+        Assert.Equal("short", exposure.ExposureCode);
         Assert.True(exposure.Validity.UpperBoundInfinite);
 
         var geometry = Assert.Single(room.GeometryHistory);
@@ -341,9 +341,9 @@ public class RoomTests
     [Fact]
     public void ChangeExposure_ExactReplay_IsNoOp()
     {
-        var room = RegisterRoom(exposureCode: "kratkodoby");
+        var room = RegisterRoom(exposureCode: "short");
 
-        room.ChangeExposure("kratkodoby", T0, Creator);
+        room.ChangeExposure("short", T0, Creator);
 
         Assert.Single(room.ExposureHistory);
     }

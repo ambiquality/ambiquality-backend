@@ -1,3 +1,4 @@
+using Ambiquality.Evidence.Api.Application;
 using Ambiquality.Evidence.Api.Application.Abstractions;
 using Ambiquality.Evidence.Api.Application.Rooms;
 using Ambiquality.Evidence.Api.Domain.Buildings;
@@ -96,5 +97,36 @@ public class RegisterRoomHandlerTests
 
         Assert.NotNull(capturedRoom);
         Assert.Equal(2, capturedRoom.PollutionSourceHistory.Count);
+    }
+
+    [Fact]
+    public async Task Handle_WithUnknownExposureCode_ThrowsAndSavesNothing()
+    {
+        var command = new RegisterRoomCommand(
+            BuildingId: BuildingId,
+            Name: "Room 101",
+            Floor: 1,
+            FunctionCode: "office",
+            ExposureCode: "interior", // not in the {short, medium, long} codelist
+            AreaM2: null,
+            CeilingHeightM: null,
+            VentilationType: null,
+            PollutionSources: []);
+
+        var mockClock = Substitute.For<IClock>();
+        mockClock.UtcNow.Returns(Now);
+
+        var mockCurrentUser = Substitute.For<ICurrentUser>();
+        mockCurrentUser.ProjectionId.Returns(UserId);
+
+        var mockRepo = Substitute.For<IRoomRepository>();
+
+        var handler = new RegisterRoomHandler(mockClock, mockCurrentUser, mockRepo, BuildingRepoOwnedBy(UserId), new StubSlugGenerator());
+
+        await Assert.ThrowsAsync<UnknownCodelistCodeException>(
+            () => handler.Handle(command, CancellationToken.None));
+
+        mockRepo.DidNotReceive().Add(Arg.Any<Room>());
+        await mockRepo.DidNotReceive().SaveChangesAsync();
     }
 }

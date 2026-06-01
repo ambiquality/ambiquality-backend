@@ -1,4 +1,4 @@
-using Ambiquality.Evidence.Api.Domain.Common;
+using Ambiquality.Core.Domain.Vocabulary;
 
 namespace Ambiquality.Evidence.Api.Api;
 

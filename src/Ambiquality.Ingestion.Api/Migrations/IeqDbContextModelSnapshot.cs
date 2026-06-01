@@ -75,6 +75,65 @@ namespace Ambiquality.Ingestion.Api.Migrations
                     b.ToTable("measurements", "ieq");
                 });
 
+            modelBuilder.Entity("Ambiquality.Core.Domain.Measurements.MeasurementExport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CompressFormat")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("compress_format");
+
+                    b.Property<string>("DownloadUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("download_url");
+
+                    b.Property<DateTimeOffset>("ExportedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("exported_at");
+
+                    b.Property<string>("FileKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("file_key");
+
+                    b.Property<long?>("FileSizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("file_size_bytes");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("media_type");
+
+                    b.Property<short>("Month")
+                        .HasColumnType("smallint")
+                        .HasColumnName("month");
+
+                    b.Property<long?>("RecordCount")
+                        .HasColumnType("bigint")
+                        .HasColumnName("record_count");
+
+                    b.Property<short>("Year")
+                        .HasColumnType("smallint")
+                        .HasColumnName("year");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Year", "Month", "MediaType")
+                        .IsUnique()
+                        .HasDatabaseName("IX_measurement_exports_year_month_media_type");
+
+                    b.ToTable("measurement_exports", "ieq");
+                });
+
             modelBuilder.Entity("Ambiquality.Core.Domain.Measurements.ParameterRange", b =>
                 {
                     b.Property<string>("ParameterCode")

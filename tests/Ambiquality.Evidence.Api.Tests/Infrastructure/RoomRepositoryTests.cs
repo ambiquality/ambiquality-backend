@@ -65,7 +65,7 @@ public sealed class RoomRepositoryTests(PostgresFixture postgres)
                 name: "Room 101",
                 floor: FloorNumber.Create(1),
                 functionCode: "office",
-                exposureCode: "exterior",
+                exposureCode: "medium",
                 areaM2: 25.5,
                 ceilingHeightM: 3.2,
                 ventilationType: "natural",

@@ -1,4 +1,4 @@
-namespace Ambiquality.Evidence.Api.Domain.Common;
+namespace Ambiquality.Core.Domain.Vocabulary;
 
 /// <summary>
 /// Stable QUDT URIs for the IEQ quantities this platform tracks.

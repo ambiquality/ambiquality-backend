@@ -30,7 +30,7 @@ public sealed class ParameterRangeConfiguration : IEntityTypeConfiguration<Param
 
         // Sensor-domain validity bounds for all 18 IEQ quantities the platform tracks.
         // These are conservative physical sensor ranges, not health guidelines.
-        // Units match the QUDT unit URIs in QudtVocabulary (Evidence.Api).
+        // Units match the QUDT unit URIs in QudtVocabulary (Ambiquality.Core).
         builder.HasData(
             // Gases — ppm
             new ParameterRange("co2",          0,       50_000, "ppm"),
