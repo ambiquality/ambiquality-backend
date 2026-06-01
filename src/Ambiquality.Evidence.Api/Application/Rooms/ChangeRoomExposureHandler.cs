@@ -12,6 +12,8 @@ public sealed class ChangeRoomExposureHandler(
 {
     public async Task Handle(ChangeRoomExposureCommand command, CancellationToken ct)
     {
+        RoomCodelists.ValidateExposure(command.NewExposureCode);
+
         var room = await RoomAuthorizer.LoadOwnedAsync(
             repository, buildingRepository, command.RoomId, currentUser, ct);
 

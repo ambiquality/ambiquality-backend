@@ -48,7 +48,7 @@ public sealed class HeadMethodTests : IAsyncLifetime
             Name: "Head Test Room",
             Floor: 1,
             FunctionCode: "office",
-            ExposureCode: "interior",
+            ExposureCode: "medium",
             AreaM2: 40.0,
             CeilingHeightM: 3.0,
             VentilationType: "mechanical",
