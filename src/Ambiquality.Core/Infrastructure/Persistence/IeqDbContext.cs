@@ -13,11 +13,13 @@ public sealed class IeqDbContext(DbContextOptions<IeqDbContext> options) : DbCon
 {
     public DbSet<Measurement> Measurements => Set<Measurement>();
     public DbSet<ParameterRange> ParameterRanges => Set<ParameterRange>();
+    public DbSet<MeasurementExport> MeasurementExports => Set<MeasurementExport>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("ieq");
         modelBuilder.ApplyConfiguration(new MeasurementConfiguration());
         modelBuilder.ApplyConfiguration(new ParameterRangeConfiguration());
+        modelBuilder.ApplyConfiguration(new MeasurementExportConfiguration());
     }
 }

@@ -62,6 +62,19 @@ GRANT USAGE ON SCHEMA ieq TO public_api;
 GRANT SELECT ON ALL TABLES IN SCHEMA ieq TO public_api;
 ALTER DEFAULT PRIVILEGES IN SCHEMA ieq GRANT SELECT ON TABLES TO public_api;
 
+-- Export.Worker role: reads measurements, reads/inserts the export catalog only.
+-- The ieq tables are created later by the ingestion migration (run as postgres), so
+-- at cluster-init time they do not yet exist; referencing them directly here would
+-- abort under ON_ERROR_STOP. Default privileges grant SELECT on future
+-- postgres-owned tables (measurements, parameter_ranges, measurement_exports); the
+-- narrower INSERT on measurement_exports alone is granted by the migration that
+-- creates that table, so export_worker can never write measurements (immutability).
+CREATE ROLE export_worker WITH LOGIN PASSWORD '${EXPORT_WORKER_DB_PASSWORD}';
+GRANT CONNECT ON DATABASE ieq TO export_worker;
+GRANT USAGE ON SCHEMA ieq TO export_worker;
+GRANT SELECT ON ALL TABLES IN SCHEMA ieq TO export_worker;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA ieq GRANT SELECT ON TABLES TO export_worker;
+
 -- Cross-database read access: Ingestion.Api validates incoming measurements
 -- against the sensor catalog owned by Evidence.Api (sensor status, declared
 -- parameters, API-key hash). Postgres roles are cluster-wide, so the same

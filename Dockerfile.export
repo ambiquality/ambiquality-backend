@@ -1,0 +1,12 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY ["src/Ambiquality.Core/Ambiquality.Core.csproj", "src/Ambiquality.Core/"]
+COPY ["src/Ambiquality.Export.Worker/Ambiquality.Export.Worker.csproj", "src/Ambiquality.Export.Worker/"]
+RUN dotnet restore "src/Ambiquality.Export.Worker/Ambiquality.Export.Worker.csproj"
+COPY src/ src/
+RUN dotnet publish "src/Ambiquality.Export.Worker/Ambiquality.Export.Worker.csproj" -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "Ambiquality.Export.Worker.dll"]
