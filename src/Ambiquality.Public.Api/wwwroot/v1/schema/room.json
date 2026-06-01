@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data.ambiquality.org/v1/schema/room.json",
+  "title": "Room",
+  "description": "Public projection of a room (current temporal state).",
+  "type": "object",
+  "required": ["id", "iri", "buildingId", "floor", "pollutionSources", "license"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "iri": { "type": "string", "format": "uri" },
+    "buildingId": { "type": "string", "format": "uuid" },
+    "name": { "type": ["string", "null"] },
+    "floor": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "functionCode": { "type": ["string", "null"] },
+    "exposureCode": { "type": ["string", "null"], "enum": ["short", "medium", "long", null] },
+    "areaM2": { "type": ["number", "null"] },
+    "ceilingHeightM": { "type": ["number", "null"] },
+    "ventilationType": { "type": ["string", "null"] },
+    "pollutionSources": { "type": "array", "items": { "type": "string" } },
+    "license": { "type": "string", "format": "uri" }
+  }
+}

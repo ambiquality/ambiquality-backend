@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data.ambiquality.org/v1/schema/observation.json",
+  "title": "Observation",
+  "description": "A single IEQ measurement projected as an SSN/SOSA observation.",
+  "type": "object",
+  "required": ["id", "iri", "sensorId", "parameterCode", "value", "observedAt", "receivedAt", "isInvalid", "license"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "iri": { "type": "string", "format": "uri" },
+    "sensorId": { "type": "string", "format": "uuid" },
+    "parameterCode": { "type": "string", "description": "IEQ parameter code, e.g. co2." },
+    "value": { "type": "number" },
+    "unit": { "type": ["string", "null"] },
+    "quantityKindUri": { "type": ["string", "null"], "format": "uri", "description": "QUDT quantity kind URI." },
+    "unitUri": { "type": ["string", "null"], "format": "uri", "description": "QUDT unit URI." },
+    "observedAt": { "type": "string", "format": "date-time", "description": "Sensor clock time." },
+    "receivedAt": { "type": "string", "format": "date-time", "description": "Server acceptance time." },
+    "isInvalid": { "type": "boolean" },
+    "license": { "type": "string", "format": "uri" }
+  }
+}

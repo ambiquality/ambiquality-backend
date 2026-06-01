@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data.ambiquality.org/v1/schema/building.json",
+  "title": "Building",
+  "description": "Public projection of a building; coordinates are masked per anonymization level.",
+  "type": "object",
+  "required": ["id", "iri", "address", "license"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "iri": { "type": "string", "format": "uri" },
+    "name": { "type": ["string", "null"] },
+    "address": {
+      "type": "object",
+      "properties": {
+        "street": { "type": ["string", "null"] },
+        "city": { "type": ["string", "null"] },
+        "postcode": { "type": ["string", "null"] },
+        "country": { "type": ["string", "null"], "description": "ISO 3166-1 alpha-2 code." }
+      }
+    },
+    "buildingTypeCode": { "type": ["string", "null"] },
+    "latitude": { "type": ["number", "null"] },
+    "longitude": { "type": ["number", "null"] },
+    "yearBuilt": { "type": ["integer", "null"] },
+    "yearRenovated": { "type": ["integer", "null"] },
+    "license": { "type": "string", "format": "uri" }
+  }
+}
