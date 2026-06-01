@@ -76,3 +76,14 @@ GRANT USAGE ON SCHEMA evidence TO ingestion_api;
 GRANT SELECT ON ALL TABLES IN SCHEMA evidence TO ingestion_api;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA evidence
     GRANT SELECT ON TABLES TO ingestion_api;
+
+-- Public.Api enriches measurement responses with the evidence catalog (buildings,
+-- rooms, sensors) via the same raw read-only cross-database pattern as Ingestion.Api.
+-- Grant the cluster-wide public_api login read-only access to the evidence schema.
+-- NOTE: this runs only on first cluster init. Existing dev volumes must be reset
+-- (./dev.sh down && ./dev.sh up) for the grant to take effect.
+GRANT CONNECT ON DATABASE evidence TO public_api;
+GRANT USAGE ON SCHEMA evidence TO public_api;
+GRANT SELECT ON ALL TABLES IN SCHEMA evidence TO public_api;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA evidence
+    GRANT SELECT ON TABLES TO public_api;

@@ -205,6 +205,31 @@ services:
     networks:
       - db
       - public
+
+  public-api: # on port 6400 (read-only open-data API; never migrates)
+    build:
+      context: .
+      dockerfile: Dockerfile.public
+    depends_on:
+      ingestion-migrate:
+        condition: service_completed_successfully
+      evidence-migrate:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:6400
+      # public_api role: read-only on both ieq (measurements) and evidence (catalog).
+      ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=public_api;Password=${PUBLIC_API_DB_PASSWORD:?error}"
+      ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=public_api;Password=${PUBLIC_API_DB_PASSWORD:?error}"
+      # Behind Caddy's path-stripping /public/* route; set the absolute base so
+      # linked-data IRIs keep the public prefix.
+      PublicApi__BaseIri: ${PUBLIC_API_BASE_IRI:-}
+    ports:
+      - "6400:6400"
+    networks:
+      - db
+      - public
+
   caddy:
     image: docker.io/library/caddy:2.11.3-alpine
     networks:

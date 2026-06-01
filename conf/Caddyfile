@@ -7,6 +7,10 @@
 		reverse_proxy ingestion-api:6300
 	}
 
+	handle_path /public/* {
+		reverse_proxy public-api:6400
+	}
+
 	handle_path /auth/* {
 		reverse_proxy auth-api:6100
 	}
