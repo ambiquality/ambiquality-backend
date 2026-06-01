@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -9,13 +9,26 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.8" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.11.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Ambiquality.Public.Api\Ambiquality.Public.Api.csproj" Aliases="PublicApi" />
+    <!-- Referenced only so their migrations are loadable in the test fixture:
+         Evidence.Api owns EvidenceDbContext migrations; Ingestion.Api owns the
+         IeqDbContext (Core) migrations. -->
+    <ProjectReference Include="..\..\src\Ambiquality.Evidence.Api\Ambiquality.Evidence.Api.csproj" />
+    <ProjectReference Include="..\..\src\Ambiquality.Ingestion.Api\Ambiquality.Ingestion.Api.csproj" />
   </ItemGroup>
 
 </Project>
