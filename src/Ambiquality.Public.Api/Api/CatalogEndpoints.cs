@@ -65,12 +65,14 @@ public static class CatalogEndpoints
         IReadOnlyList<ExportDistributionRow> exports)
     {
         // Live API access points plus one downloadable archive per published export.
+        // CSV distributions advertise the CSVW tabular schema via dcterms:conformsTo.
+        var csvSchema = iri.CsvMetadata();
         var distributions = new List<object>
         {
             Distribution(iri.Observations(), Constants.MediaTypeJsonLd, "Observations as JSON-LD"),
-            Distribution(iri.ObservationsCsv(), Constants.MediaTypeCsv, "Observations as CSV")
+            Distribution(iri.ObservationsCsv(), Constants.MediaTypeCsv, "Observations as CSV", conformsTo: csvSchema)
         };
-        distributions.AddRange(exports.Select(DownloadDistribution));
+        distributions.AddRange(exports.Select(e => DownloadDistribution(e, csvSchema)));
 
         var dataset = new Dictionary<string, object?>
         {
@@ -128,16 +130,23 @@ public static class CatalogEndpoints
         };
     }
 
-    private static Dictionary<string, object?> Distribution(string accessUrl, string mediaType, string title) => new()
+    private static Dictionary<string, object?> Distribution(
+        string accessUrl, string mediaType, string title, string? conformsTo = null)
     {
-        ["@type"] = "dcat:Distribution",
-        ["dcterms:title"] = title,
-        ["dcat:accessURL"] = new Dictionary<string, object?> { ["@id"] = accessUrl },
-        ["dcat:mediaType"] = mediaType,
-        ["dcterms:license"] = new Dictionary<string, object?> { ["@id"] = Constants.LicenseIri }
-    };
+        var dist = new Dictionary<string, object?>
+        {
+            ["@type"] = "dcat:Distribution",
+            ["dcterms:title"] = title,
+            ["dcat:accessURL"] = new Dictionary<string, object?> { ["@id"] = accessUrl },
+            ["dcat:mediaType"] = mediaType,
+            ["dcterms:license"] = new Dictionary<string, object?> { ["@id"] = Constants.LicenseIri }
+        };
+        if (conformsTo is not null)
+            dist["dcterms:conformsTo"] = new Dictionary<string, object?> { ["@id"] = conformsTo };
+        return dist;
+    }
 
-    private static Dictionary<string, object?> DownloadDistribution(ExportDistributionRow e)
+    private static Dictionary<string, object?> DownloadDistribution(ExportDistributionRow e, string csvSchema)
     {
         var monthStart = new DateTime(e.Year, e.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var monthEnd = monthStart.AddMonths(1);
@@ -160,6 +169,10 @@ public static class CatalogEndpoints
 
         if (e.FileSizeBytes is { } size)
             dist["dcat:byteSize"] = size;
+
+        // Zipped CSV archives share the live CSV's CSVW tabular schema.
+        if (string.Equals(e.MediaType, Constants.MediaTypeCsv, StringComparison.Ordinal))
+            dist["dcterms:conformsTo"] = new Dictionary<string, object?> { ["@id"] = csvSchema };
 
         return dist;
     }

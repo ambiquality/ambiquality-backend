@@ -79,6 +79,9 @@ public sealed class IriBuilder
 
     public string Schema(string resource) => $"{_root}/schema/{resource}.json";
 
+    /// <summary>The CSVW tabular-schema document that describes the observations CSV.</summary>
+    public string CsvMetadata() => $"{_root}/schema/observations.csv-metadata.json";
+
     /// <summary>Re-emits the observations list IRI carrying an opaque next-page cursor.</summary>
     public string ObservationsNext(string cursor, string? query) =>
         $"{Observations()}?{(string.IsNullOrEmpty(query) ? string.Empty : query + "&")}cursor={Uri.EscapeDataString(cursor)}";
