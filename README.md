@@ -15,7 +15,7 @@ the write-heavy and read-heavy paths can scale separately. Each project has its 
 | [`Ambiquality.Auth.Api`](src/Ambiquality.Auth.Api/README.md) | **Built** | Authentication & account management | F01–F04 |
 | [`Ambiquality.Evidence.Api`](src/Ambiquality.Evidence.Api/README.md) | **Built** | Building & room registration / lifecycle catalog | F05–F09 |
 | [`Ambiquality.Ingestion.Api`](src/Ambiquality.Ingestion.Api/README.md) | **Built** | Write-only measurement ingestion & validation | F10 |
-| [`Ambiquality.Public.Api`](src/Ambiquality.Public.Api/README.md) | Skeleton | Read-only public/open-data API, DCAT-AP-CZ, CSV export | F11–F17 |
+| [`Ambiquality.Public.Api`](src/Ambiquality.Public.Api/README.md) | **Built** | Read-only public/open-data API (JSON/JSON-LD/CSV), DCAT-AP 3.0, OpenAPI | F11–F17 |
 | [`Ambiquality.Core`](src/Ambiquality.Core/README.md) | **Built** | Shared library: `IeqDbContext`, measurement & range models | — |
 
 Each `src/*` project has a matching test project under `tests/`.

@@ -16,7 +16,7 @@ src/
   Ambiquality.Evidence.Api/     ← [BUILT] building, room & sensor registration / lifecycle catalog (F05–F09)
   Ambiquality.Ingestion.Api/    ← [BUILT] validates sensor measurements & enqueues them to Redis (F10/UC10); does NOT write the DB
   Ambiquality.Ingestion.Worker/ ← [BUILT] background service: drains the Redis stream and bulk-writes measurements to the ieq hypertable
-  Ambiquality.Public.Api/       ← [SKELETON] read-only: public API, filtering, pagination, open data
+  Ambiquality.Public.Api/       ← [BUILT] read-only open-data API: observations (JSON/JSON-LD/CSV), evidence catalog, DCAT-AP 3.0, OpenAPI (F11–F17)
 tests/
   Ambiquality.Core.Tests/
   Ambiquality.Auth.Api.Tests/
@@ -26,9 +26,9 @@ tests/
   Ambiquality.Public.Api.Tests/
 ```
 
-**Auth.Api**, **Evidence.Api**, **Ingestion.Api** and **Ingestion.Worker** are implemented, and
-`Core` holds the shared measurement model, `IeqDbContext` and the queue message contract.
-`Public.Api` is still a default minimal-API skeleton. See each project's `README.md` for detail.
+**Auth.Api**, **Evidence.Api**, **Ingestion.Api**, **Ingestion.Worker** and **Public.Api** are
+implemented, and `Core` holds the shared measurement model, `IeqDbContext` and the queue message
+contract. See each project's `README.md` for detail.
 Per-project READMEs and the root `README.md` are the human-facing docs; this file is the agent guide.
 
 **Ingestion is a queue + worker write path.** Ingestion.Api validates an observation synchronously
@@ -66,8 +66,8 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
   table — the originally-planned `ieq.devices` is superseded by `evidence.sensors`.
 - **The `ieq` database is built.** `measurements` is a TimescaleDB hypertable (partitioned on
   `received_at`, composite key `(id, received_at)`) and `parameter_ranges` seeds the permitted
-  value ranges. Ingestion.Api owns its migrations (`ingestion_api`, rw); the planned Public.Api
-  will read it (`public_api`, ro). Measurements carry `sensor_id` referencing the evidence catalog
+  value ranges. Ingestion.Api owns its migrations (`ingestion_api`, rw); Public.Api reads it
+  (`public_api`, ro — SELECT on both `ieq` and `evidence`). Measurements carry `sensor_id` referencing the evidence catalog
   with no cross-database FK; Ingestion.Api validates against the catalog via a read-only SQL
   connection to the evidence schema (the `ingestion_api` role has SELECT there).
 - **The `measurements` hypertable is written only by Ingestion.Worker**, which bulk-inserts drained
@@ -84,7 +84,7 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
 - `IeqDbContext` lives in **Ambiquality.Core** and owns the `ieq` database; **Ingestion.Api**
   holds its migrations (`MigrationsAssembly`) and runs them via the `ingestion-migrate` container.
   Ingestion.Worker references `IeqDbContext` (for reads in tests) but writes via raw Npgsql bulk
-  inserts; it does **not** own or run migrations. The planned Public.Api will reference it read-only.
+  inserts; it does **not** own or run migrations. Public.Api references it read-only.
 
 ## Key Functional Requirements (from thesis)
 
@@ -93,9 +93,9 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
 | F01–F04 | User registration, login, logout, credential change | Auth.Api ✅ |
 | F05–F09 | Building, room & sensor registration and lifecycle | **Evidence.Api** ✅ |
 | F10 | Measurement validation on ingestion | Ingestion.Api (validate + enqueue) + Ingestion.Worker (persist) ✅ |
-| F11–F15 | Public read API, filtering, pagination, search, OpenAPI spec | Public.Api (planned) |
-| F16 | DCAT-AP-CZ catalog metadata publication | Public.Api (planned) |
-| F17 | Downloadable data archive (CSV) | Public.Api (planned) |
+| F11–F15 | Public read API, filtering, pagination, search, OpenAPI spec | Public.Api ✅ |
+| F16 | DCAT-AP catalog metadata publication | Public.Api ✅ |
+| F17 | Downloadable data archive (CSV) | Public.Api ✅ |
 | F18 | (Frontend) Interactive map — not in this repo |
 
 Note: F05–F09 were originally scoped to Public.Api but were implemented in a dedicated
@@ -120,7 +120,7 @@ dotnet run --project src/Ambiquality.Auth.Api
 dotnet run --project src/Ambiquality.Evidence.Api
 dotnet run --project src/Ambiquality.Ingestion.Api      # validate + enqueue; needs evidence db + Redis
 dotnet run --project src/Ambiquality.Ingestion.Worker   # drain + persist; needs ieq db + Redis
-# Public.Api is still a skeleton (returns "Hello World!")
+dotnet run --project src/Ambiquality.Public.Api         # read-only open data; needs ieq + evidence dbs
 ```
 
 Start the full stack (Postgres, Redis, Caddy, Mailpit, the APIs, the ingestion worker, migrations)
@@ -133,7 +133,8 @@ with the dev helper, which wraps `podman compose --profile development`:
 ```
 
 Behind Caddy (`:8080`): `/evidence/*` → `evidence-api:6200`, `/ingestion/*` → `ingestion-api:6300`,
-everything else → `auth-api:6100`.
+`/public/*` → `public-api:6400`, everything else → `auth-api:6100`. Caddy's `handle_path` strips the
+prefix, so set `PublicApi__BaseIri` for correct public-api linked-data IRIs.
 
 ## Running Tests
 
@@ -144,8 +145,8 @@ dotnet test tests/Ambiquality.Ingestion.Api.Tests   # single project
 
 ## Architecture Decisions
 
-- **Service-per-bounded-context**: Independently deployable services (Auth, Evidence, and the
-  planned Ingestion/Public split) so write-heavy and read-heavy paths scale separately. Built
+- **Service-per-bounded-context**: Independently deployable services (Auth, Evidence, the
+  Ingestion write path and the Public read API) so write-heavy and read-heavy paths scale separately. Built
   services use DDD layering `Api → Application → Domain ← Infrastructure`.
 - **Ingestion queue + worker write path**: Ingestion.Api validates synchronously and enqueues to a
   Redis stream; Ingestion.Worker drains it and bulk-writes to TimescaleDB. This decouples
