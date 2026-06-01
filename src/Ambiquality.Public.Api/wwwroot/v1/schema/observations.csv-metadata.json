@@ -1,0 +1,89 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "url": "../observations.csv",
+  "dc:title": "Ambiquality IEQ observations (CSV)",
+  "dc:description": "Tabular (CSVW) schema for the streamed observations CSV export (F17) and the monthly CSV archives. The columns carry the same SSN/SOSA + QUDT semantics published as JSON-LD, so a CSVW processor can lift the rows into the same RDF model.",
+  "dc:license": { "@id": "https://creativecommons.org/licenses/by/4.0/" },
+  "dialect": {
+    "header": true,
+    "encoding": "utf-8",
+    "commentPrefix": "#"
+  },
+  "tableSchema": {
+    "primaryKey": "id",
+    "aboutUrl": "observations/{id}",
+    "columns": [
+      {
+        "name": "id",
+        "titles": "id",
+        "datatype": "string",
+        "dc:description": "Observation UUID.",
+        "propertyUrl": "http://purl.org/dc/terms/identifier"
+      },
+      {
+        "name": "sensor_id",
+        "titles": "sensor_id",
+        "datatype": "string",
+        "dc:description": "UUID of the sensor (device) that produced the reading.",
+        "propertyUrl": "http://www.w3.org/ns/sosa/madeBySensor",
+        "valueUrl": "sensors/{sensor_id}"
+      },
+      {
+        "name": "parameter_code",
+        "titles": "parameter_code",
+        "datatype": "string",
+        "dc:description": "IEQ parameter code, e.g. co2."
+      },
+      {
+        "name": "value",
+        "titles": "value",
+        "datatype": "double",
+        "dc:description": "Measured value.",
+        "propertyUrl": "http://www.w3.org/ns/sosa/hasSimpleResult"
+      },
+      {
+        "name": "unit",
+        "titles": "unit",
+        "datatype": "string",
+        "dc:description": "Unit symbol as reported by the sensor."
+      },
+      {
+        "name": "quantity_kind_uri",
+        "titles": "quantity_kind_uri",
+        "datatype": "anyURI",
+        "dc:description": "QUDT quantity-kind URI for the observed property (empty when the parameter has no QUDT mapping).",
+        "propertyUrl": "http://www.w3.org/ns/sosa/observedProperty",
+        "valueUrl": "{quantity_kind_uri}"
+      },
+      {
+        "name": "unit_uri",
+        "titles": "unit_uri",
+        "datatype": "anyURI",
+        "dc:description": "QUDT unit URI (empty when the parameter has no QUDT mapping).",
+        "propertyUrl": "http://qudt.org/schema/qudt/unit",
+        "valueUrl": "{unit_uri}"
+      },
+      {
+        "name": "observed_at",
+        "titles": "observed_at",
+        "datatype": "dateTime",
+        "dc:description": "Sensor clock time the reading was taken (ISO 8601, UTC).",
+        "propertyUrl": "http://www.w3.org/ns/sosa/resultTime"
+      },
+      {
+        "name": "received_at",
+        "titles": "received_at",
+        "datatype": "dateTime",
+        "dc:description": "Server acceptance time stamped at ingestion (ISO 8601, UTC).",
+        "propertyUrl": "https://data.ambiquality.org/ns#receivedTime"
+      },
+      {
+        "name": "is_invalid",
+        "titles": "is_invalid",
+        "datatype": "boolean",
+        "dc:description": "Soft-invalidation flag; measurement values are never deleted or mutated.",
+        "propertyUrl": "https://data.ambiquality.org/ns#isInvalid"
+      }
+    ]
+  }
+}

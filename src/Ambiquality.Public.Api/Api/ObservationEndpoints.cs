@@ -40,7 +40,7 @@ public static class ObservationEndpoints
             return Problems.UnsupportedMediaType();
 
         if (format == ResponseFormat.Csv)
-            return await CsvEndpoints.StreamObservations(http.Request, db, catalog, ct);
+            return await CsvEndpoints.StreamObservations(http.Request, db, catalog, configuration, ct);
 
         if (ObservationRequestParser.TryParse(http.Request, out var filter) is { } problem)
             return problem;

@@ -33,6 +33,19 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
     }
 
     [Fact]
+    public async Task Catalog_CsvDistribution_ConformsToCsvwSchema()
+    {
+        var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
+        var dataset = doc.GetProperty("dcat:dataset");
+
+        var csv = dataset.GetProperty("dcat:distribution").EnumerateArray()
+            .Single(d => d.GetProperty("dcat:mediaType").GetString() == "text/csv");
+
+        var conformsTo = csv.GetProperty("dcterms:conformsTo").GetProperty("@id").GetString();
+        Assert.EndsWith("/v1/schema/observations.csv-metadata.json", conformsTo);
+    }
+
+    [Fact]
     public async Task Catalog_HasSpatialAndTemporalExtent()
     {
         var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");

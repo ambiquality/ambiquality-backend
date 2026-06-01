@@ -36,7 +36,11 @@ public sealed class SerializerTests
         var lines = Encoding.UTF8.GetString(stream.ToArray())
             .Split('\n', StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(CsvMeasurementSerializer.Header, lines[0]);
-        Assert.StartsWith("11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,co2,812.5,ppm,", lines[1]);
+        // Same 10-column schema as the live endpoint, including the resolved QUDT URIs for co2.
+        Assert.StartsWith(
+            "11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,co2,812.5,ppm," +
+            "http://qudt.org/vocab/quantitykind/AmountOfSubstanceFraction,http://qudt.org/vocab/unit/PPM,",
+            lines[1]);
         Assert.EndsWith(",false", lines[1].TrimEnd('\r'));
     }
 

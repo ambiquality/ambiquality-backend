@@ -41,7 +41,13 @@ Serves IEQ measurements as SSN/SOSA observations and the evidence catalog
 catalog entities carry an inline context), or `text/csv` (observations only).
 An explicitly unsupported type yields **406**. Every JSON/JSON-LD body carries a
 `license` field; list/detail responses set `Cache-Control: public, max-age=300`
-and a `Link: …; rel="describedby"` to the JSON Schema under `/v1/schema/`.
+and a `Link: …; rel="describedby"` to the JSON Schema under `/v1/schema/`. The CSV
+export carries the same `describedby` link, pointing instead at the **CSVW** tabular
+schema `/v1/schema/observations.csv-metadata.json` — it names every column, its
+datatype, and the SSN/SOSA + QUDT property each maps to, so the CSV lifts into the
+same RDF model as the JSON-LD. The DCAT catalog advertises this schema on every CSV
+distribution (live + monthly archives) via `dcterms:conformsTo`. The export worker's
+monthly CSV archives share this exact column schema.
 
 ## Pagination
 

@@ -13,8 +13,8 @@ public static class CsvEndpoints
     public static void MapCsvEndpoints(this WebApplication app)
     {
         app.MapMethods($"/{Constants.ApiVersion}/observations.csv", ["GET", "HEAD"],
-            (HttpContext http, IeqDbContext db, IEvidenceCatalog catalog, CancellationToken ct)
-                => StreamObservations(http.Request, db, catalog, ct))
+            (HttpContext http, IeqDbContext db, IEvidenceCatalog catalog, IConfiguration configuration, CancellationToken ct)
+                => StreamObservations(http.Request, db, catalog, configuration, ct))
             .WithTags("Observations")
             .WithName("ExportObservationsCsv")
             .WithSummary("Export observations as CSV")
@@ -26,12 +26,13 @@ public static class CsvEndpoints
     /// by the dedicated <c>.csv</c> route and the list endpoint's <c>text/csv</c> path.
     /// </summary>
     public static async Task<IResult> StreamObservations(
-        HttpRequest request, IeqDbContext db, IEvidenceCatalog catalog, CancellationToken ct)
+        HttpRequest request, IeqDbContext db, IEvidenceCatalog catalog, IConfiguration configuration, CancellationToken ct)
     {
         if (ObservationRequestParser.TryParse(request, out var filter) is { } problem)
             return problem;
 
+        var iri = IriBuilder.ForRequest(request, configuration);
         var rows = await ObservationQuery.StreamAsync(db, catalog, filter, ct);
-        return new ObservationCsvStreamer(rows);
+        return new ObservationCsvStreamer(rows, iri.CsvMetadata());
     }
 }
