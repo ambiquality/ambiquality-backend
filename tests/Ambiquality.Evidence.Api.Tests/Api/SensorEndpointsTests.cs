@@ -277,7 +277,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task AddMeasuredParameter_WithValidData_Returns200Ok()
+    public async Task AddMeasuredParameter_WithValidData_Returns204NoContent()
     {
         var registered = await RegisterSensorAsync(parameters: new[] { "co2" });
 
@@ -285,7 +285,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync(
             $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/measured-parameters", request);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
         var get = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
         var sensor = await get.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
@@ -293,15 +293,16 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task RemoveMeasuredParameter_WithValidData_Returns200Ok()
+    public async Task RemoveMeasuredParameter_WithValidData_Returns204NoContent()
     {
         var registered = await RegisterSensorAsync(parameters: new[] { "co2", "voc" });
 
-        var url = $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/measured-parameters/voc"
-                + $"?validTo={Uri.EscapeDataString(DateTime.UtcNow.ToString("o"))}";
-        var response = await _client.DeleteAsync(url);
+        // Close the capability's validity via PUT with validTo in the body.
+        var response = await _client.PutAsJsonAsync(
+            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/measured-parameters/voc",
+            new RemoveMeasuredParameterRequest(ValidTo: DateTime.UtcNow));
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
         var get = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
         var sensor = await get.Content.ReadFromJsonAsync<SensorSnapshotResponse>();

@@ -75,3 +75,12 @@ public sealed record ChangeSensorStatusRequest(
 public sealed record AddMeasuredParameterRequest(
     string ParameterCode,
     DateTime ValidFrom);
+
+/// <summary>
+/// Closes a measured-parameter capability's validity period as of <c>ValidTo</c>.
+/// Carried in the body of <c>PUT …/measured-parameters/{code}</c>: the capability
+/// is never physically deleted — its open history row is closed (soft history),
+/// so the verb is PUT, not DELETE (RFC 9110 §9.3.4 vs §9.3.5).
+/// </summary>
+public sealed record RemoveMeasuredParameterRequest(
+    DateTime ValidTo);

@@ -66,12 +66,16 @@ public static class RoomEndpoints
         group.MapPost("/{roomId:guid}/pollution-sources", AddPollutionSource)
             .WithName("AddPollutionSource")
             .WithOpenApi()
-            .WithDescription("Add pollution source to room");
+            .WithDescription("Record a pollution source effective from validFrom (appends history)");
 
-        group.MapDelete("/{roomId:guid}/pollution-sources/{sourceCode}", RemovePollutionSource)
+        // PUT, not DELETE: closing a pollution source's validity period is a
+        // soft-history mutation — nothing is physically removed (RFC 9110 §9.3.4
+        // vs §9.3.5). The effective end instant travels in the body, uniform with
+        // every other temporal mutation.
+        group.MapPut("/{roomId:guid}/pollution-sources/{sourceCode}", RemovePollutionSource)
             .WithName("RemovePollutionSource")
             .WithOpenApi()
-            .WithDescription("Remove pollution source from room");
+            .WithDescription("Close a pollution source's validity as of validTo (soft history)");
     }
 
     private static async Task<Results<Created<RoomSnapshotResponse>, ProblemHttpResult>> RegisterRoom(
@@ -188,16 +192,15 @@ public static class RoomEndpoints
     private static async Task<Results<NoContent, ProblemHttpResult>> ChangeRoomFloor(
         Guid buildingId,
         Guid roomId,
-        ChangeRoomAttributeRequest request,
+        ChangeRoomFloorRequest request,
         ChangeRoomFloorHandler handler,
         CancellationToken cancellationToken)
     {
-        // Guard the floor parse at the edge: byte.Parse would throw
-        // FormatException/OverflowException (escaping as a 500) on "abc"/"-1"/
-        // "300", and a parsed-but-too-large value (101–255) would trip
-        // FloorNumber.Create's ArgumentException — also a 500. The domain accepts
-        // 0–100, so reject anything outside that here as a 400.
-        if (!byte.TryParse(request.NewValue, out var floor) || floor > 100)
+        // The framework already bound Floor as a byte (0–255), rejecting
+        // non-numeric / negative / >255 input as 400. The domain accepts 0–100,
+        // so 101–255 (a valid byte but FloorNumber.Create's ArgumentException,
+        // which would 500) is rejected here as a 400.
+        if (request.Floor > 100)
         {
             return Problems.InvalidAttributeValue(
                 "Floor must be an integer between 0 and 100.");
@@ -205,7 +208,7 @@ public static class RoomEndpoints
 
         try
         {
-            var command = new ChangeRoomFloorCommand(roomId, floor, request.ValidFrom);
+            var command = new ChangeRoomFloorCommand(roomId, request.Floor, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
             return TypedResults.NoContent();
         }
@@ -291,7 +294,7 @@ public static class RoomEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> AddPollutionSource(
+    private static async Task<Results<NoContent, ProblemHttpResult>> AddPollutionSource(
         Guid buildingId,
         Guid roomId,
         AddPollutionSourceRequest request,
@@ -302,7 +305,7 @@ public static class RoomEndpoints
         {
             var command = new AddRoomPollutionSourceCommand(roomId, request.SourceCode, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {
@@ -310,23 +313,19 @@ public static class RoomEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> RemovePollutionSource(
+    private static async Task<Results<NoContent, ProblemHttpResult>> RemovePollutionSource(
         Guid buildingId,
         Guid roomId,
         string sourceCode,
+        RemovePollutionSourceRequest request,
         RemoveRoomPollutionSourceHandler handler,
-        HttpContext context,
         CancellationToken cancellationToken)
     {
-        var validToError = Problems.TryParseValidTo(context, out var validTo);
-        if (validToError is not null)
-            return validToError;
-
         try
         {
-            var command = new RemoveRoomPollutionSourceCommand(roomId, sourceCode, validTo);
+            var command = new RemoveRoomPollutionSourceCommand(roomId, sourceCode, request.ValidTo);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using Ambiquality.Evidence.Api.Api;
 using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Application.Rooms;
@@ -256,8 +257,8 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
         var roomId = registeredRoom!.Id;
 
         // Change the floor
-        var changeRequest = new ChangeRoomAttributeRequest(
-            NewValue: "3",
+        var changeRequest = new ChangeRoomFloorRequest(
+            Floor: 3,
             ValidFrom: DateTime.UtcNow);
 
         var changeResponse = await _client.PutAsJsonAsync(
@@ -273,7 +274,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task AddPollutionSource_WithValidData_Returns200Ok()
+    public async Task AddPollutionSource_WithValidData_Returns204NoContent()
     {
         // Register a room first
         var registerRequest = new RegisterRoomRequest(
@@ -299,7 +300,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             $"/buildings/{_buildingId}/rooms/{roomId}/pollution-sources",
             addRequest);
 
-        Assert.Equal(HttpStatusCode.OK, addResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, addResponse.StatusCode);
 
         // Verify the source was added
         var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{roomId}");
@@ -308,7 +309,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task RemovePollutionSource_WithValidData_Returns200Ok()
+    public async Task RemovePollutionSource_WithValidData_Returns204NoContent()
     {
         // Register a room with pollution source
         var registerRequest = new RegisterRoomRequest(
@@ -330,11 +331,12 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
         var beforeRoom = await beforeRemoval.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         Assert.Contains("traffic", beforeRoom!.PollutionSources);
 
-        // Remove pollution source
-        var removeUrl = $"/buildings/{_buildingId}/rooms/{roomId}/pollution-sources/traffic?validTo={Uri.EscapeDataString(DateTime.UtcNow.ToString("o"))}";
-        var removeResponse = await _client.DeleteAsync(removeUrl);
+        // Close the pollution source's validity via PUT with validTo in the body
+        var removeResponse = await _client.PutAsJsonAsync(
+            $"/buildings/{_buildingId}/rooms/{roomId}/pollution-sources/traffic",
+            new RemovePollutionSourceRequest(ValidTo: DateTime.UtcNow));
 
-        Assert.Equal(HttpStatusCode.OK, removeResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, removeResponse.StatusCode);
 
         // Verify source was removed at current time
         var afterRemoval = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{roomId}");
@@ -409,12 +411,16 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, getResponse.StatusCode);
     }
 
+    // Raw JSON floor tokens that the typed ChangeRoomFloorRequest(byte Floor)
+    // must reject as a client error (problem+json), never a 500. The first three
+    // fail framework byte-binding; "200" binds as a byte but trips the endpoint's
+    // 0–100 domain guard.
     [Theory]
-    [InlineData("abc")]   // non-numeric → byte.Parse FormatException would 500
-    [InlineData("-1")]    // negative → byte.Parse FormatException would 500
-    [InlineData("300")]   // > 255 → byte.Parse OverflowException would 500
-    [InlineData("200")]   // parses as a byte but > 100 → FloorNumber.Create would 500
-    public async Task ChangeRoomFloor_WithInvalidValue_Returns400ProblemJson(string newValue)
+    [InlineData("\"abc\"")] // non-numeric → byte binding 400
+    [InlineData("-1")]      // negative → byte binding 400
+    [InlineData("300")]     // > 255 → byte binding 400
+    [InlineData("200")]     // valid byte but > 100 → domain guard 400
+    public async Task ChangeRoomFloor_WithInvalidValue_Returns400ProblemJson(string floorJson)
     {
         var registerRequest = new RegisterRoomRequest(
             Name: "Bad Floor Room",
@@ -430,13 +436,10 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         var roomId = registeredRoom!.Id;
 
-        var changeRequest = new ChangeRoomAttributeRequest(
-            NewValue: newValue,
-            ValidFrom: DateTime.UtcNow);
-
-        var changeResponse = await _client.PutAsJsonAsync(
+        var body = $$"""{"floor": {{floorJson}}, "validFrom": "{{DateTime.UtcNow:o}}"}""";
+        var changeResponse = await _client.PutAsync(
             $"/buildings/{_buildingId}/rooms/{roomId}/floor",
-            changeRequest);
+            new StringContent(body, Encoding.UTF8, "application/json"));
 
         // A malformed floor must be rejected at the edge as a client error
         // (problem+json), never escape as a 500.

@@ -120,13 +120,6 @@ public static class Problems
     public static ProblemHttpResult? TryParseAsOf(HttpContext context, out DateTime asOf) =>
         TryParseUtcInstant(context, "asOf", out asOf);
 
-    /// <summary>
-    /// Parses the optional <c>validTo</c> query parameter as a UTC instant,
-    /// defaulting to "now". Mirrors <see cref="TryParseAsOf"/>.
-    /// </summary>
-    public static ProblemHttpResult? TryParseValidTo(HttpContext context, out DateTime validTo) =>
-        TryParseUtcInstant(context, "validTo", out validTo);
-
     private static ProblemHttpResult? TryParseUtcInstant(
         HttpContext context, string parameterName, out DateTime value)
     {

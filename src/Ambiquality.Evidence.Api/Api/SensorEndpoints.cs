@@ -50,12 +50,16 @@ public static class SensorEndpoints
         group.MapPost("/{sensorId:guid}/measured-parameters", AddMeasuredParameter)
             .WithName("AddMeasuredParameter")
             .WithOpenApi()
-            .WithDescription("Add a measured parameter capability to the sensor");
+            .WithDescription("Record a measured-parameter capability effective from validFrom (appends history)");
 
-        group.MapDelete("/{sensorId:guid}/measured-parameters/{parameterCode}", RemoveMeasuredParameter)
+        // PUT, not DELETE: closing a capability's validity period is a soft-history
+        // mutation — nothing is physically removed (RFC 9110 §9.3.4 vs §9.3.5). The
+        // effective end instant travels in the body, uniform with every other
+        // temporal mutation.
+        group.MapPut("/{sensorId:guid}/measured-parameters/{parameterCode}", RemoveMeasuredParameter)
             .WithName("RemoveMeasuredParameter")
             .WithOpenApi()
-            .WithDescription("Remove a measured parameter capability from the sensor");
+            .WithDescription("Close a measured-parameter capability's validity as of validTo (soft history)");
     }
 
     private static async Task<Results<Created<SensorRegisteredResponse>, ProblemHttpResult>> RegisterSensor(
@@ -200,7 +204,7 @@ public static class SensorEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> AddMeasuredParameter(
+    private static async Task<Results<NoContent, ProblemHttpResult>> AddMeasuredParameter(
         Guid buildingId,
         Guid roomId,
         Guid sensorId,
@@ -212,7 +216,7 @@ public static class SensorEndpoints
         {
             var command = new AddSensorMeasuredParameterCommand(sensorId, request.ParameterCode, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {
@@ -220,24 +224,20 @@ public static class SensorEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> RemoveMeasuredParameter(
+    private static async Task<Results<NoContent, ProblemHttpResult>> RemoveMeasuredParameter(
         Guid buildingId,
         Guid roomId,
         Guid sensorId,
         string parameterCode,
+        RemoveMeasuredParameterRequest request,
         RemoveSensorMeasuredParameterHandler handler,
-        HttpContext context,
         CancellationToken cancellationToken)
     {
-        var validToError = Problems.TryParseValidTo(context, out var validTo);
-        if (validToError is not null)
-            return validToError;
-
         try
         {
-            var command = new RemoveSensorMeasuredParameterCommand(sensorId, parameterCode, validTo);
+            var command = new RemoveSensorMeasuredParameterCommand(sensorId, parameterCode, request.ValidTo);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {
