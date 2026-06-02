@@ -22,9 +22,6 @@ public sealed class Room
     private readonly List<RoomFloorHistory> _floorHistory = [];
     public IReadOnlyCollection<RoomFloorHistory> FloorHistory => _floorHistory.AsReadOnly();
 
-    private readonly List<RoomBuildingHistory> _buildingHistory = [];
-    public IReadOnlyCollection<RoomBuildingHistory> BuildingHistory => _buildingHistory.AsReadOnly();
-
     private readonly List<RoomFunctionHistory> _functionHistory = [];
     public IReadOnlyCollection<RoomFunctionHistory> FunctionHistory => _functionHistory.AsReadOnly();
 
@@ -68,7 +65,6 @@ public sealed class Room
 
         room._nameHistory.Add(new RoomNameHistory(id, validity, name, createdBy, now));
         room._floorHistory.Add(new RoomFloorHistory(id, validity, floor.Value, createdBy, now));
-        room._buildingHistory.Add(new RoomBuildingHistory(id, validity, buildingId, createdBy, now));
         room._functionHistory.Add(new RoomFunctionHistory(id, validity, functionCode, createdBy, now));
         room._exposureHistory.Add(new RoomExposureHistory(id, validity, exposureCode, createdBy, now));
         room._geometryHistory.Add(new RoomGeometryHistory(id, validity, areaM2, ceilingHeightM, createdBy, now));

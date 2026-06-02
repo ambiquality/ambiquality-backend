@@ -69,10 +69,6 @@ public class RoomTests
         Assert.Equal((byte)1, floor.Floor);
         Assert.True(floor.Validity.UpperBoundInfinite);
 
-        var building = Assert.Single(room.BuildingHistory);
-        Assert.Equal(BuildingId, building.BuildingId);
-        Assert.True(building.Validity.UpperBoundInfinite);
-
         var function = Assert.Single(room.FunctionHistory);
         Assert.Equal("office", function.FunctionCode);
         Assert.True(function.Validity.UpperBoundInfinite);
