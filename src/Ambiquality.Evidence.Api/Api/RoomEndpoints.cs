@@ -1,5 +1,8 @@
+using Ambiquality.Evidence.Api.Application.Abstractions;
+using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Application.Rooms;
 using Ambiquality.Evidence.Api.Domain;
+using Ambiquality.Evidence.Api.Domain.Buildings;
 using Ambiquality.Evidence.Api.Domain.Common;
 using Ambiquality.Evidence.Api.Domain.Rooms;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -19,6 +22,13 @@ public static class RoomEndpoints
             .WithName("RegisterRoom")
             .WithOpenApi()
             .WithDescription("Register a new room in a building");
+
+        // Owner-scoped listing: authenticated (no AllowAnonymous), requires the
+        // caller to own the containing building. GET + HEAD share the route, so
+        // .WithOpenApi() is omitted (it throws on multi-method routes).
+        group.MapMethods("/", ["GET", "HEAD"], ListRooms)
+            .WithName("ListRooms")
+            .WithDescription("List the rooms of a building the caller owns");
 
         // GET + HEAD share one route. The modern AddOpenApi pipeline advertises
         // both methods from route metadata; the legacy .WithOpenApi() helper is
@@ -113,6 +123,37 @@ public static class RoomEndpoints
                 AsOf: DateTime.UtcNow);
 
             return TypedResults.Created($"/buildings/{buildingId}/rooms/{result.RoomId}", response);
+        }
+        catch (DomainException ex)
+        {
+            return Problems.ToProblemResult(ex);
+        }
+    }
+
+    private static async Task<Results<Ok<IReadOnlyList<RoomSnapshotResponse>>, ProblemHttpResult>> ListRooms(
+        Guid buildingId,
+        IRoomRepository repository,
+        IBuildingRepository buildingRepository,
+        ICurrentUser currentUser,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var asOfError = Problems.TryParseAsOf(context, out var asOf);
+        if (asOfError is not null)
+            return asOfError;
+
+        try
+        {
+            // Owner-scoped: rejects a non-owner (403) or unknown building (404)
+            // before any room is read.
+            await BuildingAuthorizer.LoadOwnedAsync(
+                buildingRepository, buildingId, currentUser, cancellationToken);
+
+            var rooms = await repository.GetByBuildingIdAsync(buildingId, cancellationToken);
+            var responses = rooms
+                .Select(r => ToResponse(r.SnapshotAt(asOf)))
+                .ToList();
+            return TypedResults.Ok((IReadOnlyList<RoomSnapshotResponse>)responses);
         }
         catch (DomainException ex)
         {

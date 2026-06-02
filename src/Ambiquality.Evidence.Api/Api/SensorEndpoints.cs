@@ -1,6 +1,10 @@
+using Ambiquality.Evidence.Api.Application.Abstractions;
+using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Application.Sensors;
 using Ambiquality.Evidence.Api.Domain;
+using Ambiquality.Evidence.Api.Domain.Buildings;
 using Ambiquality.Evidence.Api.Domain.Common;
+using Ambiquality.Evidence.Api.Domain.Rooms;
 using Ambiquality.Evidence.Api.Domain.Sensors;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -19,6 +23,13 @@ public static class SensorEndpoints
             .WithName("RegisterSensor")
             .WithOpenApi()
             .WithDescription("Register a new sensor in a room");
+
+        // Owner-scoped listing: authenticated (no AllowAnonymous), requires the
+        // caller to own the containing building. GET + HEAD share the route, so
+        // .WithOpenApi() is omitted (it throws on multi-method routes).
+        group.MapMethods("/", ["GET", "HEAD"], ListSensors)
+            .WithName("ListSensors")
+            .WithDescription("List the sensors of a room in a building the caller owns");
 
         // GET + HEAD share one route; the AddOpenApi pipeline advertises both
         // methods from route metadata, so .WithOpenApi() is omitted here.
@@ -98,6 +109,51 @@ public static class SensorEndpoints
 
             return TypedResults.Created(
                 $"/buildings/{buildingId}/rooms/{roomId}/sensors/{result.SensorId}", response);
+        }
+        catch (DomainException ex)
+        {
+            return Problems.ToProblemResult(ex);
+        }
+    }
+
+    private static async Task<Results<Ok<IReadOnlyList<SensorSnapshotResponse>>, ProblemHttpResult>> ListSensors(
+        Guid buildingId,
+        Guid roomId,
+        ISensorRepository repository,
+        IRoomRepository roomRepository,
+        IBuildingRepository buildingRepository,
+        ICurrentUser currentUser,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var asOfError = Problems.TryParseAsOf(context, out var asOf);
+        if (asOfError is not null)
+            return asOfError;
+
+        try
+        {
+            // Owner-scoped: caller must own the building (403 otherwise, 404 if the
+            // building is unknown).
+            await BuildingAuthorizer.LoadOwnedAsync(
+                buildingRepository, buildingId, currentUser, cancellationToken);
+
+            // The room must exist and sit in the building named in the route.
+            var room = await roomRepository.GetByIdAsync(roomId, cancellationToken);
+            if (room is null || room.BuildingId != buildingId)
+                return Problems.ToProblemResult(new RoomNotFoundException(roomId));
+
+            var sensors = await repository.GetByRoomIdAsync(roomId, cancellationToken);
+            var responses = new List<SensorSnapshotResponse>();
+            foreach (var sensor in sensors)
+            {
+                // GetByRoomIdAsync filters on the denormalised current placement;
+                // re-check the snapshot so an asOf in the past only includes sensors
+                // that were actually in this room/building at that instant.
+                var snapshot = sensor.SnapshotAt(asOf);
+                if (snapshot.BuildingId == buildingId && snapshot.RoomId == roomId)
+                    responses.Add(ToResponse(snapshot));
+            }
+            return TypedResults.Ok((IReadOnlyList<SensorSnapshotResponse>)responses);
         }
         catch (DomainException ex)
         {

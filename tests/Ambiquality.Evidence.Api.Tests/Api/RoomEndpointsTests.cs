@@ -5,6 +5,7 @@ using Ambiquality.Evidence.Api.Api;
 using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Application.Rooms;
 using Ambiquality.Evidence.Api.Tests.Infrastructure;
+using Ambiquality.Evidence.Api.Tests.TestSupport;
 
 namespace Ambiquality.Evidence.Api.Tests.Api;
 
@@ -72,6 +73,39 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
         Assert.Matches(SlugPattern, result.UriSlug);
         Assert.Equal("Conference Room", result.Name);
         Assert.Equal(1, result.Floor);
+    }
+
+    [Fact]
+    public async Task ListRooms_AsOwner_ReturnsBuildingsRooms()
+    {
+        async Task RegisterRoomAsync(string name) =>
+            (await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", new RegisterRoomRequest(
+                Name: name, Floor: 1, FunctionCode: null, ExposureCode: null,
+                AreaM2: null, CeilingHeightM: null, VentilationType: null,
+                PollutionSources: Array.Empty<string>()))).EnsureSuccessStatusCode();
+
+        await RegisterRoomAsync("List Room A");
+        await RegisterRoomAsync("List Room B");
+
+        var response = await _client.GetAsync($"/buildings/{_buildingId}/rooms");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var rooms = (await response.Content.ReadFromJsonAsync<List<RoomSnapshotResponse>>())!;
+
+        Assert.Equal(2, rooms.Count);
+        Assert.Contains(rooms, r => r.Name == "List Room A");
+        Assert.Contains(rooms, r => r.Name == "List Room B");
+        Assert.All(rooms, r => Assert.Equal(_buildingId, r.BuildingId));
+    }
+
+    [Fact]
+    public async Task ListRooms_ByNonOwner_Returns403()
+    {
+        using var otherUser = _factory.CreateClient();
+        otherUser.DefaultRequestHeaders.Add(TestAuthHandler.SubHeader, Guid.NewGuid().ToString());
+
+        var response = await otherUser.GetAsync($"/buildings/{_buildingId}/rooms");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]

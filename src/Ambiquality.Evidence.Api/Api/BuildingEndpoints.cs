@@ -24,6 +24,14 @@ public static class BuildingEndpoints
             .WithOpenApi()
             .WithDescription("Register a new building");
 
+        // Owner-scoped catalog listing: authenticated (no AllowAnonymous), returns
+        // only the caller's own buildings with unmasked coordinates. The public,
+        // masked listing lives in Public.Api. GET + HEAD share the route, so
+        // .WithOpenApi() is omitted (it throws on multi-method routes).
+        group.MapMethods("/", ["GET", "HEAD"], ListBuildings)
+            .WithName("ListBuildings")
+            .WithDescription("List the authenticated owner's buildings (unmasked coordinates)");
+
         // GET + HEAD share one route. The modern AddOpenApi pipeline advertises
         // both methods from route metadata; the legacy .WithOpenApi() helper is
         // omitted here because it throws on multi-method routes.
@@ -94,6 +102,33 @@ public static class BuildingEndpoints
                 title: problem.Title,
                 type: problem.Type,
                 statusCode: problem.StatusCode);
+        }
+    }
+
+    private static async Task<Results<Ok<IReadOnlyList<BuildingSnapshotResponse>>, ProblemHttpResult>> ListBuildings(
+        IBuildingRepository repository,
+        ICurrentUser currentUser,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var asOfError = Problems.TryParseAsOf(context, out var asOf);
+        if (asOfError is not null)
+            return asOfError;
+
+        var buildings = await repository.ListOwnedByAsync(currentUser.ProjectionId, cancellationToken);
+
+        try
+        {
+            // Every returned building is the caller's own, so isOwner is true and
+            // coordinates are never masked.
+            var responses = buildings
+                .Select(b => ToResponse(b.SnapshotAt(asOf), isOwner: true))
+                .ToList();
+            return TypedResults.Ok((IReadOnlyList<BuildingSnapshotResponse>)responses);
+        }
+        catch (DomainException ex)
+        {
+            return Problems.ToProblemResult(ex);
         }
     }
 

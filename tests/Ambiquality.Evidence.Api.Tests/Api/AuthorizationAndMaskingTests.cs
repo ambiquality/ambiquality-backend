@@ -125,6 +125,38 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
         Assert.NotEqual(s1.OwnerId, s3.OwnerId); // different sub -> different projection row
     }
 
+    [Fact]
+    public async Task ListBuildings_WhenAnonymous_Returns401()
+    {
+        var response = await _anonymous.GetAsync("/buildings");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ListBuildings_AsOwner_ReturnsOnlyOwnBuildingsWithPreciseCoordinates()
+    {
+        var mine1 = await RegisterAsOwnerAsync();
+        var mine2 = await RegisterAsOwnerAsync();
+
+        // A building owned by a different user must not appear in the owner's list.
+        var otherResponse = await _otherUser.PostAsJsonAsync("/buildings", BuildingRequest());
+        var theirs = (await otherResponse.Content.ReadFromJsonAsync<RegisterBuildingResult>())!;
+
+        var response = await _owner.GetAsync("/buildings");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var list = (await response.Content.ReadFromJsonAsync<List<BuildingSnapshotResponse>>())!;
+
+        var ids = list.Select(b => b.Id).ToHashSet();
+        Assert.Contains(mine1.Id, ids);
+        Assert.Contains(mine2.Id, ids);
+        Assert.DoesNotContain(theirs.Id, ids);
+
+        // The owner sees their own coordinates unmasked, regardless of anonymisation.
+        var mine = list.First(b => b.Id == mine1.Id);
+        Assert.Equal(Latitude, mine.Latitude!.Value, 6);
+        Assert.Equal(Longitude, mine.Longitude!.Value, 6);
+    }
+
     private async Task<RegisterBuildingResult> RegisterAsOwnerAsync(string anonymization = "precise")
     {
         var response = await _owner.PostAsJsonAsync("/buildings", BuildingRequest(anonymization));

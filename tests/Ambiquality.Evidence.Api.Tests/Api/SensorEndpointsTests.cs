@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Ambiquality.Evidence.Api.Api;
 using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Tests.Infrastructure;
+using Ambiquality.Evidence.Api.Tests.TestSupport;
 
 namespace Ambiquality.Evidence.Api.Tests.Api;
 
@@ -95,6 +96,35 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         Assert.Equal(_buildingId, sensor.BuildingId);
         Assert.Equal("active", sensor.StatusCode);
         Assert.Contains(sensor.MeasuredParameters, p => p.Code == "co2");
+    }
+
+    [Fact]
+    public async Task ListSensors_AsOwner_ReturnsRoomSensors()
+    {
+        var a = await RegisterSensorAsync();
+        var b = await RegisterSensorAsync();
+
+        var response = await _client.GetAsync(
+            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var sensors = (await response.Content.ReadFromJsonAsync<List<SensorSnapshotResponse>>())!;
+
+        var ids = sensors.Select(s => s.Id).ToHashSet();
+        Assert.Contains(a.Id, ids);
+        Assert.Contains(b.Id, ids);
+        Assert.All(sensors, s => Assert.Equal(_roomId, s.RoomId));
+    }
+
+    [Fact]
+    public async Task ListSensors_ByNonOwner_Returns403()
+    {
+        using var otherUser = _factory.CreateClient();
+        otherUser.DefaultRequestHeaders.Add(TestAuthHandler.SubHeader, Guid.NewGuid().ToString());
+
+        var response = await otherUser.GetAsync(
+            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
