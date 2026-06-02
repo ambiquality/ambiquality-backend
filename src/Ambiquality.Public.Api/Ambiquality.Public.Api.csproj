@@ -11,8 +11,13 @@
     <PackageReference Include="Scalar.AspNetCore" Version="2.*" />
     <!-- Align EF Core to the version Ambiquality.Core compiles against (10.0.8,
          pulled there transitively via EntityFrameworkCore.Design). The Npgsql
-         provider 10.0.1 alone would resolve EF 10.0.4 and fail CS1705. -->
+         provider 10.0.1 alone would resolve EF 10.0.4 and fail CS1705. The
+         Relational package must be pinned to 10.0.8 explicitly: Core uses
+         relational APIs in IeqDbContext.OnModelCreating, but Npgsql 10.0.1 only
+         drags in an older Relational, so the runtime fails to load
+         Relational 10.0.8.0 (FileNotFoundException → 500) without this. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.8" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
   </ItemGroup>
 
