@@ -43,6 +43,14 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("password_hash")
             .IsRequired();
 
+        builder.Property(u => u.FailedLoginCount)
+            .HasColumnName("failed_login_count")
+            .HasDefaultValue(0)
+            .IsRequired();
+
+        builder.Property(u => u.LastFailedLoginAt)
+            .HasColumnName("last_failed_login_at");
+
         // Owned refresh tokens, backed by the private _refreshTokens field.
         builder.OwnsMany<RefreshToken>("RefreshTokens", rt =>
         {

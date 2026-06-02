@@ -1,3 +1,4 @@
+using Ambiquality.Auth.Api.Application;
 using Ambiquality.Auth.Api.Application.Abstractions;
 using Ambiquality.Auth.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
@@ -14,7 +15,7 @@ namespace Ambiquality.Auth.Api.Tests.Api;
 /// Boots the real Auth.Api pipeline against a throwaway PostgreSQL container,
 /// swapping in a <see cref="CapturingEmailSender"/> so tests can read tokens.
 /// </summary>
-public sealed class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
         .WithImage("postgres:17-alpine")
@@ -24,6 +25,13 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifet
         .Build();
 
     public CapturingEmailSender EmailSender { get; } = new();
+
+    /// <summary>
+    /// Per-IP login limit for the booted host. Defaults high so the shared
+    /// rate-limiter partition never trips during ordinary tests; the dedicated
+    /// rate-limit test overrides it to a small value.
+    /// </summary>
+    protected virtual int LoginIpPermitLimit => 10_000;
 
     public async Task InitializeAsync()
     {
@@ -50,6 +58,17 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifet
             // Capture outbound email instead of hitting SMTP.
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<IEmailSender>(EmailSender);
+
+            // Override throttling knobs: instant per-account backoff (no real
+            // sleeping in tests) and a configurable per-IP limit.
+            services.RemoveAll<AuthOptions>();
+            services.AddSingleton(new AuthOptions
+            {
+                LoginThrottleBaseDelay = TimeSpan.Zero,
+                LoginThrottleMaxDelay = TimeSpan.Zero,
+                LoginIpPermitLimit = LoginIpPermitLimit,
+                LoginIpWindow = TimeSpan.FromMinutes(1)
+            });
 
             using var scope = services.BuildServiceProvider().CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();

@@ -59,6 +59,25 @@ Error responses are RFC 9457 ProblemDetails with stable `urn:ambiquality:auth:*`
 clients can branch on the type. Authentication-failure details are deliberately generic
 (`invalid-credentials`, `email-not-confirmed`) to avoid account enumeration — see `Problems.cs`.
 
+### Brute-force protection (no account lockout)
+
+`/login` is defended without ever locking an account — account lockout is avoided
+deliberately because it lets an attacker deny service to the legitimate user by
+forcing failed logins (see [OWASP — Blocking Brute Force Attacks](https://owasp.org/www-community/controls/Blocking_Brute_Force_Attacks)).
+Two complementary controls:
+
+- **Per-IP rate limit** — a fixed-window limiter on `/login` (`LoginIpPermitLimit`
+  attempts per `LoginIpWindow`, partitioned by client IP). Over the limit returns
+  **429 Too Many Requests** with a `Retry-After` header. The real client IP is taken
+  from `X-Forwarded-For` (set by Caddy); the API trusts the forwarded header because it
+  is only reachable through the proxy — do not expose it directly without revisiting
+  `ForwardedHeaders` in `Program.cs`.
+- **Per-account progressive backoff** — after `LoginThrottleFreeAttempts` consecutive
+  failures, each further attempt against that account is delayed (`LoginThrottleBaseDelay`,
+  doubling per failure up to `LoginThrottleMaxDelay`). A correct password clears the streak;
+  a streak idle longer than `LoginThrottleResetWindow` is forgotten. A delayed attempt still
+  returns the same generic `401`, so the backoff leaks nothing about whether an account exists.
+
 ## Configuration
 
 All values can be supplied via environment variables (`__` is the section separator). In

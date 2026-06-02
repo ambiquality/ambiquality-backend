@@ -32,6 +32,12 @@ public sealed class User
     public string PasswordHash { get; private set; }
     public Email? PendingEmail { get; private set; }
 
+    /// <summary>Consecutive failed login attempts since the last success (or stale reset).</summary>
+    public int FailedLoginCount { get; private set; }
+
+    /// <summary>UTC instant of the most recent failed login, or null if none pending.</summary>
+    public DateTime? LastFailedLoginAt { get; private set; }
+
     public IReadOnlyCollection<RefreshToken> RefreshTokens => _refreshTokens.AsReadOnly();
     public IReadOnlyCollection<VerificationToken> VerificationTokens => _verificationTokens.AsReadOnly();
 
@@ -109,6 +115,49 @@ public sealed class User
         token.Consume(now);
         Email = PendingEmail;
         PendingEmail = null;
+    }
+
+    /// <summary>
+    /// Backoff delay to impose before processing the next login attempt for this
+    /// account, based on how many consecutive failures have accumulated. Returns
+    /// zero while within the free-attempt budget, then grows exponentially up to a
+    /// cap. A failure streak older than the reset window is treated as cold, so an
+    /// occasional typo never compounds into a delay. The account is never locked —
+    /// this only slows brute-force guessing (see OWASP "Blocking Brute Force
+    /// Attacks"), so an attacker cannot deny service to the legitimate user.
+    /// </summary>
+    public TimeSpan ThrottleDelay(DateTime now, LoginThrottlePolicy policy)
+    {
+        if (LastFailedLoginAt is not { } last || now - last > policy.ResetWindow)
+            return TimeSpan.Zero;
+
+        // The first FreeAttempts failures cost nothing; the next attempt after the
+        // budget is exhausted is delayed by BaseDelay, doubling each further failure.
+        var over = FailedLoginCount - policy.FreeAttempts;
+        if (over < 0)
+            return TimeSpan.Zero;
+
+        // Cap the exponent before scaling so the multiply can never overflow.
+        var exponent = Math.Min(over, 16);
+        var scaled = policy.BaseDelay * Math.Pow(2, exponent);
+        return scaled < policy.MaxDelay ? scaled : policy.MaxDelay;
+    }
+
+    /// <summary>Records a failed login. A cold streak (older than the window) starts over.</summary>
+    public void RegisterFailedLogin(DateTime now, TimeSpan resetWindow)
+    {
+        if (LastFailedLoginAt is { } last && now - last > resetWindow)
+            FailedLoginCount = 0;
+
+        FailedLoginCount++;
+        LastFailedLoginAt = now;
+    }
+
+    /// <summary>Clears the failure streak after a correct password is supplied.</summary>
+    public void RegisterSuccessfulLogin()
+    {
+        FailedLoginCount = 0;
+        LastFailedLoginAt = null;
     }
 
     public void IssueRefreshToken(string tokenHash, DateTime now, TimeSpan lifetime)

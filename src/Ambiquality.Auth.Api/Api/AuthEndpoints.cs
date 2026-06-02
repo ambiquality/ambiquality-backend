@@ -66,7 +66,9 @@ public static class AuthEndpoints
             "Validates the credentials and returns a short-lived access token plus a long-lived refresh token. " +
             "The account email must be confirmed before login succeeds.")
         .Produces<AuthResponse>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status401Unauthorized);
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
+        .RequireRateLimiting("login");
 
         group.MapPost("/refresh", async (
             RefreshRequest request,

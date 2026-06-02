@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Text;
+using System.Threading.RateLimiting;
 using Ambiquality.Auth.Api.Api;
 using Ambiquality.Auth.Api.Application;
 using Ambiquality.Auth.Api.Application.Abstractions;
@@ -9,7 +11,10 @@ using Ambiquality.Auth.Api.Infrastructure.Persistence;
 using Ambiquality.Auth.Api.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -49,6 +54,7 @@ builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddSingleton<ITokenGenerator, TokenGenerator>();
 builder.Services.AddSingleton<IJwtIssuer, JwtIssuer>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddSingleton<IThrottleDelayer, TaskDelayThrottleDelayer>();
 
 // --- Application handlers ----------------------------------------------------
 builder.Services.AddScoped<RegisterUserHandler>();
@@ -82,6 +88,46 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddProblemDetails();
+
+// --- Brute-force rate limiting ----------------------------------------------
+// Per-IP fixed window on /login. Complements the per-account backoff in
+// LoginHandler: this stops volumetric guessing from one source; the backoff
+// slows low-and-slow guessing against a single account. Neither locks an
+// account, so an attacker cannot deny service to a legitimate user (OWASP).
+const string loginRateLimitPolicy = "login";
+builder.Services.AddRateLimiter(rateLimiter =>
+{
+    rateLimiter.AddPolicy(loginRateLimitPolicy, httpContext =>
+    {
+        // Resolve options per-request so integration tests can override the limit.
+        var opts = httpContext.RequestServices.GetRequiredService<AuthOptions>();
+        var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = opts.LoginIpPermitLimit,
+            Window = opts.LoginIpWindow,
+            QueueLimit = 0
+        });
+    });
+
+    rateLimiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    rateLimiter.OnRejected = async (context, cancellationToken) =>
+    {
+        // Advertise when the window resets so clients know how long to wait.
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            context.HttpContext.Response.Headers.RetryAfter =
+                ((int)retryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Type = "urn:ambiquality:auth:too-many-login-attempts",
+            Title = "Too many login attempts",
+            Detail = "Too many login attempts from your network. Please wait and try again."
+        }, options: null, contentType: "application/problem+json", cancellationToken: cancellationToken);
+    };
+});
 
 builder.Services.AddOpenApi(options =>
 {
@@ -123,10 +169,23 @@ builder.Services.AddOpenApi(options =>
 
 var app = builder.Build();
 
+// Behind Caddy the connecting peer is the proxy, so honour X-Forwarded-For to
+// recover the real client IP for the per-IP login rate limiter. KnownProxies/
+// Networks are cleared because the API is only reachable through the trusted
+// reverse proxy in this deployment; do not expose it directly without revisiting.
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor
+};
+forwardedHeadersOptions.KnownIPNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
+
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapOpenApi();
 app.MapScalarApiReference();
