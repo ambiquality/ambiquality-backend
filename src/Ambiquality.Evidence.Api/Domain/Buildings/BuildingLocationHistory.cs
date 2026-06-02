@@ -8,7 +8,7 @@ namespace Ambiquality.Evidence.Api.Domain.Buildings;
 /// coordinates (optional) co-vary with the anonymization level that controls
 /// public exposure.
 /// </summary>
-public sealed class BuildingLocationHistory
+public sealed class BuildingLocationHistory : HistoryRow
 {
     private BuildingLocationHistory() { Anonymization = null!; }
 
@@ -18,22 +18,12 @@ public sealed class BuildingLocationHistory
         NpgsqlRange<DateTime> validity,
         DateTime recordedAt,
         Guid recordedBy)
+        : base(validity, recordedBy, recordedAt)
     {
         Coordinates = coordinates;
         Anonymization = anonymization;
-        Validity = validity;
-        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
-        RecordedBy = recordedBy;
     }
 
     public Coordinates? Coordinates { get; private set; }
     public AnonymizationLevel Anonymization { get; private set; }
-    public NpgsqlRange<DateTime> Validity { get; private set; }
-    public DateTime RecordedAt { get; private set; }
-    public Guid RecordedBy { get; private set; }
-
-    internal void Close(DateTime upper)
-    {
-        Validity = Common.Validity.Closed(Validity.LowerBound, upper);
-    }
 }

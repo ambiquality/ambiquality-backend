@@ -4,25 +4,15 @@ using NpgsqlTypes;
 namespace Ambiquality.Evidence.Api.Domain.Buildings;
 
 /// <summary>Per-attribute history row for a building's type codelist reference.</summary>
-public sealed class BuildingTypeHistory
+public sealed class BuildingTypeHistory : HistoryRow
 {
     private BuildingTypeHistory() { BuildingTypeCode = null!; }
 
     internal BuildingTypeHistory(string buildingTypeCode, NpgsqlRange<DateTime> validity, DateTime recordedAt, Guid recordedBy)
+        : base(validity, recordedBy, recordedAt)
     {
         BuildingTypeCode = buildingTypeCode;
-        Validity = validity;
-        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
-        RecordedBy = recordedBy;
     }
 
     public string BuildingTypeCode { get; private set; }
-    public NpgsqlRange<DateTime> Validity { get; private set; }
-    public DateTime RecordedAt { get; private set; }
-    public Guid RecordedBy { get; private set; }
-
-    internal void Close(DateTime upper)
-    {
-        Validity = Common.Validity.Closed(Validity.LowerBound, upper);
-    }
 }

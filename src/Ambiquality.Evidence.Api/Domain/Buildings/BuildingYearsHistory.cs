@@ -4,27 +4,17 @@ using NpgsqlTypes;
 namespace Ambiquality.Evidence.Api.Domain.Buildings;
 
 /// <summary>Per-attribute history row for a building's construction / renovation years.</summary>
-public sealed class BuildingYearsHistory
+public sealed class BuildingYearsHistory : HistoryRow
 {
     private BuildingYearsHistory() { }
 
     internal BuildingYearsHistory(short? yearBuilt, short? yearRenovated, NpgsqlRange<DateTime> validity, DateTime recordedAt, Guid recordedBy)
+        : base(validity, recordedBy, recordedAt)
     {
         YearBuilt = yearBuilt;
         YearRenovated = yearRenovated;
-        Validity = validity;
-        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
-        RecordedBy = recordedBy;
     }
 
     public short? YearBuilt { get; private set; }
     public short? YearRenovated { get; private set; }
-    public NpgsqlRange<DateTime> Validity { get; private set; }
-    public DateTime RecordedAt { get; private set; }
-    public Guid RecordedBy { get; private set; }
-
-    internal void Close(DateTime upper)
-    {
-        Validity = Common.Validity.Closed(Validity.LowerBound, upper);
-    }
 }
