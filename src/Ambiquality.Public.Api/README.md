@@ -25,6 +25,8 @@ Serves IEQ measurements as SSN/SOSA observations and the evidence catalog
 | `/v1/observations/{id}` | A single observation (stable IRI target). |
 | `/v1/observations.csv` | Streamed CSV export (F17), no page cap. |
 | `/v1/context/measurements.jsonld` | The JSON-LD `@context` for observations. |
+| `/v1/properties` | The IEQ observable-property vocabulary (all 18). |
+| `/v1/properties/{code}` | A single observable property — the `sosa:observedProperty` target. |
 | `/v1/buildings` | Buildings. Filters: `buildingType`, `bbox`, `page`, `pageSize`. |
 | `/v1/buildings/{id}` | A single building. |
 | `/v1/buildings/{id}/rooms` | Rooms of a building. Filters: `roomFunction`, `minExposure` (minutes). |
@@ -73,11 +75,34 @@ monthly CSV archives share this exact column schema.
 
 Default page size 50, max 200 (clamped).
 
+## Observable properties (`sosa:observedProperty`)
+
+A measurement's `sosa:observedProperty` must identify **what substance/quantity**
+was observed. A QUDT *quantity kind* is the wrong granularity for that: it
+describes only the physical **dimension**, so `pm1`/`pm2_5`/`pm4`/`pm10` all share
+`quantitykind:MassDensity` and `voc`/`co`/`co2`/`eco2` all share
+`quantitykind:AmountOfSubstanceFraction` — a consumer could not tell PM2.5 from
+PM10. So each parameter gets a **specific, dereferenceable** property IRI under
+`/v1/properties/{code}` (`Core`'s `ObservablePropertyVocabulary`), exposed as a
+`sosa:ObservableProperty` / `skos:Concept` that carries:
+
+- `qudt:hasQuantityKind` — the QUDT dimensional kind (the value that *used* to be
+  mis-published as `observedProperty`),
+- `qudt:applicableUnit` — the canonical QUDT unit,
+- `skos:exactMatch` to the authoritative **EEA/EIONET air-quality pollutant** code
+  where one exists (`pm2_5`→6001, `pm10`→5, `o3`→7, `no2`→8, `so2`→1, `co`→10).
+
+On each observation, `sosa:observedProperty` is the specific IRI and
+`qudt:hasQuantityKind` carries the dimensional kind; the CSV/CSVW export mirrors
+this with an `observed_property_uri` column (`sosa:observedProperty`) alongside
+`quantity_kind_uri` (`qudt:hasQuantityKind`).
+
 ## Linked-data vocabularies
 
 QUDT (quantity kinds + units, via `Core`'s `QudtVocabulary`), SSN/SOSA
-(`sosa:Observation`, `sosa:Sensor`), Dublin Core / DCAT-AP for the catalog, and the
-custom `ambiq:` namespace (`https://data.ambiquality.org/ns#`) for `receivedTime`
+(`sosa:Observation`, `sosa:Sensor`, `sosa:ObservableProperty`), SKOS for the
+property vocabulary, Dublin Core / DCAT-AP for the catalog, and the custom
+`ambiq:` namespace (`https://data.ambiquality.org/ns#`) for `receivedTime`
 and `isInvalid`.
 
 ## Deployment note

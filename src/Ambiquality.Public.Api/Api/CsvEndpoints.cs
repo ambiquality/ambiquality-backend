@@ -33,6 +33,6 @@ public static class CsvEndpoints
 
         var iri = IriBuilder.ForRequest(request, configuration);
         var rows = await ObservationQuery.StreamAsync(db, catalog, filter, ct);
-        return new ObservationCsvStreamer(rows, iri.CsvMetadata());
+        return new ObservationCsvStreamer(rows, iri);
     }
 }

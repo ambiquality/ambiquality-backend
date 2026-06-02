@@ -19,8 +19,12 @@ public sealed class CsvEndpointsTests(TimescaleFixture fixture) : PublicApiTestB
             .Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
         Assert.StartsWith("# license:", lines[0]);
-        Assert.Equal("id,sensor_id,parameter_code,value,unit,quantity_kind_uri,unit_uri,observed_at,received_at,is_invalid", lines[1]);
+        Assert.Equal("id,sensor_id,parameter_code,value,unit,observed_property_uri,quantity_kind_uri,unit_uri,observed_at,received_at,is_invalid", lines[1]);
         Assert.Equal(3, lines.Length - 2); // 3 valid co2 rows
+
+        // Each co2 row carries the substance-specific observed-property IRI.
+        Assert.All(lines[2..], row =>
+            Assert.Contains($"{PublicApiFactory.BaseIri}/v1/properties/co2", row));
     }
 
     [Fact]
@@ -48,7 +52,16 @@ public sealed class CsvEndpointsTests(TimescaleFixture fixture) : PublicApiTestB
         var columns = doc.GetProperty("tableSchema").GetProperty("columns").EnumerateArray()
             .Select(c => c.GetProperty("name").GetString()).ToList();
         Assert.Equal(
-            new[] { "id", "sensor_id", "parameter_code", "value", "unit", "quantity_kind_uri", "unit_uri", "observed_at", "received_at", "is_invalid" },
+            new[] { "id", "sensor_id", "parameter_code", "value", "unit", "observed_property_uri", "quantity_kind_uri", "unit_uri", "observed_at", "received_at", "is_invalid" },
             columns);
+
+        // observedProperty now points at the specific property column; the QUDT
+        // quantity kind moved to its correct slot (qudt:hasQuantityKind).
+        var byName = doc.GetProperty("tableSchema").GetProperty("columns").EnumerateArray()
+            .ToDictionary(c => c.GetProperty("name").GetString()!, c => c);
+        Assert.Equal("http://www.w3.org/ns/sosa/observedProperty",
+            byName["observed_property_uri"].GetProperty("propertyUrl").GetString());
+        Assert.Equal("http://qudt.org/schema/qudt/hasQuantityKind",
+            byName["quantity_kind_uri"].GetProperty("propertyUrl").GetString());
     }
 }

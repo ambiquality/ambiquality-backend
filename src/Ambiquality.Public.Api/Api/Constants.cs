@@ -31,6 +31,8 @@ public static class Constants
     public const string QudtSchemaNamespace = "http://qudt.org/schema/qudt/";
     public const string QudtUnitBase = "http://qudt.org/vocab/unit/";
     public const string QudtQuantityKindBase = "http://qudt.org/vocab/quantitykind/";
+    public const string SkosNamespace = "http://www.w3.org/2004/02/skos/core#";
+    public const string RdfsNamespace = "http://www.w3.org/2000/01/rdf-schema#";
     public const string DctermsNamespace = "http://purl.org/dc/terms/";
 
     // Supported representation media types (content negotiation).

@@ -4,8 +4,10 @@ using Ambiquality.Core.Domain.Vocabulary;
 namespace Ambiquality.Public.Api.Api;
 
 /// <summary>
-/// Plain-JSON projection of a single measurement as an SSN/SOSA observation,
-/// enriched with the QUDT quantity-kind and unit URIs for the parameter code.
+/// Plain-JSON projection of a single measurement as an SSN/SOSA observation.
+/// <see cref="ObservedPropertyIri"/> is the substance-specific observed property
+/// (distinguishes PM2.5 from PM10, VOC from CO₂); <see cref="QuantityKindUri"/> is
+/// the coarser QUDT <em>dimensional</em> kind shared across such parameters.
 /// </summary>
 public sealed record ObservationResponse(
     Guid Id,
@@ -14,6 +16,7 @@ public sealed record ObservationResponse(
     string ParameterCode,
     double Value,
     string? Unit,
+    string ObservedPropertyIri,
     string? QuantityKindUri,
     string? UnitUri,
     DateTime ObservedAt,
@@ -31,6 +34,7 @@ public sealed record ObservationResponse(
             measurement.ParameterCode,
             measurement.Value,
             measurement.Unit,
+            iri.Property(measurement.ParameterCode),
             qudt?.QuantityKindUri,
             qudt?.UnitUri,
             measurement.ObservedAt,
@@ -69,8 +73,10 @@ public static class ObservationJsonLd
         doc["@id"] = o.Iri;
         doc["@type"] = "sosa:Observation";
 
+        doc["sosa:observedProperty"] = new Dictionary<string, object?> { ["@id"] = o.ObservedPropertyIri };
+
         if (o.QuantityKindUri is not null)
-            doc["sosa:observedProperty"] = new Dictionary<string, object?> { ["@id"] = o.QuantityKindUri };
+            doc["qudt:hasQuantityKind"] = new Dictionary<string, object?> { ["@id"] = o.QuantityKindUri };
 
         doc["sosa:madeBySensor"] = new Dictionary<string, object?> { ["@id"] = iri.Sensor(o.SensorId) };
         doc["sosa:hasSimpleResult"] = o.Value;

@@ -131,6 +131,7 @@ app.MapScalarApiReference();
 app.MapObservationEndpoints();
 app.MapCsvEndpoints();
 app.MapContextEndpoints();
+app.MapPropertyEndpoints();
 app.MapBuildingEndpoints();
 app.MapRoomEndpoints();
 app.MapSensorEndpoints();
