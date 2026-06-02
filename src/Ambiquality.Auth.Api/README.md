@@ -42,6 +42,7 @@ Infrastructure/  Adapters that implement the Application ports
 | `POST` | `/account/change-password` | Bearer | Change password |
 | `POST` | `/account/change-email` | Bearer | Request email change |
 | `GET` | `/account/confirm-email-change` | — | Confirm email change |
+| `DELETE` | `/account/{id}` | Bearer | Permanently delete own account (password-confirmed) |
 
 The interactive OpenAPI reference (Scalar) is served at **`/scalar/v1`** and the raw document
 at **`/openapi/v1.json`**. Behind the dev Caddy proxy that is

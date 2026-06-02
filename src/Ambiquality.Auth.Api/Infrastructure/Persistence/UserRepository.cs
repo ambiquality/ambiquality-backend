@@ -24,6 +24,8 @@ public sealed class UserRepository(AuthDbContext dbContext) : IUserRepository
 
     public void Add(User user) => dbContext.Users.Add(user);
 
+    public void Remove(User user) => dbContext.Users.Remove(user);
+
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         => dbContext.SaveChangesAsync(cancellationToken);
 }

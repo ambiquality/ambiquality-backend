@@ -60,6 +60,7 @@ builder.Services.AddScoped<ChangePasswordHandler>();
 builder.Services.AddScoped<ChangeEmailHandler>();
 builder.Services.AddScoped<ConfirmEmailChangeHandler>();
 builder.Services.AddScoped<LogoutHandler>();
+builder.Services.AddScoped<DeleteAccountHandler>();
 
 // --- AuthN / AuthZ -----------------------------------------------------------
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -18,3 +18,5 @@ public sealed record ChangeEmailCommand(Guid UserId, string CurrentPassword, str
 public sealed record ConfirmEmailChangeCommand(Guid UserId, string Token);
 
 public sealed record LogoutCommand(Guid UserId);
+
+public sealed record DeleteAccountCommand(Guid UserId, string CurrentPassword);

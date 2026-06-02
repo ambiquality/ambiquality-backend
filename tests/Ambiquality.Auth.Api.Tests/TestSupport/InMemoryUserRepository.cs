@@ -24,6 +24,8 @@ public sealed class InMemoryUserRepository : IUserRepository
 
     public void Add(User user) => _users.Add(user);
 
+    public void Remove(User user) => _users.Remove(user);
+
     public Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         SaveChangesCallCount++;

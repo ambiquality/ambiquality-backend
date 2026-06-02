@@ -52,10 +52,6 @@ The docs should include:
 
 That's only a rough plan - we need to chat about it 
 
-## Delete user account
-
-Use must have the option to delete their account in `Ambiquality.Auth.Api`. Add `account/{id}/delete` - only the user that has the same id can delete the account. 
-
 ## Evidence HTTP methods
 
 There are HTTP `DELETE` methods in the evidence, the semantic meanings is wrong for the endpoints. Nothing get's actually deleted, only the status changes as every change is versioned. The question is if it should be left as is or corrected with `PUT`/`PATCH`/`POST`. 
