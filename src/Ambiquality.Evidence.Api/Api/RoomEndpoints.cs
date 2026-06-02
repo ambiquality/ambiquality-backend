@@ -192,9 +192,20 @@ public static class RoomEndpoints
         ChangeRoomFloorHandler handler,
         CancellationToken cancellationToken)
     {
+        // Guard the floor parse at the edge: byte.Parse would throw
+        // FormatException/OverflowException (escaping as a 500) on "abc"/"-1"/
+        // "300", and a parsed-but-too-large value (101–255) would trip
+        // FloorNumber.Create's ArgumentException — also a 500. The domain accepts
+        // 0–100, so reject anything outside that here as a 400.
+        if (!byte.TryParse(request.NewValue, out var floor) || floor > 100)
+        {
+            return Problems.InvalidAttributeValue(
+                "Floor must be an integer between 0 and 100.");
+        }
+
         try
         {
-            var command = new ChangeRoomFloorCommand(roomId, byte.Parse(request.NewValue), request.ValidFrom);
+            var command = new ChangeRoomFloorCommand(roomId, floor, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
             return TypedResults.NoContent();
         }

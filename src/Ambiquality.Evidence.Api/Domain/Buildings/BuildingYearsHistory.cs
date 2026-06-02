@@ -13,7 +13,7 @@ public sealed class BuildingYearsHistory
         YearBuilt = yearBuilt;
         YearRenovated = yearRenovated;
         Validity = validity;
-        RecordedAt = recordedAt;
+        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
         RecordedBy = recordedBy;
     }
 

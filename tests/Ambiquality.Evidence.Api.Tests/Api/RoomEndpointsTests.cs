@@ -408,4 +408,43 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadRequest, getResponse.StatusCode);
     }
+
+    [Theory]
+    [InlineData("abc")]   // non-numeric → byte.Parse FormatException would 500
+    [InlineData("-1")]    // negative → byte.Parse FormatException would 500
+    [InlineData("300")]   // > 255 → byte.Parse OverflowException would 500
+    [InlineData("200")]   // parses as a byte but > 100 → FloorNumber.Create would 500
+    public async Task ChangeRoomFloor_WithInvalidValue_Returns400ProblemJson(string newValue)
+    {
+        var registerRequest = new RegisterRoomRequest(
+            Name: "Bad Floor Room",
+            Floor: 1,
+            FunctionCode: null,
+            ExposureCode: null,
+            AreaM2: null,
+            CeilingHeightM: null,
+            VentilationType: null,
+            PollutionSources: Array.Empty<string>());
+
+        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
+        var roomId = registeredRoom!.Id;
+
+        var changeRequest = new ChangeRoomAttributeRequest(
+            NewValue: newValue,
+            ValidFrom: DateTime.UtcNow);
+
+        var changeResponse = await _client.PutAsJsonAsync(
+            $"/buildings/{_buildingId}/rooms/{roomId}/floor",
+            changeRequest);
+
+        // A malformed floor must be rejected at the edge as a client error
+        // (problem+json), never escape as a 500.
+        Assert.True(
+            changeResponse.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity,
+            $"Expected 400/422 but got {(int)changeResponse.StatusCode}.");
+        Assert.Equal(
+            "application/problem+json",
+            changeResponse.Content.Headers.ContentType?.MediaType);
+    }
 }

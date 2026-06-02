@@ -5,7 +5,6 @@ using Ambiquality.Evidence.Api.Domain.Rooms;
 namespace Ambiquality.Evidence.Api.Application.Rooms;
 
 public sealed class ChangeRoomVentilationHandler(
-    IClock clock,
     ICurrentUser currentUser,
     IRoomRepository repository,
     IBuildingRepository buildingRepository)

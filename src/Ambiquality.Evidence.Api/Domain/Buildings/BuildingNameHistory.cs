@@ -16,7 +16,7 @@ public sealed class BuildingNameHistory
     {
         Name = name;
         Validity = validity;
-        RecordedAt = recordedAt;
+        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
         RecordedBy = recordedBy;
     }
 

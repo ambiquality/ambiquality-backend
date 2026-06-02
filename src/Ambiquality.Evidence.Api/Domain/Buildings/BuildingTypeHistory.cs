@@ -12,7 +12,7 @@ public sealed class BuildingTypeHistory
     {
         BuildingTypeCode = buildingTypeCode;
         Validity = validity;
-        RecordedAt = recordedAt;
+        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
         RecordedBy = recordedBy;
     }
 
