@@ -34,6 +34,21 @@ Serves IEQ measurements as SSN/SOSA observations and the evidence catalog
 | `/v1/catalog` | DCAT-AP 3.0 catalog metadata (F16). |
 | `/openapi/v1.json`, `/scalar/v1` | OpenAPI document + Scalar UI (F15). |
 
+## OpenAPI document (F15)
+
+The spec is a published deliverable, served in **every** environment (it is open
+metadata, not a dev-only convenience). A document transformer stamps the
+document-level `info` — title, version, a description, and the **CC BY 4.0**
+license (matching the `license` on every response body) — and a `servers` entry
+so Scalar "Try it" and any generated client target the real deployment. Behind
+Caddy (`handle_path /public/*` strips the prefix) the operator sets
+`PublicApi:BaseIri` to the external versioned root (e.g.
+`https://data.ambiquality.org/v1`); the transformer strips the trailing `/v1`
+(the document paths already carry it) and advertises the remaining origin as the
+server URL. With `PublicApi:BaseIri` unset (local dev) no `servers` entry is
+emitted and clients fall back to the request origin. There is no security scheme —
+the API is unauthenticated by design.
+
 ## Content negotiation
 
 `Accept` selects the representation: `application/json` (default),

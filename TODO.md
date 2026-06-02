@@ -35,11 +35,6 @@ are already baked into the repo YAML and the newman build order.
   Evidence/Account routes, 404 / 422 on bad payloads, etc.
 
 
-## OpenAPI for public
-
-When the app will be published out of dev env, it must provided an openapi enpoint
-
-
 ## Docs
 
 The API docs is handled by the openapi and a frontend for the openapi docs.

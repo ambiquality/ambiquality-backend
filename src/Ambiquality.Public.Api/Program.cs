@@ -2,6 +2,7 @@ using Ambiquality.Core.Infrastructure.Persistence;
 using Ambiquality.Public.Api.Api;
 using Ambiquality.Public.Api.Infrastructure.Catalog;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 using Npgsql;
 using Scalar.AspNetCore;
 
@@ -37,8 +38,52 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
 // --- OpenAPI / error handling ------------------------------------------------
-// No Bearer security scheme — the public API is unauthenticated by design (OFN).
-builder.Services.AddOpenApi();
+// Publishable spec (F15): document-level metadata so the generated OpenAPI is a
+// self-describing open-data deliverable. No Bearer security scheme — the public
+// API is unauthenticated by design (OFN). The license mirrors the CC BY 4.0 that
+// every response body / Link header already advertises, and the publisher matches
+// the DCAT catalog (CatalogEndpoints).
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, ct) =>
+    {
+        document.Info = new OpenApiInfo
+        {
+            Title = "Ambiquality Public API",
+            Version = Constants.ApiVersion,
+            Description =
+                "Read-only open-data API for the Ambiquality IEQ (Indoor Environmental "
+                + "Quality) monitoring platform: time-series observations (JSON, JSON-LD, CSV), "
+                + "the building/room/sensor evidence catalog, and a DCAT-AP 3.0 dataset "
+                + "description. All responses are published under CC BY 4.0.",
+            Contact = new OpenApiContact { Name = "Vilém Charwot, VŠE Prague" },
+            License = new OpenApiLicense
+            {
+                Name = "CC BY 4.0",
+                Identifier = "CC-BY-4.0",
+                Url = new Uri(Constants.LicenseIri)
+            }
+        };
+
+        // Advertise the externally-reachable base URL so Scalar "Try it" and any
+        // generated client target the real deployment. Behind Caddy the API is
+        // served under /public with the prefix stripped (handle_path), so the
+        // operator sets PublicApi:BaseIri to the external versioned root
+        // (e.g. https://data.ambiquality.org/v1). The document paths already carry
+        // the /v1 segment, so strip a trailing /v1 here to avoid doubling it.
+        var baseIri = context.ApplicationServices
+            .GetRequiredService<IConfiguration>()["PublicApi:BaseIri"];
+        if (!string.IsNullOrWhiteSpace(baseIri))
+        {
+            var origin = baseIri.TrimEnd('/');
+            if (origin.EndsWith($"/{Constants.ApiVersion}", StringComparison.Ordinal))
+                origin = origin[..^$"/{Constants.ApiVersion}".Length];
+            document.Servers = [new OpenApiServer { Url = origin }];
+        }
+
+        return Task.CompletedTask;
+    });
+});
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
