@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/evidence/buildings/{{buildingId}}/rooms/{{roomId}}/sensors/{{sensorId}}"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      const j = pm.response.json();
+      pm.test('Shape: id, uriSlug, manufacturer, model, statusCode, measuredParameters', () => {
+        pm.expect(j).to.include.all.keys('id', 'uriSlug', 'manufacturer', 'model', 'statusCode', 'measuredParameters');
+      });
+    language: text/javascript
+order: 2000

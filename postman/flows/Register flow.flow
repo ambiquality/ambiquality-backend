@@ -1,0 +1,230 @@
+{
+  "version": 1,
+  "name": "Register flow",
+  "description": "",
+  "flow": {
+    "description": "",
+    "nodes": {
+      "fI5X1HNB": {
+        "type": "ev/endpoint@3",
+        "pos": {
+          "x": -264,
+          "y": -104
+        },
+        "config": {
+          "inputs": [
+            {
+              "id": "7hOA_OJA",
+              "type": "value/reference@2",
+              "kind": "reference",
+              "value": "",
+              "key": "host",
+              "__noIn": true,
+              "typeDef": {
+                "type": "string"
+              }
+            }
+          ],
+          "data": "",
+          "language": "json",
+          "allowAnyType": false,
+          "inputs__expanded": true
+        },
+        "ui": {
+          "data": {
+            "triggerType": "ev/endpoint@3"
+          },
+          "namedInputsExpanded": true
+        }
+      },
+      "dfrXLBVk": {
+        "type": "task/http-request@2",
+        "pos": {
+          "x": 288,
+          "y": -312
+        },
+        "config": {
+          "element": {
+            "id": "3e1220deD1ba4D3Bb42FabAB",
+            "collection": "Cc6a8EDca62787EFFfE62eFF",
+            "inExtensibleCollection": true,
+            "name": "Register",
+            "method": "POST"
+          },
+          "environment": null,
+          "parseBody": "auto",
+          "requestVariables": [
+            {
+              "id": "d6vUwztg",
+              "type": "value/reference@2",
+              "kind": "reference",
+              "value": "",
+              "key": "baseUrl",
+              "latch": true,
+              "__noIn": true,
+              "isExtraneous": false
+            },
+            {
+              "id": "o414Z9Rx",
+              "type": "value/reference@2",
+              "kind": "reference",
+              "value": "",
+              "key": "email",
+              "__noIn": true
+            },
+            {
+              "id": "MmF7-O9A",
+              "type": "value/reference@2",
+              "kind": "reference",
+              "value": "",
+              "key": "password",
+              "__noIn": true
+            }
+          ],
+          "scriptsModifyEnvVars": true,
+          "ignoreTestResults": true,
+          "trackGlobalEnvironment": true,
+          "requestVariables__expanded": true
+        },
+        "ui": {
+          "data": {},
+          "namedInputsExpanded": true
+        }
+      },
+      "GJUuHYWm": {
+        "type": "task/http-request@2",
+        "pos": {
+          "x": 864,
+          "y": -424
+        },
+        "config": {
+          "element": {
+            "id": "0ebb82fE506F6EfB3AE2D45e",
+            "collection": "Cc6a8EDca62787EFFfE62eFF",
+            "inExtensibleCollection": true,
+            "name": "Confirm Email",
+            "method": "GET"
+          },
+          "environment": null,
+          "parseBody": "auto",
+          "requestVariables": [
+            {
+              "id": "zgd5vWkN",
+              "type": "portal/out@2",
+              "kind": "portal/out",
+              "value": "_9_KC_pm",
+              "key": "baseUrl",
+              "latch": true
+            },
+            {
+              "id": "C-_K2QPZ",
+              "type": null,
+              "kind": null,
+              "value": null,
+              "key": "confirmUserId"
+            },
+            {
+              "id": "yX2kZio-",
+              "type": null,
+              "kind": null,
+              "value": null,
+              "key": "confirmToken"
+            }
+          ],
+          "scriptsModifyEnvVars": true,
+          "ignoreTestResults": true,
+          "trackGlobalEnvironment": true,
+          "requestVariables__expanded": true
+        },
+        "ui": {
+          "data": {},
+          "namedInputsExpanded": true
+        }
+      }
+    },
+    "connections": {
+      "yAT0Th3B": {
+        "source": "dfrXLBVk",
+        "target": "GJUuHYWm",
+        "sourcePort": "success",
+        "targetPort": "AI"
+      },
+      "13iaoBJD": {
+        "source": "TSlKRjEL",
+        "sourcePort": "@",
+        "target": "fI5X1HNB",
+        "targetPort": "inputs|7hOA_OJA"
+      },
+      "J07jXfxo": {
+        "source": "fI5X1HNB",
+        "target": "dfrXLBVk",
+        "sourcePort": "output|7hOA_OJA",
+        "targetPort": "requestVariables|d6vUwztg"
+      }
+    },
+    "annotations": {},
+    "groups": {},
+    "webhook": {
+      "payloadContent": "body-only",
+      "responseType": "default"
+    },
+    "forms": {},
+    "modules": {},
+    "io": {
+      "TSlKRjEL": {
+        "type": "input",
+        "name": "host",
+        "typeDef": {
+          "type": "string"
+        }
+      }
+    },
+    "ports": {},
+    "meta": {},
+    "scenes": {},
+    "scenarios": {
+      "YDSSZQOM": {
+        "name": "Start Trigger",
+        "type": "scenario@3",
+        "triggerType": "ev/endpoint@3",
+        "createdOn": 1780220825309,
+        "updatedOn": 1780222293962,
+        "data": {
+          "z0SWM0H9": {
+            "id": "z0SWM0H9",
+            "key": "Input 1",
+            "value": "",
+            "type": {
+              "type": "string"
+            }
+          },
+          "bx4NZYtP": {
+            "id": "bx4NZYtP",
+            "key": "email",
+            "value": "{{email}}"
+          },
+          "a-VVzE3b": {
+            "id": "a-VVzE3b",
+            "key": "password",
+            "value": "{{password}}"
+          },
+          "TSlKRjEL": {
+            "id": "TSlKRjEL",
+            "key": "host",
+            "value": "http://localhost:8080"
+          }
+        }
+      }
+    },
+    "config": {
+      "definitions": {},
+      "constants": {}
+    }
+  },
+  "lockbox": {},
+  "info": {
+    "_postman_id": "bb11599e-78b5-4e46-b91b-b69c1269a89a"
+  },
+  "_postman_exported_at": "2026-05-31T19:28:10.706Z",
+  "_postman_exported_using": "Postman/Local Mode"
+}

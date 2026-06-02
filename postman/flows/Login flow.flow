@@ -1,0 +1,361 @@
+{
+  "version": 1,
+  "name": "Login flow",
+  "description": "",
+  "flow": {
+    "description": "",
+    "nodes": {
+      "xZ0uT9g7": {
+        "type": "task/http-request@2",
+        "pos": {
+          "x": 200,
+          "y": -264
+        },
+        "config": {
+          "element": {
+            "id": "f061E2cEd2EEAC00bd3AAB41",
+            "collection": "Cc6a8EDca62787EFFfE62eFF",
+            "inExtensibleCollection": true,
+            "name": "Login",
+            "method": "POST"
+          },
+          "environment": null,
+          "parseBody": "auto",
+          "requestVariables": [
+            {
+              "id": "QzqhfZ8z",
+              "type": null,
+              "kind": null,
+              "value": null,
+              "key": "baseUrl"
+            },
+            {
+              "id": "RDcQMI89",
+              "type": "value/reference@2",
+              "kind": "reference",
+              "value": "",
+              "key": "email",
+              "__noIn": true,
+              "isExtraneous": false
+            },
+            {
+              "id": "OsW40eNk",
+              "type": "value/reference@2",
+              "kind": "reference",
+              "value": "",
+              "key": "password",
+              "__noIn": true,
+              "isExtraneous": false
+            }
+          ],
+          "scriptsModifyEnvVars": true,
+          "ignoreTestResults": true,
+          "trackGlobalEnvironment": true,
+          "requestVariables__expanded": true
+        },
+        "ui": {
+          "data": {},
+          "namedInputsExpanded": true
+        }
+      },
+      "rs6_jKcZ": {
+        "type": "ev/endpoint@3",
+        "pos": {
+          "x": -896,
+          "y": -152
+        },
+        "config": {
+          "inputs": [
+            {
+              "id": "0C-0AzrV",
+              "type": "value/reference@2",
+              "kind": "reference",
+              "value": "",
+              "key": "host",
+              "__noIn": true
+            },
+            {
+              "id": "C04xoToc",
+              "type": "value/reference@2",
+              "kind": "reference",
+              "value": "",
+              "key": "email",
+              "__noIn": true
+            },
+            {
+              "id": "2mumuuc-",
+              "type": "value/reference@2",
+              "kind": "reference",
+              "value": "",
+              "key": "password",
+              "__noIn": true
+            }
+          ],
+          "data": "",
+          "language": "json",
+          "allowAnyType": false,
+          "inputs__expanded": true
+        },
+        "ui": {
+          "data": {
+            "triggerType": "ev/endpoint@3"
+          },
+          "namedInputsExpanded": true
+        }
+      },
+      "GQS2iaJW": {
+        "type": "system/module@1",
+        "pos": {
+          "x": -416,
+          "y": -264
+        },
+        "config": {
+          "flowId": "/home/vilem/Repositories/ambiquality/ambiquality-backend/postman/flows/Register flow.flow",
+          "versionId": "local",
+          "variables": [
+            {
+              "id": "TSlKRjEL",
+              "type": "value/reference@2",
+              "kind": "reference",
+              "value": "",
+              "key": "host"
+            }
+          ],
+          "globals": [],
+          "ports": {
+            "input": [
+              {
+                "id": "TSlKRjEL",
+                "name": "host",
+                "type": null
+              }
+            ],
+            "output": [],
+            "global": []
+          }
+        },
+        "ui": {
+          "data": {
+            "blockTitle": "Register flow"
+          }
+        }
+      },
+      "PlwUHIfn": {
+        "type": "logic/manipulate@1",
+        "pos": {
+          "x": 600,
+          "y": -272
+        },
+        "size": {
+          "width": 304,
+          "height": 104
+        },
+        "config": {
+          "language": "ts",
+          "query": "",
+          "tscript": "",
+          "variables": [
+            {
+              "id": "uzZKyULB",
+              "type": "value/reference@2",
+              "kind": "reference",
+              "value": "",
+              "key": "value1",
+              "__noIn": true
+            }
+          ],
+          "variables__expanded": true
+        },
+        "ui": {
+          "data": {},
+          "namedInputsExpanded": true
+        }
+      }
+    },
+    "connections": {
+      "JFFUl-9o": {
+        "source": "GruiadJu",
+        "sourcePort": "@",
+        "target": "rs6_jKcZ",
+        "targetPort": "inputs|0C-0AzrV"
+      },
+      "P6TNc6fj": {
+        "source": "GQS2iaJW",
+        "target": "xZ0uT9g7",
+        "sourcePort": "AO",
+        "targetPort": "AI"
+      },
+      "i0bQLy16": {
+        "source": "rs6_jKcZ",
+        "target": "GQS2iaJW",
+        "sourcePort": "output|0C-0AzrV",
+        "targetPort": "variables|TSlKRjEL"
+      },
+      "znhp6Lf4": {
+        "source": "xZ0uT9g7",
+        "target": "PlwUHIfn",
+        "sourcePort": "success",
+        "targetPort": "variables|uzZKyULB"
+      },
+      "XcNBjjRi": {
+        "source": "Z6uA0Gtu",
+        "sourcePort": "@",
+        "target": "rs6_jKcZ",
+        "targetPort": "inputs|2mumuuc-"
+      },
+      "IPP-f-1B": {
+        "source": "iqG5EPkO",
+        "sourcePort": "@",
+        "target": "rs6_jKcZ",
+        "targetPort": "inputs|C04xoToc"
+      },
+      "xuDE-BUX": {
+        "source": "rs6_jKcZ",
+        "target": "xZ0uT9g7",
+        "sourcePort": "output|C04xoToc",
+        "targetPort": "requestVariables|RDcQMI89"
+      },
+      "ncGiLzcf": {
+        "source": "rs6_jKcZ",
+        "target": "xZ0uT9g7",
+        "sourcePort": "output|2mumuuc-",
+        "targetPort": "requestVariables|OsW40eNk"
+      }
+    },
+    "annotations": {},
+    "groups": {},
+    "webhook": {
+      "payloadContent": "body-only",
+      "responseType": "default"
+    },
+    "forms": {},
+    "modules": {},
+    "io": {
+      "GruiadJu": {
+        "type": "input",
+        "name": "host",
+        "typeDef": {
+          "type": "string"
+        }
+      },
+      "Z6uA0Gtu": {
+        "type": "input",
+        "name": "password",
+        "typeDef": {
+          "type": "string"
+        }
+      },
+      "iqG5EPkO": {
+        "type": "input",
+        "name": "email",
+        "typeDef": {
+          "type": "string"
+        }
+      }
+    },
+    "ports": {},
+    "meta": {},
+    "scenes": {},
+    "scenarios": {
+      "YDSSZQOM": {
+        "name": "Start Trigger",
+        "type": "scenario@3",
+        "triggerType": "ev/endpoint@3",
+        "createdOn": 1780220825309,
+        "updatedOn": 1780223002101,
+        "data": {
+          "z0SWM0H9": {
+            "id": "z0SWM0H9",
+            "key": "Input 1",
+            "value": "",
+            "type": {
+              "type": "string"
+            }
+          },
+          "bx4NZYtP": {
+            "id": "bx4NZYtP",
+            "key": "email",
+            "value": "{{email}}"
+          },
+          "a-VVzE3b": {
+            "id": "a-VVzE3b",
+            "key": "password",
+            "value": "{{password}}"
+          },
+          "GruiadJu": {
+            "id": "GruiadJu",
+            "key": "host",
+            "value": "{{host}}"
+          },
+          "iqG5EPkO": {
+            "id": "iqG5EPkO",
+            "key": "email",
+            "value": "{{email}}"
+          },
+          "Z6uA0Gtu": {
+            "id": "Z6uA0Gtu",
+            "key": "password",
+            "value": "{{password}}"
+          }
+        }
+      },
+      "bZ013c2k": {
+        "name": "Scenario 2",
+        "type": "scenario@3",
+        "triggerType": "ev/endpoint@3",
+        "data": {
+          "bx4NZYtP": {
+            "id": "bx4NZYtP",
+            "key": "input1",
+            "value": ""
+          }
+        },
+        "createdOn": 1780221434868,
+        "updatedOn": 1780221434868
+      },
+      "hIthWErU": {
+        "name": "Request Trigger",
+        "type": "scenario@3",
+        "triggerType": "action/request@1",
+        "createdOn": 1780222658363,
+        "updatedOn": 1780222658363,
+        "data": {
+          "reqHeaders": {
+            "id": "reqHeaders",
+            "key": "headers",
+            "value": "{}",
+            "type": {
+              "properties": {}
+            }
+          },
+          "reqParams": {
+            "id": "reqParams",
+            "key": "params",
+            "value": "{}",
+            "type": {
+              "properties": {}
+            }
+          },
+          "reqBody": {
+            "id": "reqBody",
+            "key": "body",
+            "value": "{\n\t\"message\": \"Welcome to Flows!\"\n}",
+            "type": {
+              "properties": {}
+            }
+          }
+        }
+      }
+    },
+    "config": {
+      "definitions": {},
+      "constants": {}
+    }
+  },
+  "lockbox": {},
+  "info": {
+    "_postman_id": "a8385768-f974-4a51-b108-613d951aca8a"
+  },
+  "_postman_exported_at": "2026-05-31T19:28:11.720Z",
+  "_postman_exported_using": "Postman/Local Mode"
+}

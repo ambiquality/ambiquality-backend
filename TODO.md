@@ -12,26 +12,27 @@ small and cheap to load into context.
 
 ## API testing using Podman & Newman
 
-The `postman/collections/ambiquality-api` suite now has a request for every
-endpoint of Auth, Evidence and Ingestion — including the F10
-`POST /ingestion/measurements` (happy + 401 bad-key + 422 out-of-range) and a
-real register → confirm → login → change-email E2E that pulls confirmation
-links from Mailpit. Edits live in the Postman **cloud** collection.
+The `postman/collections/ambiquality-api` suite has a request for every endpoint
+of Auth, Evidence, Ingestion and Public (60 requests / 86 assertions, runs green
+via `cd postman && npm install && npm test` against a fresh `./dev.sh up-d`
+stack). It covers the F10 `POST /ingestion/measurements` (happy + 401 bad-key +
+422 out-of-range) and a real register → confirm → login → change-email E2E that
+pulls confirmation links from Mailpit. The git-native YAML under
+`postman/collections/` is now version-controlled (committed 88305fc).
+
+**The repo YAML is the source of truth** — it is more likely to match the
+committed app code than the Postman cloud collection. Sync flows repo → cloud,
+not the other way. Run-order fixes (Confirm Email after Register; the three
+Ingest requests after Create Sensor, before Update Status flips to maintenance)
+are already baked into the repo YAML and the newman build order.
 
 **Still pending:**
-- **Reorder + sync (do first).** In the Postman Runner move *Confirm Email* to
-  run after Register (before Login) and the three *Ingest Measurement* requests
-  to run after Create Sensor (before Update Status flips the sensor to
-  `maintenance`). Then sync cloud → repo YAML files and commit — the repo files
-  are stale (new ingestion requests, renamed confirm requests, the Mailpit
-  pre-request scripts, the Logout URL fix, and the Change Email body all live
-  only in cloud). Note: the Postman API/MCP can't reorder items and its WAF
-  blocks pre-request scripts that call `pm.sendRequest`, so these are manual.
+- **Push repo → cloud (optional).** If the cloud collection is kept around, sync
+  it FROM the repo so it stops drifting. Not required for `npm test`, which runs
+  entirely off the repo YAML via `build-collection.mjs`.
 - **Broaden unhappy paths.** Only ingestion and the confirm flow exercise
   failures today; the rest are happy-path only. Add 401 on protected
   Evidence/Account routes, 404 / 422 on bad payloads, etc.
-- **Cosmetic:** collection description still reads "Auth.Api + Evidence.Api"
-  (changing it via API needs a full-collection rewrite).
 
 
 ## OpenAPI for public

@@ -1,0 +1,15 @@
+name: ambiquality-local
+values:
+  - key: host
+    value: 'http://localhost:5080'
+  - key: email
+    value: manual-test@example.com
+  - key: password
+    value: Sup3rSecret!
+  - key: accessToken
+    value: ''
+  - key: refreshToken
+    value: ''
+  - key: newEmail
+    value: ''
+color: 0

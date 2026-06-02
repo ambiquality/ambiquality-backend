@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/public/v1/observations/"
+method: GET
+headers:
+  Accept: text/csv
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      pm.test('Content-Type is text/csv', () =>
+        pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv'));
+      pm.test('CSV header contains observed_at', () =>
+        pm.expect(pm.response.text()).to.include('observed_at'));
+    language: text/javascript
+order: 3000

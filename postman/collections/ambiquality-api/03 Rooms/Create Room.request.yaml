@@ -1,0 +1,35 @@
+$kind: http-request
+name: Create Room
+url: "{{baseUrl}}/evidence/buildings/{{buildingId}}/rooms/"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+        "uriSlug": "room-101",
+        "name": "Room 101",
+        "floor": 1,
+        "functionCode": "office",
+        "exposureCode": "short",
+        "areaM2": 35.5,
+        "ceilingHeightM": 2.8,
+        "ventilationType": "mechanical",
+        "pollutionSources": [
+            "traffic"
+        ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 201', () => pm.response.to.have.status(201));
+      const j = pm.response.json();
+      pm.test('Has id and uriSlug', () => {
+        pm.expect(j.id).to.be.a('string').and.not.empty;
+        pm.expect(j.uriSlug).to.be.a('string').and.not.empty;
+      });
+      pm.collectionVariables.set('roomId', j.id);
+      pm.collectionVariables.set('roomSlug', j.uriSlug);
+    language: text/javascript
+order: 1000
