@@ -46,17 +46,17 @@ public static class SensorEndpoints
         group.MapPut("/{sensorId:guid}/identity", ChangeSensorIdentity)
             .WithName("ChangeSensorIdentity")
             .WithOpenApi()
-            .WithDescription("Change sensor hardware identity (manufacturer, model, serial)");
+            .WithDescription("Record new sensor identity (manufacturer, model, serial) effective from validFrom (appends history)");
 
         group.MapPut("/{sensorId:guid}/placement", ChangeSensorPlacement)
             .WithName("ChangeSensorPlacement")
             .WithOpenApi()
-            .WithDescription("Relocate the sensor to a different room");
+            .WithDescription("Record a new sensor placement (room) effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{sensorId:guid}/status", ChangeSensorStatus)
             .WithName("ChangeSensorStatus")
             .WithOpenApi()
-            .WithDescription("Change sensor lifecycle status");
+            .WithDescription("Record a new sensor lifecycle status effective from validFrom (appends history, does not overwrite)");
 
         group.MapPost("/{sensorId:guid}/measured-parameters", AddMeasuredParameter)
             .WithName("AddMeasuredParameter")

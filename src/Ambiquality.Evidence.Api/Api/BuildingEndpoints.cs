@@ -48,27 +48,27 @@ public static class BuildingEndpoints
         group.MapPut("/{buildingId:guid}/name", ChangeBuildingName)
             .WithName("ChangeBuildingName")
             .WithOpenApi()
-            .WithDescription("Change a building's name");
+            .WithDescription("Record a new building name effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/address", ChangeBuildingAddress)
             .WithName("ChangeBuildingAddress")
             .WithOpenApi()
-            .WithDescription("Change a building's address");
+            .WithDescription("Record a new building address effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/type", ChangeBuildingType)
             .WithName("ChangeBuildingType")
             .WithOpenApi()
-            .WithDescription("Change a building's type");
+            .WithDescription("Record a new building type effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/location", ChangeBuildingLocation)
             .WithName("ChangeBuildingLocation")
             .WithOpenApi()
-            .WithDescription("Change a building's location");
+            .WithDescription("Record a new building location effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/years", ChangeBuildingYears)
             .WithName("ChangeBuildingYears")
             .WithOpenApi()
-            .WithDescription("Change a building's construction and renovation years");
+            .WithDescription("Record new construction/renovation years effective from validFrom (appends history, does not overwrite)");
     }
 
     private static async Task<Results<Created<RegisterBuildingResult>, ProblemHttpResult>> RegisterBuilding(

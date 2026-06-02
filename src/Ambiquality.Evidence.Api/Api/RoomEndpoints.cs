@@ -46,32 +46,32 @@ public static class RoomEndpoints
         group.MapPut("/{roomId:guid}/name", ChangeRoomName)
             .WithName("ChangeRoomName")
             .WithOpenApi()
-            .WithDescription("Change room name");
+            .WithDescription("Record a new room name effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/floor", ChangeRoomFloor)
             .WithName("ChangeRoomFloor")
             .WithOpenApi()
-            .WithDescription("Change room floor");
+            .WithDescription("Record a new room floor effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/function", ChangeRoomFunction)
             .WithName("ChangeRoomFunction")
             .WithOpenApi()
-            .WithDescription("Change room function code");
+            .WithDescription("Record a new room function effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/exposure", ChangeRoomExposure)
             .WithName("ChangeRoomExposure")
             .WithOpenApi()
-            .WithDescription("Change room exposure category");
+            .WithDescription("Record a new room exposure effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/geometry", ChangeRoomGeometry)
             .WithName("ChangeRoomGeometry")
             .WithOpenApi()
-            .WithDescription("Change room geometry (area, ceiling height)");
+            .WithDescription("Record new room geometry (area, ceiling height) effective from validFrom (appends history)");
 
         group.MapPut("/{roomId:guid}/ventilation", ChangeRoomVentilation)
             .WithName("ChangeRoomVentilation")
             .WithOpenApi()
-            .WithDescription("Change room ventilation type");
+            .WithDescription("Record a new room ventilation type effective from validFrom (appends history, does not overwrite)");
 
         group.MapPost("/{roomId:guid}/pollution-sources", AddPollutionSource)
             .WithName("AddPollutionSource")

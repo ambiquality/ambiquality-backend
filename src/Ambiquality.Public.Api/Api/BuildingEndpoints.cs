@@ -16,7 +16,10 @@ public static class BuildingEndpoints
         group.MapMethods("/", ["GET", "HEAD"], ListBuildings)
             .WithName("ListBuildings")
             .WithSummary("List buildings")
-            .WithDescription("Filters: buildingType, bbox (minLon,minLat,maxLon,maxLat), page, pageSize.");
+            .WithDescription(
+                "Filters: buildingType, bbox (minLon,minLat,maxLon,maxLat), page, pageSize. "
+                + "Offset/page paged with a total count: the catalog is small and bounded, so a page "
+                + "index is friendlier than the keyset cursor used by the unbounded observations feed.");
 
         group.MapMethods("/{id:guid}", ["GET", "HEAD"], GetBuildingById)
             .WithName("GetBuildingById")
