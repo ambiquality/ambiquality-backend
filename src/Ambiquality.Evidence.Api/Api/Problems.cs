@@ -99,6 +99,19 @@ public static class Problems
     }
 
     /// <summary>
+    /// 400 problem+json for an attribute value the request supplied in a shape
+    /// the domain cannot accept (non-numeric, out-of-range, …). The value is
+    /// rejected at the edge before it reaches the aggregate, so a malformed
+    /// input never escapes as a 500.
+    /// </summary>
+    public static ProblemHttpResult InvalidAttributeValue(string detail) =>
+        TypedResults.Problem(
+            detail: detail,
+            title: "Invalid attribute value",
+            type: TypePrefix + "invalid-attribute-value",
+            statusCode: StatusCodes.Status400BadRequest);
+
+    /// <summary>
     /// Parses the optional <c>asOf</c> query parameter as a UTC instant,
     /// defaulting to "now". Returns <c>null</c> on success (with
     /// <paramref name="asOf"/> set), or a 400 problem result when the supplied

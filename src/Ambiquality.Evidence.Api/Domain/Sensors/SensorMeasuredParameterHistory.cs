@@ -1,3 +1,4 @@
+using Ambiquality.Evidence.Api.Domain.Common;
 using NpgsqlTypes;
 
 namespace Ambiquality.Evidence.Api.Domain.Sensors;
@@ -34,5 +35,5 @@ public sealed class SensorMeasuredParameterHistory
     // Half-open [lower, validFrom): exclusive upper so a closed row and a later
     // re-added row for the same parameter do not both contain the boundary.
     public void Close(DateTime validFrom) =>
-        Validity = new NpgsqlRange<DateTime>(Validity.LowerBound, true, false, validFrom, false, false);
+        Validity = Common.Validity.Closed(Validity.LowerBound, validFrom);
 }

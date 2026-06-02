@@ -283,5 +283,91 @@ public class SensorTests
 
         Assert.Equal(2, sensor.StatusHistory.Count);
     }
+
+    // ---- Close() delegates to the Validity factory's guards -----------------
+    // Each sensor history row's Close() must route through Common.Validity.Closed
+    // (the sole legal range factory) so a non-UTC upper bound is rejected with the
+    // same ArgumentException Building/Room rows raise, instead of silently building
+    // a raw NpgsqlRange.
+
+    private static readonly DateTime NonUtc =
+        new(2026, 6, 1, 12, 0, 0, DateTimeKind.Local);
+
+    [Fact]
+    public void SensorIdentityHistory_Close_WithNonUtcValidFrom_Throws()
+    {
+        var row = new SensorIdentityHistory(
+            sensorId: Guid.NewGuid(),
+            validity: Validity.OpenFrom(T0),
+            manufacturer: "Aranet",
+            model: "Aranet4",
+            serialNumber: "SN-0001",
+            recordedBy: Creator,
+            recordedAt: T0);
+
+        Assert.Throws<ArgumentException>(() => row.Close(NonUtc));
+    }
+
+    [Fact]
+    public void SensorStatusHistory_Close_WithNonUtcValidFrom_Throws()
+    {
+        var row = new SensorStatusHistory(
+            sensorId: Guid.NewGuid(),
+            validity: Validity.OpenFrom(T0),
+            statusCode: "active",
+            recordedBy: Creator,
+            recordedAt: T0);
+
+        Assert.Throws<ArgumentException>(() => row.Close(NonUtc));
+    }
+
+    [Fact]
+    public void SensorPlacementHistory_Close_WithNonUtcValidFrom_Throws()
+    {
+        var row = new SensorPlacementHistory(
+            sensorId: Guid.NewGuid(),
+            validity: Validity.OpenFrom(T0),
+            buildingId: BuildingId,
+            roomId: RoomId,
+            recordedBy: Creator,
+            recordedAt: T0);
+
+        Assert.Throws<ArgumentException>(() => row.Close(NonUtc));
+    }
+
+    [Fact]
+    public void SensorMeasuredParameterHistory_Close_WithNonUtcValidFrom_Throws()
+    {
+        var row = new SensorMeasuredParameterHistory(
+            sensorId: Guid.NewGuid(),
+            parameterCode: "co2",
+            validity: Validity.OpenFrom(T0),
+            recordedBy: Creator,
+            recordedAt: T0);
+
+        Assert.Throws<ArgumentException>(() => row.Close(NonUtc));
+    }
+
+    [Fact]
+    public void SensorIdentityHistory_Close_WithValidUtcValidFrom_ClosesHalfOpen()
+    {
+        var row = new SensorIdentityHistory(
+            sensorId: Guid.NewGuid(),
+            validity: Validity.OpenFrom(T0),
+            manufacturer: "Aranet",
+            model: "Aranet4",
+            serialNumber: "SN-0001",
+            recordedBy: Creator,
+            recordedAt: T0);
+
+        row.Close(T1);
+
+        // Behaviour for valid input is unchanged: [T0, T1) — exclusive upper.
+        Assert.Equal(T0, row.Validity.LowerBound);
+        Assert.True(row.Validity.LowerBoundIsInclusive);
+        Assert.Equal(T1, row.Validity.UpperBound);
+        Assert.False(row.Validity.UpperBoundIsInclusive);
+        Assert.False(row.Validity.UpperBoundInfinite);
+    }
 }
 

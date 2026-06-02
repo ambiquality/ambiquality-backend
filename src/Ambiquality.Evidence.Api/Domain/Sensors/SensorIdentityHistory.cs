@@ -1,3 +1,4 @@
+using Ambiquality.Evidence.Api.Domain.Common;
 using NpgsqlTypes;
 
 namespace Ambiquality.Evidence.Api.Domain.Sensors;
@@ -35,7 +36,7 @@ public sealed class SensorIdentityHistory
 
     // Half-open [lower, validFrom): the upper bound is EXCLUSIVE so the closed
     // row and the next open row (which starts at validFrom) do not both contain
-    // the boundary instant. The 2-arg NpgsqlRange ctor would make it inclusive.
+    // the boundary instant.
     public void Close(DateTime validFrom) =>
-        Validity = new NpgsqlRange<DateTime>(Validity.LowerBound, true, false, validFrom, false, false);
+        Validity = Common.Validity.Closed(Validity.LowerBound, validFrom);
 }
