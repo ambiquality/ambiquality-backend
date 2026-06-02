@@ -166,9 +166,12 @@ if (app.Environment.IsDevelopment())
 }
 
 // --- Routing -------------------------------------------------------
-app.MapBuildingEndpoints();
-app.MapRoomEndpoints();
-app.MapSensorEndpoints();
+// Every endpoint is mounted under /v1 so the write API is versioned like the
+// public open-data contract (Caddy strips the /evidence prefix, leaving /v1/...).
+var v1 = app.MapGroup($"/{Constants.ApiVersion}");
+v1.MapBuildingEndpoints();
+v1.MapRoomEndpoints();
+v1.MapSensorEndpoints();
 
 app.Run();
 

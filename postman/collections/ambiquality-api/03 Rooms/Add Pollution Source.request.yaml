@@ -1,5 +1,5 @@
 $kind: http-request
-url: "{{baseUrl}}/evidence/buildings/{{buildingId}}/rooms/{{roomId}}/pollution-sources"
+url: "{{baseUrl}}/evidence/v1/buildings/{{buildingId}}/rooms/{{roomId}}/pollution-sources"
 method: POST
 headers:
   Content-Type: application/json

@@ -1,5 +1,5 @@
 $kind: http-request
-url: "{{baseUrl}}/auth/account/logout"
+url: "{{baseUrl}}/auth/v1/account/logout"
 method: POST
 scripts:
   - type: afterResponse

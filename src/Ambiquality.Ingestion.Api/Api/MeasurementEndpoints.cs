@@ -7,7 +7,7 @@ public static class MeasurementEndpoints
 {
     public const string SensorKeyHeader = "X-Sensor-Key";
 
-    public static void MapMeasurementEndpoints(this WebApplication app)
+    public static void MapMeasurementEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/measurements", IngestMeasurement)
             .WithName("IngestMeasurement")

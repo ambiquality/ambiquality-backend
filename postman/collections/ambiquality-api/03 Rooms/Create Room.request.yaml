@@ -1,6 +1,6 @@
 $kind: http-request
 name: Create Room
-url: "{{baseUrl}}/evidence/buildings/{{buildingId}}/rooms/"
+url: "{{baseUrl}}/evidence/v1/buildings/{{buildingId}}/rooms/"
 method: POST
 headers:
   Content-Type: application/json

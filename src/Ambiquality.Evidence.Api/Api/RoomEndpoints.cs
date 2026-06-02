@@ -11,7 +11,7 @@ namespace Ambiquality.Evidence.Api.Api;
 
 public static class RoomEndpoints
 {
-    public static void MapRoomEndpoints(this WebApplication app)
+    public static void MapRoomEndpoints(this IEndpointRouteBuilder app)
     {
         // Mutations require a valid bearer token; reads opt out via AllowAnonymous.
         var group = app.MapGroup("/buildings/{buildingId:guid}/rooms")
@@ -122,7 +122,7 @@ public static class RoomEndpoints
                 PollutionSources: request.PollutionSources,
                 AsOf: DateTime.UtcNow);
 
-            return TypedResults.Created($"/buildings/{buildingId}/rooms/{result.RoomId}", response);
+            return TypedResults.Created($"/{Constants.ApiVersion}/buildings/{buildingId}/rooms/{result.RoomId}", response);
         }
         catch (DomainException ex)
         {

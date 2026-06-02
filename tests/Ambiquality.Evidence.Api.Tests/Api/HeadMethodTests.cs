@@ -39,7 +39,7 @@ public sealed class HeadMethodTests : IAsyncLifetime
             YearBuilt: 2000,
             YearRenovated: null);
 
-        var buildingResponse = await _client.PostAsJsonAsync("/buildings", buildingRequest);
+        var buildingResponse = await _client.PostAsJsonAsync("/v1/buildings", buildingRequest);
         var building = await buildingResponse.Content.ReadFromJsonAsync<RegisterBuildingResult>();
         _buildingId = building!.Id;
         _buildingSlug = building.UriSlug;
@@ -54,7 +54,7 @@ public sealed class HeadMethodTests : IAsyncLifetime
             VentilationType: "mechanical",
             PollutionSources: Array.Empty<string>());
 
-        var roomResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", roomRequest);
+        var roomResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", roomRequest);
         var room = await roomResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         _roomId = room!.Id;
         _roomSlug = room.UriSlug;
@@ -82,25 +82,25 @@ public sealed class HeadMethodTests : IAsyncLifetime
 
     [Fact]
     public Task Head_BuildingById_Existing_MatchesGetWithEmptyBody() =>
-        AssertHeadMatchesGet($"/buildings/{_buildingId}", HttpStatusCode.OK);
+        AssertHeadMatchesGet($"/v1/buildings/{_buildingId}", HttpStatusCode.OK);
 
     [Fact]
     public Task Head_BuildingBySlug_Existing_MatchesGetWithEmptyBody() =>
-        AssertHeadMatchesGet($"/buildings/{_buildingSlug}", HttpStatusCode.OK);
+        AssertHeadMatchesGet($"/v1/buildings/{_buildingSlug}", HttpStatusCode.OK);
 
     [Fact]
     public Task Head_BuildingById_Missing_Returns404() =>
-        AssertHeadMatchesGet($"/buildings/{Guid.NewGuid()}", HttpStatusCode.NotFound);
+        AssertHeadMatchesGet($"/v1/buildings/{Guid.NewGuid()}", HttpStatusCode.NotFound);
 
     [Fact]
     public Task Head_RoomById_Existing_MatchesGetWithEmptyBody() =>
-        AssertHeadMatchesGet($"/buildings/{_buildingId}/rooms/{_roomId}", HttpStatusCode.OK);
+        AssertHeadMatchesGet($"/v1/buildings/{_buildingId}/rooms/{_roomId}", HttpStatusCode.OK);
 
     [Fact]
     public Task Head_RoomBySlug_Existing_MatchesGetWithEmptyBody() =>
-        AssertHeadMatchesGet($"/buildings/{_buildingId}/rooms/{_roomSlug}", HttpStatusCode.OK);
+        AssertHeadMatchesGet($"/v1/buildings/{_buildingId}/rooms/{_roomSlug}", HttpStatusCode.OK);
 
     [Fact]
     public Task Head_RoomById_Missing_Returns404() =>
-        AssertHeadMatchesGet($"/buildings/{_buildingId}/rooms/{Guid.NewGuid()}", HttpStatusCode.NotFound);
+        AssertHeadMatchesGet($"/v1/buildings/{_buildingId}/rooms/{Guid.NewGuid()}", HttpStatusCode.NotFound);
 }

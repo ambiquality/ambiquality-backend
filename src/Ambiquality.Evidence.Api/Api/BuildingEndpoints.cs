@@ -10,7 +10,7 @@ namespace Ambiquality.Evidence.Api.Api;
 
 public static class BuildingEndpoints
 {
-    public static void MapBuildingEndpoints(this WebApplication app)
+    public static void MapBuildingEndpoints(this IEndpointRouteBuilder app)
     {
         // Mutations require a valid bearer token; reads opt out via AllowAnonymous
         // below (the open-data catalog is publicly readable). Authentication still
@@ -92,7 +92,7 @@ public static class BuildingEndpoints
                 YearRenovated: request.YearRenovated);
 
             var result = await handler.HandleAsync(command, cancellationToken);
-            return TypedResults.Created($"/buildings/{result.Id}", result);
+            return TypedResults.Created($"/{Constants.ApiVersion}/buildings/{result.Id}", result);
         }
         catch (DomainException ex)
         {

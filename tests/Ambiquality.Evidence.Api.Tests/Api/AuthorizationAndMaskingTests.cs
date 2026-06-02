@@ -48,7 +48,7 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
     [Fact]
     public async Task Mutation_WhenAnonymous_Returns401()
     {
-        var response = await _anonymous.PostAsJsonAsync("/buildings", BuildingRequest());
+        var response = await _anonymous.PostAsJsonAsync("/v1/buildings", BuildingRequest());
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -58,7 +58,7 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
         var building = await RegisterAsOwnerAsync();
 
         var change = new ChangeBuildingNameRequest("Hijacked", DateTime.UtcNow.AddHours(1));
-        var response = await _otherUser.PutAsJsonAsync($"/buildings/{building.Id}/name", change);
+        var response = await _otherUser.PutAsJsonAsync($"/v1/buildings/{building.Id}/name", change);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -69,7 +69,7 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
         var building = await RegisterAsOwnerAsync();
 
         var change = new ChangeBuildingNameRequest("Renamed", DateTime.UtcNow.AddHours(1));
-        var response = await _owner.PutAsJsonAsync($"/buildings/{building.Id}/name", change);
+        var response = await _owner.PutAsJsonAsync($"/v1/buildings/{building.Id}/name", change);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
@@ -119,7 +119,7 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
         var s2 = await ReadSnapshot(_owner, b2.Id);
         Assert.Equal(s1.OwnerId, s2.OwnerId); // same sub -> same projection row
 
-        var otherResponse = await _otherUser.PostAsJsonAsync("/buildings", BuildingRequest());
+        var otherResponse = await _otherUser.PostAsJsonAsync("/v1/buildings", BuildingRequest());
         var b3 = (await otherResponse.Content.ReadFromJsonAsync<RegisterBuildingResult>())!;
         var s3 = await ReadSnapshot(_owner, b3.Id);
         Assert.NotEqual(s1.OwnerId, s3.OwnerId); // different sub -> different projection row
@@ -128,7 +128,7 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
     [Fact]
     public async Task ListBuildings_WhenAnonymous_Returns401()
     {
-        var response = await _anonymous.GetAsync("/buildings");
+        var response = await _anonymous.GetAsync("/v1/buildings");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
@@ -139,10 +139,10 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
         var mine2 = await RegisterAsOwnerAsync();
 
         // A building owned by a different user must not appear in the owner's list.
-        var otherResponse = await _otherUser.PostAsJsonAsync("/buildings", BuildingRequest());
+        var otherResponse = await _otherUser.PostAsJsonAsync("/v1/buildings", BuildingRequest());
         var theirs = (await otherResponse.Content.ReadFromJsonAsync<RegisterBuildingResult>())!;
 
-        var response = await _owner.GetAsync("/buildings");
+        var response = await _owner.GetAsync("/v1/buildings");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var list = (await response.Content.ReadFromJsonAsync<List<BuildingSnapshotResponse>>())!;
 
@@ -159,14 +159,14 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
 
     private async Task<RegisterBuildingResult> RegisterAsOwnerAsync(string anonymization = "precise")
     {
-        var response = await _owner.PostAsJsonAsync("/buildings", BuildingRequest(anonymization));
+        var response = await _owner.PostAsJsonAsync("/v1/buildings", BuildingRequest(anonymization));
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<RegisterBuildingResult>())!;
     }
 
     private static async Task<BuildingSnapshotResponse> ReadSnapshot(HttpClient client, Guid id)
     {
-        var response = await client.GetAsync($"/buildings/{id}");
+        var response = await client.GetAsync($"/v1/buildings/{id}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<BuildingSnapshotResponse>())!;
     }

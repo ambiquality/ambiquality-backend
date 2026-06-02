@@ -27,7 +27,7 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
     private async Task<HttpResponseMessage> PostAsync(
         Guid sensorId, string parameterCode, double value, string? apiKey)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, "/measurements")
+        var request = new HttpRequestMessage(HttpMethod.Post, "/v1/measurements")
         {
             Content = JsonContent.Create(new
             {

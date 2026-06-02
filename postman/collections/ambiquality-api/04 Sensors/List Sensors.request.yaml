@@ -1,6 +1,6 @@
 $kind: http-request
 name: List Sensors
-url: "{{baseUrl}}/evidence/buildings/{{buildingId}}/rooms/{{roomId}}/sensors"
+url: "{{baseUrl}}/evidence/v1/buildings/{{buildingId}}/rooms/{{roomId}}/sensors"
 method: GET
 scripts:
   - type: afterResponse

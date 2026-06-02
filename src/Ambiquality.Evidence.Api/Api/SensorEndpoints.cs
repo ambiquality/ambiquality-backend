@@ -12,7 +12,7 @@ namespace Ambiquality.Evidence.Api.Api;
 
 public static class SensorEndpoints
 {
-    public static void MapSensorEndpoints(this WebApplication app)
+    public static void MapSensorEndpoints(this IEndpointRouteBuilder app)
     {
         // Mutations require a valid bearer token; reads opt out via AllowAnonymous.
         var group = app.MapGroup("/buildings/{buildingId:guid}/rooms/{roomId:guid}/sensors")
@@ -108,7 +108,7 @@ public static class SensorEndpoints
                 ApiKey: result.ApiKey);
 
             return TypedResults.Created(
-                $"/buildings/{buildingId}/rooms/{roomId}/sensors/{result.SensorId}", response);
+                $"/{Constants.ApiVersion}/buildings/{buildingId}/rooms/{roomId}/sensors/{result.SensorId}", response);
         }
         catch (DomainException ex)
         {

@@ -46,7 +46,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
             YearBuilt: 2000,
             YearRenovated: null);
 
-        var response = await _client.PostAsJsonAsync("/buildings", request);
+        var response = await _client.PostAsJsonAsync("/v1/buildings", request);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<RegisterBuildingResult>();
@@ -76,7 +76,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
             NewName: "New Name",
             ValidFrom: DateTime.UtcNow.AddHours(1));
 
-        var response = await _client.PutAsJsonAsync($"/buildings/{building.Id}/name", changeRequest);
+        var response = await _client.PutAsJsonAsync($"/v1/buildings/{building.Id}/name", changeRequest);
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
@@ -92,7 +92,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
             Country: "CZ",
             ValidFrom: DateTime.UtcNow.AddHours(1));
 
-        var response = await _client.PutAsJsonAsync($"/buildings/{building.Id}/address", changeRequest);
+        var response = await _client.PutAsJsonAsync($"/v1/buildings/{building.Id}/address", changeRequest);
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
@@ -112,7 +112,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
             YearBuilt: 2000,
             YearRenovated: null);
 
-        var response = await _client.PostAsJsonAsync("/buildings", request);
+        var response = await _client.PostAsJsonAsync("/v1/buildings", request);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -123,7 +123,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
             NewName: "New Name",
             ValidFrom: DateTime.UtcNow.AddHours(1));
 
-        var response = await _client.PutAsJsonAsync($"/buildings/{Guid.NewGuid()}/name", changeRequest);
+        var response = await _client.PutAsJsonAsync($"/v1/buildings/{Guid.NewGuid()}/name", changeRequest);
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
@@ -132,7 +132,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     {
         var building = await RegisterBuildingAsync("Gettable Building");
 
-        var response = await _client.GetAsync($"/buildings/{building.Id}");
+        var response = await _client.GetAsync($"/v1/buildings/{building.Id}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var snapshot = await response.Content.ReadFromJsonAsync<BuildingSnapshotResponse>();
@@ -150,7 +150,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     {
         var building = await RegisterBuildingAsync("Slug Building");
 
-        var response = await _client.GetAsync($"/buildings/{building.UriSlug}");
+        var response = await _client.GetAsync($"/v1/buildings/{building.UriSlug}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var snapshot = await response.Content.ReadFromJsonAsync<BuildingSnapshotResponse>();
@@ -162,7 +162,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task GetBuildingById_WithNonexistentId_Returns404NotFound()
     {
-        var response = await _client.GetAsync($"/buildings/{Guid.NewGuid()}");
+        var response = await _client.GetAsync($"/v1/buildings/{Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -172,7 +172,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     {
         var building = await RegisterBuildingAsync("As-Of Building");
 
-        var response = await _client.GetAsync($"/buildings/{building.Id}?asOf=not-a-timestamp");
+        var response = await _client.GetAsync($"/v1/buildings/{building.Id}?asOf=not-a-timestamp");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -189,11 +189,11 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
         var changeRequest = new ChangeBuildingNameRequest(NewName: "Renamed", ValidFrom: validFrom);
 
         // First PUT applies the change.
-        var first = await _client.PutAsJsonAsync($"/buildings/{building.Id}/name", changeRequest);
+        var first = await _client.PutAsJsonAsync($"/v1/buildings/{building.Id}/name", changeRequest);
         Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
 
         // Identical re-PUT (same value AND same validFrom) is a silent no-op.
-        var second = await _client.PutAsJsonAsync($"/buildings/{building.Id}/name", changeRequest);
+        var second = await _client.PutAsJsonAsync($"/v1/buildings/{building.Id}/name", changeRequest);
         Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
 
         // The history is not duplicated: original open row was closed and exactly
@@ -206,7 +206,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
         // And the value at/after validFrom reflects the single applied change.
         // (validFrom is in the future, so we must project as-of that instant.)
         var asOf = Uri.EscapeDataString(validFrom.AddSeconds(1).ToString("O"));
-        var getResponse = await _client.GetAsync($"/buildings/{building.Id}?asOf={asOf}");
+        var getResponse = await _client.GetAsync($"/v1/buildings/{building.Id}?asOf={asOf}");
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
         var snapshot = await getResponse.Content.ReadFromJsonAsync<BuildingSnapshotResponse>();
         Assert.NotNull(snapshot);
@@ -228,7 +228,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
             YearBuilt: 2000,
             YearRenovated: null);
 
-        var response = await _client.PostAsJsonAsync("/buildings", request);
+        var response = await _client.PostAsJsonAsync("/v1/buildings", request);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<RegisterBuildingResult>();
         Assert.NotNull(result);

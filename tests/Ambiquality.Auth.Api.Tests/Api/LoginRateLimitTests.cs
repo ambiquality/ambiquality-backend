@@ -27,13 +27,13 @@ public class LoginRateLimitTests(RateLimitedAuthApiFactory factory)
         for (var i = 0; i < RateLimitedAuthApiFactory.IpLimit; i++)
         {
             var allowed = await client.PostAsJsonAsync(
-                "/login", new LoginRequest($"nobody-{Guid.NewGuid():N}@example.com", "whatever"));
+                "/v1/login", new LoginRequest($"nobody-{Guid.NewGuid():N}@example.com", "whatever"));
             Assert.Equal(HttpStatusCode.Unauthorized, allowed.StatusCode);
         }
 
         // The next attempt from the same IP is throttled.
         var limited = await client.PostAsJsonAsync(
-            "/login", new LoginRequest($"nobody-{Guid.NewGuid():N}@example.com", "whatever"));
+            "/v1/login", new LoginRequest($"nobody-{Guid.NewGuid():N}@example.com", "whatever"));
 
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
         Assert.Equal("application/problem+json", limited.Content.Headers.ContentType?.MediaType);

@@ -38,7 +38,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
             YearRenovated = (int?)null
         };
 
-        var buildingResponse = await _client.PostAsJsonAsync("/buildings", buildingRequest);
+        var buildingResponse = await _client.PostAsJsonAsync("/v1/buildings", buildingRequest);
         var building = await buildingResponse.Content.ReadFromJsonAsync<RegisterBuildingResult>();
         _buildingId = building?.Id ?? throw new InvalidOperationException("Failed to create test building");
 
@@ -63,7 +63,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
             VentilationType: null,
             PollutionSources: Array.Empty<string>());
 
-        var response = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", roomRequest);
+        var response = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", roomRequest);
         var room = await response.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         return room!.Id;
     }
@@ -80,7 +80,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
             MeasuredParameters: parameters ?? new[] { "co2", "temperature" });
 
         var response = await _client.PostAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors", request);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<SensorSnapshotResponse>())!;
     }
@@ -105,7 +105,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         var b = await RegisterSensorAsync();
 
         var response = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors");
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var sensors = (await response.Content.ReadFromJsonAsync<List<SensorSnapshotResponse>>())!;
 
@@ -122,7 +122,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         otherUser.DefaultRequestHeaders.Add(TestAuthHandler.SubHeader, Guid.NewGuid().ToString());
 
         var response = await otherUser.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors");
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -152,7 +152,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
             MeasuredParameters: new[] { "co2" });
 
         var response = await _client.PostAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors", request);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         var registered = await response.Content.ReadFromJsonAsync<SensorRegisteredResponse>();
@@ -166,7 +166,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         var registered = await RegisterSensorAsync();
 
         var response = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -180,7 +180,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         var registered = await RegisterSensorAsync();
 
         var response = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var sensor = await response.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
@@ -194,7 +194,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         var registered = await RegisterSensorAsync();
 
         var response = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.UriSlug}");
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.UriSlug}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var sensor = await response.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
@@ -208,7 +208,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         var asOf = registered.AsOf.ToString("o");
 
         var response = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}?asOf={Uri.EscapeDataString(asOf)}");
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}?asOf={Uri.EscapeDataString(asOf)}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var sensor = await response.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
@@ -219,7 +219,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     public async Task GetSensorById_WithNonexistentId_Returns404NotFound()
     {
         var response = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{Guid.NewGuid()}");
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{Guid.NewGuid()}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -231,7 +231,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         var otherRoom = Guid.NewGuid();
 
         var response = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{otherRoom}/sensors/{registered.Id}");
+            $"/v1/buildings/{_buildingId}/rooms/{otherRoom}/sensors/{registered.Id}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -243,11 +243,11 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
 
         var request = new ChangeSensorIdentityRequest("Aranet", "Aranet4 Pro", "SN-9999", DateTime.UtcNow);
         var response = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/identity", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/identity", request);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        var get = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
+        var get = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
         var sensor = await get.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
         Assert.Equal("Aranet4 Pro", sensor!.Model);
         Assert.Equal("SN-9999", sensor.SerialNumber);
@@ -260,11 +260,11 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
 
         var request = new ChangeSensorStatusRequest("maintenance", DateTime.UtcNow);
         var response = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/status", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/status", request);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        var get = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
+        var get = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
         var sensor = await get.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
         Assert.Equal("maintenance", sensor!.StatusCode);
     }
@@ -277,20 +277,20 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
 
         var request = new ChangeSensorPlacementRequest(targetRoom, DateTime.UtcNow);
         var response = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/placement", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/placement", request);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
         // Now visible under the target room...
         var inTarget = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{targetRoom}/sensors/{registered.Id}");
+            $"/v1/buildings/{_buildingId}/rooms/{targetRoom}/sensors/{registered.Id}");
         Assert.Equal(HttpStatusCode.OK, inTarget.StatusCode);
         var moved = await inTarget.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
         Assert.Equal(targetRoom, moved!.RoomId);
 
         // ...and no longer in the original room.
         var inOriginal = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
         Assert.Equal(HttpStatusCode.NotFound, inOriginal.StatusCode);
     }
 
@@ -301,7 +301,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
 
         var request = new ChangeSensorPlacementRequest(Guid.NewGuid(), DateTime.UtcNow);
         var response = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/placement", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/placement", request);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -313,11 +313,11 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
 
         var request = new AddMeasuredParameterRequest("humidity", DateTime.UtcNow);
         var response = await _client.PostAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/measured-parameters", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/measured-parameters", request);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        var get = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
+        var get = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
         var sensor = await get.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
         Assert.Contains(sensor!.MeasuredParameters, p => p.Code == "humidity");
     }
@@ -329,12 +329,12 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
 
         // Close the capability's validity via PUT with validTo in the body.
         var response = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/measured-parameters/voc",
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/measured-parameters/voc",
             new RemoveMeasuredParameterRequest(ValidTo: DateTime.UtcNow));
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        var get = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
+        var get = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
         var sensor = await get.Content.ReadFromJsonAsync<SensorSnapshotResponse>();
         Assert.DoesNotContain(sensor!.MeasuredParameters, p => p.Code == "voc");
         Assert.Contains(sensor.MeasuredParameters, p => p.Code == "co2");
@@ -351,7 +351,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
             MeasuredParameters: new[] { "co2" });
 
         var response = await _client.PostAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -367,7 +367,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
             MeasuredParameters: new[] { "radiation" });
 
         var response = await _client.PostAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -379,7 +379,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
 
         var request = new ChangeSensorStatusRequest("maintenance", DateTime.UtcNow.AddYears(-1));
         var response = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/status", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/status", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -389,7 +389,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
     {
         var request = new ChangeSensorStatusRequest("maintenance", DateTime.UtcNow.AddHours(1));
         var response = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{Guid.NewGuid()}/status", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{Guid.NewGuid()}/status", request);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -400,7 +400,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         var registered = await RegisterSensorAsync();
 
         var response = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}?asOf=not-a-timestamp");
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}?asOf=not-a-timestamp");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -414,7 +414,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         // overlapping validity must trip the GiST exclusion constraint.
         var request = new AddMeasuredParameterRequest("co2", DateTime.UtcNow.AddHours(1));
         var response = await _client.PostAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/measured-parameters", request);
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/measured-parameters", request);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }

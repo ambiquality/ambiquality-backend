@@ -1,5 +1,5 @@
 $kind: http-request
-url: "{{baseUrl}}/ingestion/measurements"
+url: "{{baseUrl}}/ingestion/v1/measurements"
 method: POST
 headers:
   Content-Type: application/json

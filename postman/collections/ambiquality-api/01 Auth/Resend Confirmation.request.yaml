@@ -1,5 +1,5 @@
 $kind: http-request
-url: "{{baseUrl}}/auth/resend-confirmation"
+url: "{{baseUrl}}/auth/v1/resend-confirmation"
 method: POST
 headers:
   Content-Type: application/json
