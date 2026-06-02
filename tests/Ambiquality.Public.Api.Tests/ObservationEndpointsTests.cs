@@ -79,6 +79,44 @@ public sealed class ObservationEndpointsTests(TimescaleFixture fixture) : Public
         Assert.Equal(400, observation.GetProperty("value").GetDouble());
         Assert.Equal("http://qudt.org/vocab/quantitykind/AmountOfSubstanceFraction",
             observation.GetProperty("quantityKindUri").GetString());
+        // The substance-specific observed property — distinct from the coarse QUDT kind.
+        Assert.Equal($"{PublicApiFactory.BaseIri}/v1/properties/co2",
+            observation.GetProperty("observedPropertyIri").GetString());
+    }
+
+    [Fact]
+    public async Task GetById_PlainJson_ObservedPropertyIsSpecific_NotQuantityKind()
+    {
+        // co2 (AmountOfSubstanceFraction) and temperature (Temperature) get distinct
+        // observedProperty IRIs even though, pre-fix, both leant on a generic QUDT kind.
+        var co2 = await Client.GetFromJsonAsync<JsonElement>($"/v1/observations/{EvidenceSeed.M1}");
+        var temp = await Client.GetFromJsonAsync<JsonElement>($"/v1/observations/{EvidenceSeed.M5}");
+
+        var co2Property = co2.GetProperty("observedPropertyIri").GetString();
+        var tempProperty = temp.GetProperty("observedPropertyIri").GetString();
+
+        Assert.NotEqual(co2Property, tempProperty);
+        Assert.EndsWith("/v1/properties/co2", co2Property);
+        Assert.EndsWith("/v1/properties/temperature", tempProperty);
+    }
+
+    [Fact]
+    public async Task GetById_JsonLd_ObservedPropertyAndQuantityKindAreSeparate()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/v1/observations/{EvidenceSeed.M1}");
+        request.Headers.Add("Accept", "application/ld+json");
+        var response = await Client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("application/ld+json", response.Content.Headers.ContentType?.MediaType);
+
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+
+        // observedProperty is the specific minted IRI…
+        Assert.Equal($"{PublicApiFactory.BaseIri}/v1/properties/co2",
+            doc.GetProperty("sosa:observedProperty").GetProperty("@id").GetString());
+        // …and the QUDT dimensional kind now sits on qudt:hasQuantityKind, not observedProperty.
+        Assert.Equal("http://qudt.org/vocab/quantitykind/AmountOfSubstanceFraction",
+            doc.GetProperty("qudt:hasQuantityKind").GetProperty("@id").GetString());
     }
 
     [Fact]

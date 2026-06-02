@@ -73,6 +73,12 @@ public sealed class IriBuilder
 
     public string Sensor(Guid id) => $"{_root}/sensors/{id:D}";
 
+    /// <summary>The observable-property vocabulary index, e.g. <c>https://data.ambiquality.org/v1/properties</c>.</summary>
+    public string Properties() => $"{_root}/properties";
+
+    /// <summary>The dereferenceable IRI of a single observable property (the <c>sosa:observedProperty</c> value).</summary>
+    public string Property(string code) => $"{_root}/properties/{code}";
+
     public string Catalog() => $"{_root}/catalog";
 
     public string Context() => $"{_root}/context/measurements.jsonld";

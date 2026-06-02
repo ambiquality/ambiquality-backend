@@ -14,10 +14,10 @@ namespace Ambiquality.Public.Api.Application.Observations;
 /// <c>Link: …; rel="describedby"</c> points at the CSVW tabular schema so the CSV is
 /// self-describing.
 /// </summary>
-public sealed class ObservationCsvStreamer(IAsyncEnumerable<Measurement>? rows, string describedByIri) : IResult
+public sealed class ObservationCsvStreamer(IAsyncEnumerable<Measurement>? rows, IriBuilder iri) : IResult
 {
     private const string HeaderRow =
-        "id,sensor_id,parameter_code,value,unit,quantity_kind_uri,unit_uri,observed_at,received_at,is_invalid";
+        "id,sensor_id,parameter_code,value,unit,observed_property_uri,quantity_kind_uri,unit_uri,observed_at,received_at,is_invalid";
 
     public async Task ExecuteAsync(HttpContext httpContext)
     {
@@ -26,7 +26,7 @@ public sealed class ObservationCsvStreamer(IAsyncEnumerable<Measurement>? rows, 
         response.Headers.ContentDisposition = "attachment; filename=observations.csv";
         response.Headers.CacheControl = $"public, max-age={Constants.CacheSeconds}";
         response.Headers.Append("Link", $"<{Constants.LicenseIri}>; rel=\"license\"");
-        response.Headers.Append("Link", $"<{describedByIri}>; rel=\"describedby\"; type=\"application/csvm+json\"");
+        response.Headers.Append("Link", $"<{iri.CsvMetadata()}>; rel=\"describedby\"; type=\"application/csvm+json\"");
 
         await using var writer = new StreamWriter(response.Body, new UTF8Encoding(false), 1 << 14, leaveOpen: true);
         await writer.WriteLineAsync($"# license: {Constants.LicenseIri}");
@@ -47,6 +47,7 @@ public sealed class ObservationCsvStreamer(IAsyncEnumerable<Measurement>? rows, 
                 Escape(m.ParameterCode),
                 m.Value.ToString(CultureInfo.InvariantCulture),
                 Escape(m.Unit),
+                Escape(iri.Property(m.ParameterCode)),
                 Escape(qudt?.QuantityKindUri),
                 Escape(qudt?.UnitUri),
                 m.ObservedAt.ToString("O", CultureInfo.InvariantCulture),
