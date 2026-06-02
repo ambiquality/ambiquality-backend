@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/refresh"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"refreshToken": "{{refreshToken}}"}'
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      const j = pm.response.json();
+      pm.test('Has new token pair', () => pm.expect(j.accessToken).to.be.a('string').and.not.empty);
+      pm.collectionVariables.set('accessToken', j.accessToken);
+      pm.collectionVariables.set('refreshToken', j.refreshToken);
+    language: text/javascript
+order: 3000

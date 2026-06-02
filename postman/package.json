@@ -1,0 +1,14 @@
+{
+  "name": "ambiquality-postman",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Build + run the Ambiquality API Postman suite (git-native YAML) with newman.",
+  "scripts": {
+    "build": "node build-collection.mjs",
+    "test": "node build-collection.mjs && newman run /tmp/ambiquality.collection.json -e /tmp/ambiquality.env.json"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}

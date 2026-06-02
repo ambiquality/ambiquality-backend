@@ -1,0 +1,30 @@
+$kind: collection
+name: ambiquality-api
+description: "Complete test suite for Ambiquality IEQ backend (Auth.Api + Evidence.Api + Ingestion.Api + Public.Api) routed through Caddy at {{baseUrl}}. Run: node postman/build-collection.mjs && newman run /tmp/ambiquality.collection.json -e /tmp/ambiquality.env.json"
+variables:
+  baseUrl: http://localhost:8080
+  email: test@example.com
+  password: Test1234!
+  accessToken: ""
+  refreshToken: ""
+  buildingId: ""
+  buildingSlug: ""
+  roomId: ""
+  roomSlug: ""
+  sensorId: ""
+  sensorSlug: ""
+  now: ""
+  newEmail: ""
+  confirmUserId: ""
+  confirmToken: ""
+  sensorApiKey: ""
+scripts:
+  - type: http:beforeRequest
+    code: pm.collectionVariables.set('now', new Date().toISOString());
+    language: text/javascript
+auth:
+  - id: f1234d9e-92ed-4038-b530-86e04b9d3081
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{accessToken}}"

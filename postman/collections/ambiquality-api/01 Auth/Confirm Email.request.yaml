@@ -1,0 +1,31 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/confirm-email?userId={{confirmUserId}}&token={{confirmToken}}"
+method: GET
+queryParams:
+  userId: "{{confirmUserId}}"
+  token: "{{confirmToken}}"
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 200', () => pm.response.to.have.status(200));
+    language: text/javascript
+  - type: beforeRequest
+    code: |2
+       const mp = pm.variables.get('mailpitBaseUrl') || 'http://localhost:8025';
+        const to = pm.variables.get('email');
+        pm.sendRequest(mp + '/api/v1/messages', function (err, res) {
+          if (err) { console.error(err); return; }
+          const msgs = (res.json().messages) || [];
+          const hit = msgs.find(function (x) { return JSON.stringify(x.To || []).indexOf(to) >= 0; });
+          if (!hit) { console.error('no email for ' + to); return; }
+          pm.sendRequest(mp + '/api/v1/message/' + hit.ID, function (e2, r2) {
+            if (e2) { console.error(e2); return; }
+            const b = r2.json().Text || '';
+            if (b.indexOf('userId=') < 0) { console.error('no link'); return; }
+            pm.collectionVariables.set('confirmUserId', b.split('userId=')[1].split('&')[0]);
+            pm.collectionVariables.set('confirmToken', b.split('token=')[1].split('\n')[0].trim());
+          });
+        });
+    language: text/javascript
+order: 1500

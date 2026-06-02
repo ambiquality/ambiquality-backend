@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "flows": {
+    "bb11599e-78b5-4e46-b91b-b69c1269a89a": {
+      "path": "postman/flows/Register flow.flow",
+      "dependencies": [
+        {
+          "local": {
+            "collectionId": "Cc6a8EDca62787EFFfE62eFF",
+            "requestId": "3e1220deD1ba4D3Bb42FabAB",
+            "filePath": "postman/collections/ambiquality-api/01 Auth/Register.request.yaml"
+          },
+          "cloud": {
+            "collectionId": null,
+            "requestId": null
+          }
+        },
+        {
+          "local": {
+            "collectionId": "Cc6a8EDca62787EFFfE62eFF",
+            "requestId": "0ebb82fE506F6EfB3AE2D45e",
+            "filePath": "postman/collections/ambiquality-api/01 Auth/Confirm Email.request.yaml"
+          },
+          "cloud": {
+            "collectionId": null,
+            "requestId": null
+          }
+        }
+      ]
+    },
+    "a8385768-f974-4a51-b108-613d951aca8a": {
+      "path": "postman/flows/Login flow.flow",
+      "dependencies": [
+        {
+          "local": {
+            "collectionId": "Cc6a8EDca62787EFFfE62eFF",
+            "requestId": "f061E2cEd2EEAC00bd3AAB41",
+            "filePath": "postman/collections/ambiquality-api/01 Auth/Login.request.yaml"
+          },
+          "cloud": {
+            "collectionId": null,
+            "requestId": null
+          }
+        }
+      ]
+    }
+  }
+}

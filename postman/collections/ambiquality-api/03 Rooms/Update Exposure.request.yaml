@@ -1,0 +1,18 @@
+$kind: http-request
+name: Update Exposure
+url: "{{baseUrl}}/evidence/buildings/{{buildingId}}/rooms/{{roomId}}/exposure"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+        "newValue": "long",
+        "validFrom": "{{now}}"
+    }
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 204', () => pm.response.to.have.status(204));
+    language: text/javascript
+order: 7000

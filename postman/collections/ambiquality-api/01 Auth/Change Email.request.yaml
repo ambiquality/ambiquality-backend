@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/account/change-email"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"currentPassword": "{{password}}","newEmail": "{{newEmail}}"}'
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 202', () => pm.response.to.have.status(202));
+    language: text/javascript
+order: 6000

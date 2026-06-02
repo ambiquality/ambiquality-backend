@@ -1,0 +1,23 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"email": "{{email}}","password": "{{password}}"}'
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      const j = pm.response.json();
+      pm.test('Has accessToken and refreshToken', () => {
+        pm.expect(j.accessToken).to.be.a('string').and.not.empty;
+        pm.expect(j.refreshToken).to.be.a('string').and.not.empty;
+      });
+      pm.collectionVariables.set('accessToken', j.accessToken);
+      pm.collectionVariables.set('refreshToken', j.refreshToken);
+    language: text/javascript
+order: 2000

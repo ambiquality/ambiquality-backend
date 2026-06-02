@@ -487,7 +487,8 @@ thoughts/*
 .code-review-graph/
 
 # postman
-postman
+# postman/ is version-controlled (git-native YAML collection + newman harness);
+# build output goes to /tmp and node_modules is ignored by the global rule above.
 .postman
 
 #claude

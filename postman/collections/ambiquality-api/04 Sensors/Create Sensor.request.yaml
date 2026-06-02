@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{baseUrl}}/evidence/buildings/{{buildingId}}/rooms/{{roomId}}/sensors/"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"uriSlug": "sensor-alpha-1","manufacturer": "Aranet","model": "Aranet4","serialNumber": "SN-000001","statusCode": "active","measuredParameters": ["co2","temperature","humidity","voc"]}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 201', () => pm.response.to.have.status(201));
+      const j = pm.response.json();
+      pm.test('Has id and uriSlug', () => {
+        pm.expect(j.id).to.be.a('string').and.not.empty;
+        pm.expect(j.uriSlug).to.be.a('string').and.not.empty;
+      });
+      pm.collectionVariables.set('sensorId', j.id);
+      pm.collectionVariables.set('sensorSlug', j.uriSlug);
+      pm.collectionVariables.set('sensorApiKey', j.apiKey);
+    language: text/javascript
+order: 1000

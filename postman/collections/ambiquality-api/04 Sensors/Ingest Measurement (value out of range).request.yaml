@@ -1,0 +1,16 @@
+$kind: http-request
+url: "{{baseUrl}}/ingestion/measurements"
+method: POST
+headers:
+  Content-Type: application/json
+  X-Sensor-Key: "{{sensorApiKey}}"
+body:
+  type: json
+  content: '{"sensorId": "{{sensorId}}","parameterCode": "co2","value": 999999,"observedAt": "{{now}}"}'
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 422 value out of range', () => pm.response.to.have.status(422));
+    language: text/javascript
+order: 1200

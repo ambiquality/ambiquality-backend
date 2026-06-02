@@ -1,0 +1,61 @@
+owner: "54843159"
+team: "15894712"
+lastUpdatedBy: "54843159"
+lastRevision: 1779902711000
+name: ambiquality-dev
+color: null
+values:
+  - key: baseUrl
+    value: http://localhost:8080
+    enabled: true
+    description: Caddy ingress URL
+  - key: email
+    value: test@example.com
+    enabled: true
+    description: Test user email — overwritten per-run by Register's pre-request
+  - key: password
+    value: Test1234!
+    enabled: true
+    description: Test user password
+  - key: newEmail
+    value: ""
+    enabled: true
+    description: Per-run changed email (set by Register's pre-request)
+  - key: accessToken
+    value: ""
+    enabled: true
+    description: JWT access token (set by Login)
+  - key: refreshToken
+    value: ""
+    enabled: true
+    description: Refresh token (set by Login/Refresh)
+  - key: buildingId
+    value: ""
+    enabled: true
+    description: Created building GUID
+  - key: buildingSlug
+    value: ""
+    enabled: true
+    description: Created building URI slug
+  - key: roomId
+    value: ""
+    enabled: true
+    description: Created room GUID
+  - key: roomSlug
+    value: ""
+    enabled: true
+    description: Created room URI slug
+  - key: sensorId
+    value: ""
+    enabled: true
+    description: Created sensor GUID
+  - key: sensorSlug
+    value: ""
+    enabled: true
+    description: Created sensor URI slug
+  - key: mailpitBaseUrl
+    value: http://localhost:8025
+    enabled: true
+    description: Mailpit HTTP API base (not behind Caddy)
+createdAt: 2026-05-21T16:33:21.000Z
+updatedAt: 2026-05-27T17:25:11.000Z

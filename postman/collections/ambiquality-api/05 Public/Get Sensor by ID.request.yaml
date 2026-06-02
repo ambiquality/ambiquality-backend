@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/public/v1/sensors/{{sensorId}}"
+method: GET
+headers:
+  Accept: application/json
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      const j = pm.response.json();
+      pm.test('Has id', () => pm.expect(j).to.have.property('id'));
+    language: text/javascript
+order: 15000

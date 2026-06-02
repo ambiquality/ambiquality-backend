@@ -1,0 +1,29 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+        "email": "{{email}}",
+        "password": "{{password}}"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: beforeRequest
+    code: |-
+      const ts = Date.now();
+      const e = 'test+' + ts + '@example.com';
+      const ne = 'changed+' + ts + '@example.com';
+      pm.collectionVariables.set('email', e);
+      pm.collectionVariables.set('newEmail', ne);
+      pm.environment.set('email', e);
+      pm.environment.set('newEmail', ne);
+    language: text/javascript
+  - type: afterResponse
+    code: pm.test('Status 201', () => pm.response.to.have.status(201));
+    language: text/javascript
+order: 1000

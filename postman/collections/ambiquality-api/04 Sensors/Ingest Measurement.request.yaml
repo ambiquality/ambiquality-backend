@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{baseUrl}}/ingestion/measurements"
+method: POST
+headers:
+  Content-Type: application/json
+  X-Sensor-Key: "{{sensorApiKey}}"
+body:
+  type: json
+  content: '{"sensorId": "{{sensorId}}","parameterCode": "co2","value": 800,"observedAt": "{{now}}"}'
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 202 accepted', () => pm.response.to.have.status(202));
+      const j = pm.response.json();
+      pm.test('Has id and receivedAt', () => {
+        pm.expect(j.id).to.be.a('string').and.not.empty;
+        pm.expect(j).to.have.property('receivedAt');
+      });
+    language: text/javascript
+order: 1100
