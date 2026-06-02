@@ -4,3 +4,5 @@ namespace Ambiquality.Auth.Api.Api.Contracts;
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
 public sealed record ChangeEmailRequest(string CurrentPassword, string NewEmail);
+
+public sealed record DeleteAccountRequest(string CurrentPassword);

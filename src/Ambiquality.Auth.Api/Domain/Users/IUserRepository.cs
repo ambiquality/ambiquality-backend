@@ -16,5 +16,11 @@ public interface IUserRepository
 
     void Add(User user);
 
+    /// <summary>
+    /// Removes the user aggregate. Owned refresh and verification tokens are
+    /// deleted along with it (cascade), so account deletion is a single unit.
+    /// </summary>
+    void Remove(User user);
+
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -6,6 +6,7 @@ using Ambiquality.Auth.Api.Application;
 using Ambiquality.Auth.Api.Application.Users;
 using Ambiquality.Auth.Api.Domain;
 using Ambiquality.Auth.Api.Domain.Users;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Ambiquality.Auth.Api.Api;
 
@@ -119,6 +120,48 @@ public static class AccountEndpoints
             "Existing access tokens remain valid until they expire naturally.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
+
+        group.MapDelete("/{id:guid}", async (
+            [Description("The ID of the account to delete. Must equal the authenticated user's own ID.")] Guid id,
+            // DELETE does not infer a body parameter; bind it explicitly.
+            [FromBody] DeleteAccountRequest request,
+            ClaimsPrincipal principal,
+            DeleteAccountHandler handler,
+            CancellationToken cancellationToken) =>
+        {
+            if (!TryGetUserId(principal, out var userId))
+                return Results.Unauthorized();
+
+            // A user may only delete their own account; the acting identity comes
+            // from the JWT, never from the route, so a mismatch is forbidden.
+            if (userId != id)
+                return Results.Problem(
+                    detail: "You can only delete your own account.",
+                    statusCode: StatusCodes.Status403Forbidden,
+                    title: "Forbidden",
+                    type: "urn:ambiquality:auth:forbidden");
+
+            try
+            {
+                await handler.HandleAsync(
+                    new DeleteAccountCommand(id, request.CurrentPassword), cancellationToken);
+                return Results.NoContent();
+            }
+            catch (DomainException ex)
+            {
+                return Problems.ToResult(ex);
+            }
+        })
+        .WithName("DeleteAccount")
+        .WithSummary("Permanently delete the authenticated user's account")
+        .WithDescription(
+            "Verifies the supplied current password, then permanently deletes the account and all its " +
+            "refresh and verification tokens. The path ID must match the authenticated user's own ID; " +
+            "deleting another user's account is forbidden. This action is irreversible.")
+        .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/confirm-email-change", async (
             [Description("The single-use token from the email-change confirmation link.")] string token,

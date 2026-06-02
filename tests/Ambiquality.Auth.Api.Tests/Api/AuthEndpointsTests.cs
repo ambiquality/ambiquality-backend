@@ -183,6 +183,85 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     }
 
     [Fact]
+    public async Task DeleteAccount_WithCorrectPassword_Returns204_AndLoginStopsWorking()
+    {
+        var client = factory.CreateClient();
+        var (email, password) = await RegisterAndConfirmAsync(client);
+        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
+        var me = await client.GetFromJsonAsync<MeResponse>("/account/me");
+
+        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/account/{me!.Id}")
+        {
+            Content = JsonContent.Create(new DeleteAccountRequest(password))
+        });
+        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+
+        client.DefaultRequestHeaders.Authorization = null;
+        var relogin = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        Assert.Equal(HttpStatusCode.Unauthorized, relogin.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteAccount_OfAnotherUser_Returns403_AndDoesNotDelete()
+    {
+        var client = factory.CreateClient();
+        var (email, password) = await RegisterAndConfirmAsync(client);
+        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
+
+        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/account/{Guid.NewGuid()}")
+        {
+            Content = JsonContent.Create(new DeleteAccountRequest(password))
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, delete.StatusCode);
+        Assert.Equal("application/problem+json", delete.Content.Headers.ContentType?.MediaType);
+
+        // The caller's own account is untouched.
+        var me = await client.GetAsync("/account/me");
+        Assert.Equal(HttpStatusCode.OK, me.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteAccount_WithWrongPassword_Returns401_AndDoesNotDelete()
+    {
+        var client = factory.CreateClient();
+        var (email, password) = await RegisterAndConfirmAsync(client);
+        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
+        var me = await client.GetFromJsonAsync<MeResponse>("/account/me");
+
+        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/account/{me!.Id}")
+        {
+            Content = JsonContent.Create(new DeleteAccountRequest("wrong-password"))
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, delete.StatusCode);
+        Assert.Equal("application/problem+json", delete.Content.Headers.ContentType?.MediaType);
+
+        var stillThere = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        Assert.Equal(HttpStatusCode.OK, stillThere.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteAccount_WithoutJwt_Returns401()
+    {
+        var client = factory.CreateClient();
+
+        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/account/{Guid.NewGuid()}")
+        {
+            Content = JsonContent.Create(new DeleteAccountRequest("Sup3rSecret!"))
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, delete.StatusCode);
+    }
+
+    [Fact]
     public async Task Register_DuplicateEmail_Returns409ProblemJson()
     {
         var client = factory.CreateClient();
