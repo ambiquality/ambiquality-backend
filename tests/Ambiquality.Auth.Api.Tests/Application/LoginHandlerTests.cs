@@ -16,10 +16,11 @@ public class LoginHandlerTests
     private readonly ITokenGenerator _tokenGenerator = Substitute.For<ITokenGenerator>();
     private readonly IJwtIssuer _jwtIssuer = Substitute.For<IJwtIssuer>();
     private readonly FakeClock _clock = new(Now);
+    private readonly FakeThrottleDelayer _throttleDelayer = new();
     private readonly AuthOptions _options = new();
 
     private LoginHandler CreateHandler() => new(
-        _repository, _passwordService, _tokenGenerator, _jwtIssuer, _clock, _options);
+        _repository, _passwordService, _tokenGenerator, _jwtIssuer, _clock, _throttleDelayer, _options);
 
     private User SeedUser(bool confirmed)
     {
@@ -94,5 +95,70 @@ public class LoginHandlerTests
 
         await Assert.ThrowsAsync<EmailNotConfirmedException>(() =>
             handler.HandleAsync(new LoginCommand("user@example.com", "correct-pw")));
+    }
+
+    [Fact]
+    public async Task Handle_FailedLogin_RecordsFailureAndPersists()
+    {
+        var user = SeedUser(confirmed: true);
+        _passwordService.Verify(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+        var handler = CreateHandler();
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+            handler.HandleAsync(new LoginCommand("user@example.com", "wrong-pw")));
+
+        Assert.Equal(1, user.FailedLoginCount);
+        Assert.Equal(1, _repository.SaveChangesCallCount);
+    }
+
+    [Fact]
+    public async Task Handle_WithinFreeAttempts_AppliesNoDelay()
+    {
+        SeedUser(confirmed: true);
+        _passwordService.Verify(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+        var handler = CreateHandler();
+
+        // The first failures (up to the free budget) must not be throttled.
+        for (var i = 0; i < _options.LoginThrottleFreeAttempts; i++)
+            await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+                handler.HandleAsync(new LoginCommand("user@example.com", "wrong-pw")));
+
+        Assert.All(_throttleDelayer.Delays, d => Assert.Equal(TimeSpan.Zero, d));
+    }
+
+    [Fact]
+    public async Task Handle_AfterFreeAttemptsExhausted_AppliesProgressiveDelay()
+    {
+        SeedUser(confirmed: true);
+        _passwordService.Verify(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+        var handler = CreateHandler();
+
+        // One more failure than the free budget, so the next attempt is delayed.
+        for (var i = 0; i < _options.LoginThrottleFreeAttempts + 1; i++)
+            await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+                handler.HandleAsync(new LoginCommand("user@example.com", "wrong-pw")));
+
+        Assert.True(_throttleDelayer.LastDelay > TimeSpan.Zero);
+        Assert.True(_throttleDelayer.LastDelay <= _options.LoginThrottleMaxDelay);
+    }
+
+    [Fact]
+    public async Task Handle_SuccessfulLogin_ResetsFailureStreak()
+    {
+        var user = SeedUser(confirmed: true);
+        _passwordService.Verify(Arg.Any<User>(), "stored-hash", "wrong-pw").Returns(false);
+        _passwordService.Verify(Arg.Any<User>(), "stored-hash", "correct-pw").Returns(true);
+        _jwtIssuer.Issue(Arg.Any<User>()).Returns(new AccessToken("jwt-value", Now.AddMinutes(15)));
+        _tokenGenerator.Generate().Returns(new GeneratedToken("rt-raw", "rt-hash"));
+        var handler = CreateHandler();
+
+        await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
+            handler.HandleAsync(new LoginCommand("user@example.com", "wrong-pw")));
+        Assert.Equal(1, user.FailedLoginCount);
+
+        await handler.HandleAsync(new LoginCommand("user@example.com", "correct-pw"));
+
+        Assert.Equal(0, user.FailedLoginCount);
+        Assert.Null(user.LastFailedLoginAt);
     }
 }
