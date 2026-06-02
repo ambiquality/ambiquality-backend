@@ -158,9 +158,9 @@ public sealed class Sensor
 
     public SensorSnapshot SnapshotAt(DateTime asOf)
     {
-        var identity = _identityHistory.Single(h => Covers(h.Validity, asOf));
-        var placement = _placementHistory.Single(h => Covers(h.Validity, asOf));
-        var status = _statusHistory.Single(h => Covers(h.Validity, asOf));
+        var identity = _identityHistory.Single(h => Validity.Covers(h.Validity, asOf));
+        var placement = _placementHistory.Single(h => Validity.Covers(h.Validity, asOf));
+        var status = _statusHistory.Single(h => Validity.Covers(h.Validity, asOf));
 
         return new SensorSnapshot(
             Id: Id,
@@ -174,14 +174,11 @@ public sealed class Sensor
             SerialNumber: identity.SerialNumber,
             StatusCode: status.StatusCode,
             MeasuredParameters: _measuredParameterHistory
-                .Where(h => Covers(h.Validity, asOf))
+                .Where(h => Validity.Covers(h.Validity, asOf))
                 .Select(h => h.ParameterCode)
                 .ToList(),
             AsOf: asOf);
     }
-
-    private static bool Covers(NpgsqlTypes.NpgsqlRange<DateTime> validity, DateTime asOf) =>
-        asOf >= validity.LowerBound && (validity.UpperBoundInfinite || asOf < validity.UpperBound);
 }
 
 public sealed record SensorSnapshot(

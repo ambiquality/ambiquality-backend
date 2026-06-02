@@ -220,7 +220,7 @@ public sealed class Building
     private static T RowAt<T>(IReadOnlyList<T> rows, DateTime asOf, string attributeName)
         where T : class
     {
-        var hit = rows.FirstOrDefault(r => Contains(GetValidity(r), asOf));
+        var hit = rows.FirstOrDefault(r => Validity.Covers(GetValidity(r), asOf));
         if (hit is null)
             throw new DomainException(
                 $"No {attributeName} history row covers the instant {asOf:O}.");
@@ -238,17 +238,6 @@ public sealed class Building
             _ => throw new InvalidOperationException(
                 $"Unknown history row type {typeof(T).Name}.")
         };
-
-    private static bool Contains(NpgsqlTypes.NpgsqlRange<DateTime> range, DateTime instant)
-    {
-        // Lower bound: inclusive by construction.
-        if (instant < range.LowerBound)
-            return false;
-        // Upper bound: half-open; infinite ranges always contain anything >= lower.
-        if (range.UpperBoundInfinite)
-            return true;
-        return instant < range.UpperBound;
-    }
 
     private static void EnsureAdvancing(DateTime currentLower, DateTime validFrom, string attributeName)
     {

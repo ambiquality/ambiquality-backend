@@ -202,15 +202,15 @@ public sealed class Room
             BuildingId: BuildingId,
             CreatedAt: CreatedAt,
             CreatedBy: CreatedBy,
-            Name: _nameHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).Name,
-            Floor: _floorHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).Floor,
-            FunctionCode: _functionHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).FunctionCode,
-            ExposureCode: _exposureHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).ExposureCode,
-            AreaM2: _geometryHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).AreaM2,
-            CeilingHeightM: _geometryHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).CeilingHeightM,
-            VentilationType: _ventilationHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).VentilationType,
+            Name: _nameHistory.Single(h => Validity.Covers(h.Validity, asOf)).Name,
+            Floor: _floorHistory.Single(h => Validity.Covers(h.Validity, asOf)).Floor,
+            FunctionCode: _functionHistory.Single(h => Validity.Covers(h.Validity, asOf)).FunctionCode,
+            ExposureCode: _exposureHistory.Single(h => Validity.Covers(h.Validity, asOf)).ExposureCode,
+            AreaM2: _geometryHistory.Single(h => Validity.Covers(h.Validity, asOf)).AreaM2,
+            CeilingHeightM: _geometryHistory.Single(h => Validity.Covers(h.Validity, asOf)).CeilingHeightM,
+            VentilationType: _ventilationHistory.Single(h => Validity.Covers(h.Validity, asOf)).VentilationType,
             PollutionSources: _pollutionSourceHistory
-                .Where(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound))
+                .Where(h => Validity.Covers(h.Validity, asOf))
                 .Select(h => h.SourceCode)
                 .ToList(),
             AsOf: asOf);

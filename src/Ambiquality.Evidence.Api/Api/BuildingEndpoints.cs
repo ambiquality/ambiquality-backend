@@ -96,12 +96,7 @@ public static class BuildingEndpoints
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -230,12 +225,7 @@ public static class BuildingEndpoints
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -260,12 +250,7 @@ public static class BuildingEndpoints
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -287,12 +272,7 @@ public static class BuildingEndpoints
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -316,12 +296,7 @@ public static class BuildingEndpoints
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -344,12 +319,7 @@ public static class BuildingEndpoints
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
         }
     }
 }
