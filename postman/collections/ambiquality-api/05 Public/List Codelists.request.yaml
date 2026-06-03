@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{baseUrl}}/public/v1/codelists"
+method: GET
+headers:
+  Accept: application/json
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      const j = pm.response.json();
+      pm.test('Lists all six codelist schemes', () => {
+        const schemes = j.schemes.map(s => s.scheme);
+        pm.expect(schemes).to.include.members([
+          'building-type', 'room-function', 'ventilation-type',
+          'pollution-source', 'exposure', 'sensor-status'
+        ]);
+      });
+    language: text/javascript
+order: 9100
