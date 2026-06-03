@@ -20,7 +20,8 @@ public sealed class JsonLdMeasurementSerializer(string baseIri)
     private readonly string _root = $"{baseIri.TrimEnd('/')}/v1";
 
     public async Task<long> WriteAsync(
-        IAsyncEnumerable<MeasurementRow> rows, Stream destination, CancellationToken ct)
+        IAsyncEnumerable<MeasurementRow> rows, Stream destination,
+        FeatureOfInterestResolver featureOfInterest, CancellationToken ct)
     {
         await using var writer = new Utf8JsonWriter(destination);
 
@@ -33,7 +34,7 @@ public sealed class JsonLdMeasurementSerializer(string baseIri)
         long count = 0;
         await foreach (var m in rows.WithCancellation(ct))
         {
-            WriteObservation(writer, m);
+            WriteObservation(writer, m, featureOfInterest);
             count++;
 
             if (writer.BytesPending > 1 << 15)
@@ -46,7 +47,7 @@ public sealed class JsonLdMeasurementSerializer(string baseIri)
         return count;
     }
 
-    private void WriteObservation(Utf8JsonWriter writer, MeasurementRow m)
+    private void WriteObservation(Utf8JsonWriter writer, MeasurementRow m, FeatureOfInterestResolver featureOfInterest)
     {
         // The specific, substance-distinguishing property goes on sosa:observedProperty;
         // the shared dimensional quantity kind (which collapses PM2.5/PM10, CO₂/eCO₂/VOC)
@@ -68,6 +69,13 @@ public sealed class JsonLdMeasurementSerializer(string baseIri)
         {
             writer.WritePropertyName("qudt:hasQuantityKind");
             WriteIdObject(writer, q.QuantityKindUri);
+        }
+
+        // The room the sensor occupied at observation time; omitted when unknown.
+        if (featureOfInterest.ResolveRoomId(m.SensorId, m.ObservedAt) is { } roomId)
+        {
+            writer.WritePropertyName("sosa:hasFeatureOfInterest");
+            WriteIdObject(writer, $"{_root}/rooms/{roomId:D}");
         }
 
         writer.WritePropertyName("sosa:madeBySensor");

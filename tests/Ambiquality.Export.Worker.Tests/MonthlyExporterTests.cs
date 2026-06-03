@@ -40,7 +40,7 @@ public sealed class MonthlyExporterTests : IAsyncLifetime
             Directory.Delete(_exportDir, recursive: true);
     }
 
-    private MonthlyExporter NewExporter()
+    private MonthlyExporter NewExporter(ISensorPlacementCatalog? placements = null)
     {
         var options = Options.Create(new ExportOptions
         {
@@ -50,7 +50,15 @@ public sealed class MonthlyExporterTests : IAsyncLifetime
         });
         var repository = new ExportRepository(_dataSource);
         var storage = new FileSystemExportStorage(options);
-        return new MonthlyExporter(repository, storage, options, NullLogger<MonthlyExporter>.Instance);
+        return new MonthlyExporter(
+            repository, placements ?? new FakePlacementCatalog(FeatureOfInterestResolver.Empty),
+            storage, options, NullLogger<MonthlyExporter>.Instance);
+    }
+
+    /// <summary>Supplies a fixed resolver so the export path can be tested without the evidence DB.</summary>
+    private sealed class FakePlacementCatalog(FeatureOfInterestResolver resolver) : ISensorPlacementCatalog
+    {
+        public Task<FeatureOfInterestResolver> LoadResolverAsync(CancellationToken ct) => Task.FromResult(resolver);
     }
 
     private async Task SeedAsync(params (string parameter, double value, DateTime receivedAt)[] rows)
@@ -134,6 +142,36 @@ public sealed class MonthlyExporterTests : IAsyncLifetime
         var export = db.MeasurementExports.Single();
         Assert.Equal("application/ld+json", export.MediaType);
         Assert.Equal(1, export.RecordCount);
+    }
+
+    [Fact]
+    public async Task ExportAsync_JsonLd_TagsFeatureOfInterestFromPlacement()
+    {
+        var sensorId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var roomId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var observedAt = new DateTime(2026, 5, 10, 12, 0, 0, DateTimeKind.Utc);
+
+        await using (var db = _postgres.NewContext())
+        {
+            db.Measurements.Add(Measurement.Record(sensorId, "co2", 800, "ppm", observedAt, observedAt.AddSeconds(1)));
+            await db.SaveChangesAsync();
+        }
+
+        // The sensor was placed in roomId over an open period covering the observation.
+        var resolver = new FeatureOfInterestResolver(
+            [new SensorPlacement(sensorId, roomId, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), null)]);
+        var exporter = NewExporter(new FakePlacementCatalog(resolver));
+        var jsonLd = exporter.Formats.Single(f => f.MediaType == "application/ld+json");
+
+        await exporter.ExportAsync(new ExportMonth(2026, 5), jsonLd, CancellationToken.None);
+
+        var zipPath = Path.Combine(_exportDir, "exports", "2026", "05", "measurements-2026-05.jsonld.zip");
+        using var archive = ZipFile.OpenRead(zipPath);
+        using var doc = await JsonDocument.ParseAsync(archive.GetEntry("measurements.jsonld")!.Open());
+        var obs = doc.RootElement.GetProperty("@graph").EnumerateArray().Single();
+
+        Assert.Equal($"https://example.org/v1/rooms/{roomId:D}",
+            obs.GetProperty("sosa:hasFeatureOfInterest").GetProperty("@id").GetString());
     }
 
     [Fact]

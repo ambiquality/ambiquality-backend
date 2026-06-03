@@ -187,8 +187,12 @@ services:
     depends_on:
       ingestion-migrate:
         condition: service_completed_successfully
+      evidence-migrate:
+        condition: service_completed_successfully
     environment:
       ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=export_worker;Password=${EXPORT_WORKER_DB_PASSWORD:?error}"
+      # Read-only: resolve each observation's feature of interest (room at observation time).
+      ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=export_worker;Password=${EXPORT_WORKER_DB_PASSWORD:?error}"
       Export__StorageType: ${EXPORT_STORAGE_TYPE:-FileSystem}
       Export__FileSystem__BasePath: /exports
       Export__S3__ServiceUrl: ${EXPORT_S3_SERVICE_URL:-}

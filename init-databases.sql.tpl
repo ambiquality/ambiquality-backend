@@ -100,3 +100,13 @@ GRANT USAGE ON SCHEMA evidence TO public_api;
 GRANT SELECT ON ALL TABLES IN SCHEMA evidence TO public_api;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA evidence
     GRANT SELECT ON TABLES TO public_api;
+
+-- Export.Worker tags each exported observation with its feature of interest (the room
+-- the sensor occupied at observation time), read from the evidence sensor placement
+-- history via the same read-only cross-database pattern. Grant export_worker read
+-- access to the evidence schema.
+GRANT CONNECT ON DATABASE evidence TO export_worker;
+GRANT USAGE ON SCHEMA evidence TO export_worker;
+GRANT SELECT ON ALL TABLES IN SCHEMA evidence TO export_worker;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA evidence
+    GRANT SELECT ON TABLES TO export_worker;

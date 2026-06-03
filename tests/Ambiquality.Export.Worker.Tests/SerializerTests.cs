@@ -60,7 +60,7 @@ public sealed class SerializerTests
         using var stream = new MemoryStream();
         var serializer = new JsonLdMeasurementSerializer("https://example.org");
 
-        var count = await serializer.WriteAsync(Rows(Co2), stream, CancellationToken.None);
+        var count = await serializer.WriteAsync(Rows(Co2), stream, FeatureOfInterestResolver.Empty, CancellationToken.None);
 
         Assert.Equal(1, count);
         using var doc = JsonDocument.Parse(stream.ToArray());
@@ -94,7 +94,8 @@ public sealed class SerializerTests
         using var stream = new MemoryStream();
         var serializer = new JsonLdMeasurementSerializer("https://example.org");
 
-        await serializer.WriteAsync(Rows(Particulate("pm2_5"), Particulate("pm10")), stream, CancellationToken.None);
+        await serializer.WriteAsync(Rows(Particulate("pm2_5"), Particulate("pm10")), stream,
+            FeatureOfInterestResolver.Empty, CancellationToken.None);
 
         using var doc = JsonDocument.Parse(stream.ToArray());
         var graph = doc.RootElement.GetProperty("@graph").EnumerateArray().ToList();
@@ -115,12 +116,32 @@ public sealed class SerializerTests
     }
 
     [Fact]
+    public async Task JsonLd_TagsFeatureOfInterest_AtObservationTime_OrOmitsWhenUnknown()
+    {
+        var room = Guid.Parse("aaaaaaaa-0000-0000-0000-00000000000a");
+        var resolver = new FeatureOfInterestResolver(
+            [new SensorPlacement(Co2.SensorId, room, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), null)]);
+
+        using var withFoi = new MemoryStream();
+        await new JsonLdMeasurementSerializer("https://example.org").WriteAsync(Rows(Co2), withFoi, resolver, CancellationToken.None);
+        var obs = JsonDocument.Parse(withFoi.ToArray()).RootElement.GetProperty("@graph").EnumerateArray().Single();
+        Assert.Equal($"https://example.org/v1/rooms/{room:D}",
+            obs.GetProperty("sosa:hasFeatureOfInterest").GetProperty("@id").GetString());
+
+        // No placement covers the observation → the feature is omitted, not emitted null.
+        using var without = new MemoryStream();
+        await new JsonLdMeasurementSerializer("https://example.org").WriteAsync(Rows(Co2), without, FeatureOfInterestResolver.Empty, CancellationToken.None);
+        var bare = JsonDocument.Parse(without.ToArray()).RootElement.GetProperty("@graph").EnumerateArray().Single();
+        Assert.False(bare.TryGetProperty("sosa:hasFeatureOfInterest", out _));
+    }
+
+    [Fact]
     public async Task JsonLd_EmitsEmptyGraphForNoRows()
     {
         using var stream = new MemoryStream();
         var serializer = new JsonLdMeasurementSerializer("https://example.org");
 
-        var count = await serializer.WriteAsync(Rows(), stream, CancellationToken.None);
+        var count = await serializer.WriteAsync(Rows(), stream, FeatureOfInterestResolver.Empty, CancellationToken.None);
 
         Assert.Equal(0, count);
         using var doc = JsonDocument.Parse(stream.ToArray());
