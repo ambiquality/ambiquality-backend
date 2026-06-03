@@ -97,6 +97,16 @@ On each observation, `sosa:observedProperty` is the specific IRI and
 this with an `observed_property_uri` column (`sosa:observedProperty`) alongside
 `quantity_kind_uri` (`qudt:hasQuantityKind`).
 
+## Feature of interest (`sosa:hasFeatureOfInterest`)
+
+Each observation links to the **room it was measured in** via `sosa:hasFeatureOfInterest`
+(`featureOfInterestIri` in plain JSON). Because sensor placement is temporally versioned,
+the room is resolved at the observation's **observation time** — a measurement taken before
+a sensor was relocated still points at the room it was actually in then, not the sensor's
+current room. The room is omitted when no placement period covers the observation (e.g. data
+predating the first placement record). This is emitted in JSON and JSON-LD; the CSV export
+keeps its fixed CSVW column set and does not carry it.
+
 ## Catalog conformance (DCAT-AP 3.0 / DCAT-AP-CZ)
 
 `/v1/catalog` is structurally **DCAT-AP 3.0** and is **partially aligned** with the

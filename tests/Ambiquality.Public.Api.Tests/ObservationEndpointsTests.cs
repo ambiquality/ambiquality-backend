@@ -120,6 +120,29 @@ public sealed class ObservationEndpointsTests(TimescaleFixture fixture) : Public
     }
 
     [Fact]
+    public async Task GetById_PlainJson_CarriesFeatureOfInterestRoom()
+    {
+        // The seeded sensor was placed in RoomId over the whole period, so the observation's
+        // feature of interest resolves to that room (observation-time placement).
+        var observation = await Client.GetFromJsonAsync<JsonElement>($"/v1/observations/{EvidenceSeed.M1}");
+        Assert.EndsWith($"/v1/rooms/{EvidenceSeed.RoomId}",
+            observation.GetProperty("featureOfInterestIri").GetString());
+    }
+
+    [Fact]
+    public async Task GetById_JsonLd_HasFeatureOfInterest()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/v1/observations/{EvidenceSeed.M1}");
+        request.Headers.Add("Accept", "application/ld+json");
+        var response = await Client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.EndsWith($"/v1/rooms/{EvidenceSeed.RoomId}",
+            doc.GetProperty("sosa:hasFeatureOfInterest").GetProperty("@id").GetString());
+    }
+
+    [Fact]
     public async Task GetById_Missing_Returns404Problem()
     {
         var response = await Client.GetAsync($"/v1/observations/{Guid.NewGuid()}");

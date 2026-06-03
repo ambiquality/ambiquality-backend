@@ -291,6 +291,37 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
         return ids;
     }
 
+    public async Task<IReadOnlyList<SensorPlacement>> GetSensorPlacementsAsync(
+        IReadOnlyCollection<Guid> sensorIds, CancellationToken ct)
+    {
+        if (sensorIds.Count == 0)
+            return [];
+
+        // Every placement period (open and closed) for the requested sensors; the caller
+        // picks the one covering each observation time. lower()/upper() unpack the tstzrange.
+        const string sql = """
+            SELECT sensor_id, room_id, building_id, lower(validity), upper(validity)
+            FROM evidence.sensor_placement_history
+            WHERE sensor_id = ANY(@ids)
+            """;
+
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.Add(new NpgsqlParameter("ids", NpgsqlDbType.Array | NpgsqlDbType.Uuid)
+            { Value = sensorIds.ToArray() });
+
+        var rows = new List<SensorPlacement>();
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            rows.Add(new SensorPlacement(
+                SensorId: reader.GetGuid(0),
+                RoomId: reader.GetGuid(1),
+                BuildingId: reader.GetGuid(2),
+                ValidFrom: reader.GetDateTime(3),
+                ValidTo: reader.IsDBNull(4) ? null : reader.GetDateTime(4)));
+        return rows;
+    }
+
     public async Task<SpatialExtent?> GetSpatialExtentAsync(CancellationToken ct)
     {
         const string sql = """

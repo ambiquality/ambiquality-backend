@@ -51,7 +51,14 @@ public static class ObservationEndpoints
 
         var iri = IriBuilder.ForRequest(http.Request, configuration);
         var result = await ObservationQuery.PageAsync(db, catalog, filter, ct);
-        var items = result.Items.Select(m => ObservationResponse.From(m, iri)).ToList();
+
+        // Resolve each observation's feature of interest (the room the sensor was in at
+        // observation time) from one batched placement lookup over the page's sensors.
+        var sensorIds = result.Items.Select(m => m.SensorId).Distinct().ToList();
+        var foi = new FeatureOfInterestResolver(await catalog.GetSensorPlacementsAsync(sensorIds, ct));
+        var items = result.Items
+            .Select(m => ObservationResponse.From(m, iri, FeatureOfInterestIri(m, foi, iri)))
+            .ToList();
 
         ResponseHeaders.SetListHeaders(http, iri, "observation");
 
@@ -69,6 +76,7 @@ public static class ObservationEndpoints
         Guid id,
         HttpContext http,
         IeqDbContext db,
+        IEvidenceCatalog catalog,
         IConfiguration configuration,
         CancellationToken ct)
     {
@@ -80,7 +88,9 @@ public static class ObservationEndpoints
             return Problems.NotFound($"No observation with id '{id}'.");
 
         var iri = IriBuilder.ForRequest(http.Request, configuration);
-        var observation = ObservationResponse.From(measurement, iri);
+        var foi = new FeatureOfInterestResolver(
+            await catalog.GetSensorPlacementsAsync([measurement.SensorId], ct));
+        var observation = ObservationResponse.From(measurement, iri, FeatureOfInterestIri(measurement, foi, iri));
 
         ResponseHeaders.SetListHeaders(http, iri, "observation");
 
@@ -90,6 +100,11 @@ public static class ObservationEndpoints
 
         return Results.Ok(observation);
     }
+
+    /// <summary>The room IRI a measurement's sensor occupied at observation time, or null.</summary>
+    private static string? FeatureOfInterestIri(
+        Core.Domain.Measurements.Measurement m, FeatureOfInterestResolver foi, IriBuilder iri) =>
+        foi.ResolveRoomId(m.SensorId, m.ObservedAt) is { } roomId ? iri.Room(roomId) : null;
 
     /// <summary>Re-renders the current query string without the <c>cursor</c> parameter.</summary>
     private static string QueryWithoutCursor(HttpRequest request)

@@ -24,6 +24,7 @@ public static class ContextEndpoints
             ["observedProperty"] = new Dictionary<string, object?> { ["@id"] = "sosa:observedProperty", ["@type"] = "@id" },
             ["hasQuantityKind"] = new Dictionary<string, object?> { ["@id"] = "qudt:hasQuantityKind", ["@type"] = "@id" },
             ["madeBySensor"] = new Dictionary<string, object?> { ["@id"] = "sosa:madeBySensor", ["@type"] = "@id" },
+            ["hasFeatureOfInterest"] = new Dictionary<string, object?> { ["@id"] = "sosa:hasFeatureOfInterest", ["@type"] = "@id" },
             ["hasSimpleResult"] = "sosa:hasSimpleResult",
             ["resultTime"] = new Dictionary<string, object?> { ["@id"] = "sosa:resultTime", ["@type"] = "xsd:dateTime" },
             ["receivedTime"] = new Dictionary<string, object?> { ["@id"] = "ambiq:receivedTime", ["@type"] = "xsd:dateTime" },
