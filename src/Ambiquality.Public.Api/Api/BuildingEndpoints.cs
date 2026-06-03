@@ -57,7 +57,7 @@ public static class BuildingEndpoints
             CatalogPaging.QueryExcept(http.Request, "page", "pageSize"));
 
         if (format == ResponseFormat.JsonLd)
-            return Results.Json(CatalogJsonLd.ToGraph(items.Select(CatalogJsonLd.ToBuilding)),
+            return Results.Json(CatalogJsonLd.ToGraph(items.Select(b => CatalogJsonLd.ToBuilding(b, iri))),
                 contentType: Constants.MediaTypeJsonLd);
 
         return Results.Ok(new CatalogPage<BuildingResponse>(items, page, pageSize, total, next, Constants.LicenseIri));
@@ -78,7 +78,7 @@ public static class BuildingEndpoints
         ResponseHeaders.SetListHeaders(http, iri, "building");
 
         return format == ResponseFormat.JsonLd
-            ? Results.Json(CatalogJsonLd.ToBuilding(building), contentType: Constants.MediaTypeJsonLd)
+            ? Results.Json(CatalogJsonLd.ToBuilding(building, iri), contentType: Constants.MediaTypeJsonLd)
             : Results.Ok(building);
     }
 
@@ -101,7 +101,7 @@ public static class BuildingEndpoints
             CatalogPaging.QueryExcept(http.Request, "page", "pageSize"));
 
         if (format == ResponseFormat.JsonLd)
-            return Results.Json(CatalogJsonLd.ToGraph(items.Select(CatalogJsonLd.ToRoom)),
+            return Results.Json(CatalogJsonLd.ToGraph(items.Select(r => CatalogJsonLd.ToRoom(r, iri))),
                 contentType: Constants.MediaTypeJsonLd);
 
         return Results.Ok(new CatalogPage<RoomResponse>(items, page, pageSize, total, next, Constants.LicenseIri));

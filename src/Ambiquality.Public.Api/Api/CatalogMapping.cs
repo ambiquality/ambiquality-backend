@@ -1,3 +1,4 @@
+using Ambiquality.Core.Domain.Vocabulary;
 using Ambiquality.Public.Api.Infrastructure.Catalog;
 
 namespace Ambiquality.Public.Api.Api;
@@ -44,11 +45,25 @@ internal static class CatalogJsonLd
         ["qudt"] = Constants.QudtSchemaNamespace,
         ["quantitykind"] = Constants.QudtQuantityKindBase,
         ["unit"] = Constants.QudtUnitBase,
+        ["skos"] = Constants.SkosNamespace,
         ["dcterms"] = Constants.DctermsNamespace,
         ["license"] = new Dictionary<string, object?> { ["@id"] = "dcterms:license", ["@type"] = "@id" }
     };
 
-    public static IReadOnlyDictionary<string, object?> ToBuilding(BuildingResponse b) => new Dictionary<string, object?>
+    // A code attribute as a reference to its SKOS codelist concept (dereferenceable at
+    // /v1/codelists/{scheme}/{code}). Falls back to the bare string for any legacy value
+    // that predates the controlled vocabulary, so old data still serialises.
+    private static object? Concept(IriBuilder iri, Codelist codelist, string? code) =>
+        code is null ? null
+        : codelist.IsValid(code)
+            ? new Dictionary<string, object?>
+            {
+                ["@id"] = iri.CodelistConcept(codelist.Scheme, code),
+                ["skos:notation"] = code
+            }
+            : code;
+
+    public static IReadOnlyDictionary<string, object?> ToBuilding(BuildingResponse b, IriBuilder iri) => new Dictionary<string, object?>
     {
         ["@context"] = Context,
         ["@id"] = b.Iri,
@@ -58,7 +73,7 @@ internal static class CatalogJsonLd
         ["ambiq:city"] = b.Address.City,
         ["ambiq:postcode"] = b.Address.Postcode,
         ["ambiq:country"] = b.Address.Country,
-        ["ambiq:buildingType"] = b.BuildingTypeCode,
+        ["ambiq:buildingType"] = Concept(iri, Codelists.BuildingType, b.BuildingTypeCode),
         ["ambiq:latitude"] = b.Latitude,
         ["ambiq:longitude"] = b.Longitude,
         ["ambiq:yearBuilt"] = b.YearBuilt,
@@ -66,7 +81,7 @@ internal static class CatalogJsonLd
         ["license"] = b.License
     };
 
-    public static IReadOnlyDictionary<string, object?> ToRoom(RoomResponse r) => new Dictionary<string, object?>
+    public static IReadOnlyDictionary<string, object?> ToRoom(RoomResponse r, IriBuilder iri) => new Dictionary<string, object?>
     {
         ["@context"] = Context,
         ["@id"] = r.Iri,
@@ -74,16 +89,16 @@ internal static class CatalogJsonLd
         ["ambiq:building"] = new Dictionary<string, object?> { ["@id"] = r.BuildingId.ToString("D") },
         ["ambiq:name"] = r.Name,
         ["ambiq:floor"] = r.Floor,
-        ["ambiq:function"] = r.FunctionCode,
-        ["ambiq:exposure"] = r.ExposureCode,
+        ["ambiq:function"] = Concept(iri, Codelists.RoomFunction, r.FunctionCode),
+        ["ambiq:exposure"] = Concept(iri, Codelists.Exposure, r.ExposureCode),
         ["ambiq:areaM2"] = r.AreaM2,
         ["ambiq:ceilingHeightM"] = r.CeilingHeightM,
-        ["ambiq:ventilationType"] = r.VentilationType,
-        ["ambiq:pollutionSources"] = r.PollutionSources,
+        ["ambiq:ventilationType"] = Concept(iri, Codelists.VentilationType, r.VentilationType),
+        ["ambiq:pollutionSources"] = r.PollutionSources.Select(s => Concept(iri, Codelists.PollutionSource, s)).ToList(),
         ["license"] = r.License
     };
 
-    public static IReadOnlyDictionary<string, object?> ToSensor(SensorResponse s) => new Dictionary<string, object?>
+    public static IReadOnlyDictionary<string, object?> ToSensor(SensorResponse s, IriBuilder iri) => new Dictionary<string, object?>
     {
         ["@context"] = Context,
         ["@id"] = s.Iri,
@@ -93,7 +108,7 @@ internal static class CatalogJsonLd
         ["ambiq:manufacturer"] = s.Manufacturer,
         ["ambiq:model"] = s.Model,
         ["ambiq:serialNumber"] = s.SerialNumber,
-        ["ambiq:status"] = s.StatusCode,
+        ["ambiq:status"] = Concept(iri, Codelists.SensorStatus, s.StatusCode),
         ["sosa:observes"] = s.MeasuredParameters
             .Where(p => p.QuantityKindUri is not null)
             .Select(p => new Dictionary<string, object?> { ["@id"] = p.QuantityKindUri })
