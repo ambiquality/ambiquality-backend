@@ -14,8 +14,64 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
         Assert.Equal("dcat:Catalog", doc.GetProperty("@type").GetString());
         var dataset = doc.GetProperty("dcat:dataset");
         Assert.Equal("dcat:Dataset", dataset.GetProperty("@type").GetString());
-        Assert.Equal("Ambiquality IEQ Open Data", dataset.GetProperty("dcterms:title").GetString());
+        Assert.Equal("Ambiquality IEQ Open Data", LangValue(dataset.GetProperty("dcterms:title"), "en"));
     }
+
+    [Fact]
+    public async Task Catalog_HasMandatoryCatalogLevelPublisherAndDescription()
+    {
+        // dcterms:publisher is mandatory in base DCAT-AP 3.0; dcterms:description is
+        // DCAT-AP-CZ-mandatory. Both must appear on the Catalog node, not only the Dataset.
+        var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
+
+        Assert.Equal("foaf:Agent", doc.GetProperty("dcterms:publisher").GetProperty("@type").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(
+            doc.GetProperty("dcterms:publisher").GetProperty("foaf:name").GetString()));
+
+        // cs + en language-tagged title and description.
+        Assert.NotNull(LangValue(doc.GetProperty("dcterms:title"), "cs"));
+        Assert.NotNull(LangValue(doc.GetProperty("dcterms:title"), "en"));
+        Assert.NotNull(LangValue(doc.GetProperty("dcterms:description"), "cs"));
+        Assert.NotNull(LangValue(doc.GetProperty("dcterms:description"), "en"));
+    }
+
+    [Fact]
+    public async Task Catalog_DatasetHasThemeKeywordAndPeriodicityFromCodelists()
+    {
+        var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
+        var dataset = doc.GetProperty("dcat:dataset");
+
+        Assert.EndsWith("/data-theme/ENVI", dataset.GetProperty("dcat:theme").GetProperty("@id").GetString());
+        Assert.EndsWith("/frequency/CONT",
+            dataset.GetProperty("dcterms:accrualPeriodicity").GetProperty("@id").GetString());
+
+        // Keywords are language-tagged and include both cs and en entries.
+        var keywords = dataset.GetProperty("dcat:keyword").EnumerateArray().ToList();
+        Assert.Contains(keywords, k => k.GetProperty("@language").GetString() == "cs");
+        Assert.Contains(keywords, k => k.GetProperty("@language").GetString() == "en");
+
+        // cs + en language-tagged dataset description.
+        Assert.NotNull(LangValue(dataset.GetProperty("dcterms:description"), "cs"));
+        Assert.NotNull(LangValue(dataset.GetProperty("dcterms:description"), "en"));
+    }
+
+    [Fact]
+    public async Task Catalog_DistributionsCarryFileTypeFormat()
+    {
+        var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
+        var distributions = doc.GetProperty("dcat:dataset").GetProperty("dcat:distribution").EnumerateArray().ToList();
+
+        // Every distribution advertises both dcat:mediaType and the EU file-type dcterms:format.
+        Assert.All(distributions, d =>
+            Assert.Contains("/file-type/", d.GetProperty("dcterms:format").GetProperty("@id").GetString()));
+    }
+
+    /// <summary>Extract the @value for a given language tag from a JSON-LD language-tagged literal array.</summary>
+    private static string? LangValue(JsonElement node, string lang) =>
+        node.EnumerateArray()
+            .Where(e => e.GetProperty("@language").GetString() == lang)
+            .Select(e => e.GetProperty("@value").GetString())
+            .FirstOrDefault();
 
     [Fact]
     public async Task Catalog_HasTwoDistributionsAndContactPoint()
