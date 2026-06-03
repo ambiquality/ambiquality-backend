@@ -27,6 +27,9 @@ Serves IEQ measurements as SSN/SOSA observations and the evidence catalog
 | `/v1/context/measurements.jsonld` | The JSON-LD `@context` for observations. |
 | `/v1/properties` | The IEQ observable-property vocabulary (all 18). |
 | `/v1/properties/{code}` | A single observable property — the `sosa:observedProperty` target. |
+| `/v1/codelists` | The catalog codelists as SKOS concept schemes. |
+| `/v1/codelists/{scheme}` | A single codelist (e.g. `building-type`). |
+| `/v1/codelists/{scheme}/{code}` | A single codelist concept — the dereferenceable IRI target. |
 | `/v1/buildings` | Buildings. Filters: `buildingType`, `bbox`, `page`, `pageSize`. |
 | `/v1/buildings/{id}` | A single building. |
 | `/v1/buildings/{id}/rooms` | Rooms of a building. Filters: `roomFunction`, `minExposure` (minutes). |
@@ -97,6 +100,19 @@ On each observation, `sosa:observedProperty` is the specific IRI and
 this with an `observed_property_uri` column (`sosa:observedProperty`) alongside
 `quantity_kind_uri` (`qudt:hasQuantityKind`).
 
+## Codelists (SKOS `číselníky`)
+
+The catalog's code-valued attributes — building type, room function, ventilation type,
+pollution source, room exposure and sensor status — are published as **SKOS concept
+schemes** at `/v1/codelists`. Each concept is dereferenceable
+(`/v1/codelists/{scheme}/{code}`), typed `skos:Concept`, and carries a `skos:notation`
+plus cs + en `skos:prefLabel`s. The catalog entities reference these concepts: a
+building's `ambiq:buildingType` (and the room/sensor code attributes) is a
+`{ "@id": ".../codelists/building-type/office", "skos:notation": "office" }` reference
+rather than a bare string. The controlled vocabularies are defined once in
+`Core.Domain.Vocabulary.Codelists` and validated on write by Evidence.Api. A legacy value
+outside its codelist degrades gracefully to a bare string.
+
 ## Feature of interest (`sosa:hasFeatureOfInterest`)
 
 Each observation links to the **room it was measured in** via `sosa:hasFeatureOfInterest`
@@ -126,8 +142,9 @@ moci* — a public authority). This project is authored by an individual student
 is **not** an OVM; the national open-data coordinator confirmed by e-mail that no such
 publisher identity can be assigned. The publisher is therefore a free-text
 `foaf:Agent`, and the catalogue is **DCAT-AP-CZ-aligned only in part**. This is a
-structural limitation of the thesis context, not an implementation gap. RÚIAN spatial
-IRIs and SKOS `číselníky` for the catalog code attributes are likewise out of scope.
+structural limitation of the thesis context, not an implementation gap. The catalog code
+attributes are now published as dereferenceable SKOS `číselníky` (see *Codelists* above);
+RÚIAN spatial IRIs remain out of scope.
 
 ## Linked-data vocabularies
 

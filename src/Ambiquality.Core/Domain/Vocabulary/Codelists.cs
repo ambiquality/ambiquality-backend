@@ -1,3 +1,5 @@
+using Ambiquality.Core.Domain.Rooms;
+
 namespace Ambiquality.Core.Domain.Vocabulary;
 
 /// <summary>
@@ -82,4 +84,25 @@ public static class Codelists
         new CodelistConcept("tobacco_smoke", "Tobacco smoke", "Tabákový kouř"),
         new CodelistConcept("none", "None", "Žádné"),
         new CodelistConcept("other", "Other", "Jiné"));
+
+    /// <summary>Room occupancy duration (codes from <see cref="ExposureCode"/>).</summary>
+    public static readonly Codelist Exposure = new("exposure",
+        new CodelistConcept(ExposureCode.Short, "Short-term occupancy", "Krátkodobý pobyt"),
+        new CodelistConcept(ExposureCode.Medium, "Medium-term occupancy", "Střednědobý pobyt"),
+        new CodelistConcept(ExposureCode.Long, "Long-term occupancy", "Dlouhodobý pobyt"));
+
+    /// <summary>Sensor operational lifecycle. Codes mirror Evidence.Api's <c>SensorStatus</c>,
+    /// which lives in the Evidence service and is not visible to Public.Api.</summary>
+    public static readonly Codelist SensorStatus = new("sensor-status",
+        new CodelistConcept("active", "Active", "Aktivní"),
+        new CodelistConcept("maintenance", "Under maintenance", "V údržbě"),
+        new CodelistConcept("decommissioned", "Decommissioned", "Vyřazeno"));
+
+    /// <summary>All published codelists, in catalogue order.</summary>
+    public static readonly IReadOnlyList<Codelist> All =
+        [BuildingType, RoomFunction, VentilationType, PollutionSource, Exposure, SensorStatus];
+
+    /// <summary>The codelist for a scheme slug (e.g. <c>building-type</c>), or null if unknown.</summary>
+    public static Codelist? ByScheme(string scheme) =>
+        All.FirstOrDefault(c => string.Equals(c.Scheme, scheme, StringComparison.OrdinalIgnoreCase));
 }

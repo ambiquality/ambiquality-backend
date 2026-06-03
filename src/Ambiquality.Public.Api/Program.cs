@@ -132,6 +132,7 @@ app.MapObservationEndpoints();
 app.MapCsvEndpoints();
 app.MapContextEndpoints();
 app.MapPropertyEndpoints();
+app.MapCodelistEndpoints();
 app.MapBuildingEndpoints();
 app.MapRoomEndpoints();
 app.MapSensorEndpoints();

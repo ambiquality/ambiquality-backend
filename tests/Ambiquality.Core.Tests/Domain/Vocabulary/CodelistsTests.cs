@@ -5,12 +5,15 @@ namespace Ambiquality.Core.Tests.Domain.Vocabulary;
 public sealed class CodelistsTests
 {
     public static IEnumerable<object[]> AllCodelists =>
-    [
-        [Codelists.BuildingType],
-        [Codelists.RoomFunction],
-        [Codelists.VentilationType],
-        [Codelists.PollutionSource]
-    ];
+        Codelists.All.Select(c => new object[] { c });
+
+    [Fact]
+    public void All_ContainsEverySixCodelists_AndByScheme_ResolvesThem()
+    {
+        Assert.Equal(6, Codelists.All.Count);
+        Assert.All(Codelists.All, c => Assert.Same(c, Codelists.ByScheme(c.Scheme)));
+        Assert.Null(Codelists.ByScheme("no-such-scheme"));
+    }
 
     [Fact]
     public void IsValid_IsCaseInsensitive()

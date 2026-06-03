@@ -79,6 +79,15 @@ public sealed class IriBuilder
     /// <summary>The dereferenceable IRI of a single observable property (the <c>sosa:observedProperty</c> value).</summary>
     public string Property(string code) => $"{_root}/properties/{code}";
 
+    /// <summary>The codelist index, e.g. <c>https://data.ambiquality.org/v1/codelists</c>.</summary>
+    public string Codelists() => $"{_root}/codelists";
+
+    /// <summary>The dereferenceable IRI of a codelist (SKOS concept scheme).</summary>
+    public string CodelistScheme(string scheme) => $"{_root}/codelists/{scheme}";
+
+    /// <summary>The dereferenceable IRI of a single codelist concept.</summary>
+    public string CodelistConcept(string scheme, string code) => $"{_root}/codelists/{scheme}/{code}";
+
     public string Catalog() => $"{_root}/catalog";
 
     public string Context() => $"{_root}/context/measurements.jsonld";

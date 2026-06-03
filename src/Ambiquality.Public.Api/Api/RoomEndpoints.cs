@@ -34,7 +34,7 @@ public static class RoomEndpoints
         ResponseHeaders.SetListHeaders(http, iri, "room");
 
         return format == ResponseFormat.JsonLd
-            ? Results.Json(CatalogJsonLd.ToRoom(room), contentType: Constants.MediaTypeJsonLd)
+            ? Results.Json(CatalogJsonLd.ToRoom(room, iri), contentType: Constants.MediaTypeJsonLd)
             : Results.Ok(room);
     }
 
@@ -57,7 +57,7 @@ public static class RoomEndpoints
             CatalogPaging.QueryExcept(http.Request, "page", "pageSize"));
 
         if (format == ResponseFormat.JsonLd)
-            return Results.Json(CatalogJsonLd.ToGraph(items.Select(CatalogJsonLd.ToSensor)),
+            return Results.Json(CatalogJsonLd.ToGraph(items.Select(s => CatalogJsonLd.ToSensor(s, iri))),
                 contentType: Constants.MediaTypeJsonLd);
 
         return Results.Ok(new CatalogPage<SensorResponse>(items, page, pageSize, total, next, Constants.LicenseIri));

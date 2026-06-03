@@ -29,7 +29,7 @@ public static class SensorEndpoints
         ResponseHeaders.SetListHeaders(http, iri, "sensor");
 
         return format == ResponseFormat.JsonLd
-            ? Results.Json(CatalogJsonLd.ToSensor(sensor), contentType: Constants.MediaTypeJsonLd)
+            ? Results.Json(CatalogJsonLd.ToSensor(sensor, iri), contentType: Constants.MediaTypeJsonLd)
             : Results.Ok(sensor);
     }
 }
