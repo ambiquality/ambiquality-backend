@@ -45,6 +45,14 @@ public sealed record SensorRow(
 public sealed record SpatialExtent(double MinLat, double MinLon, double MaxLat, double MaxLon);
 
 /// <summary>
+/// One placement period of a sensor — the room/building it occupied over a half-open
+/// <c>[ValidFrom, ValidTo)</c> UTC window (<see cref="ValidTo"/> is null while open).
+/// Used to resolve an observation's feature of interest at the time it was measured.
+/// </summary>
+public sealed record SensorPlacement(
+    Guid SensorId, Guid RoomId, Guid BuildingId, DateTime ValidFrom, DateTime? ValidTo);
+
+/// <summary>
 /// Read-only access to the Evidence catalog (buildings, rooms, sensors) over a
 /// dedicated <c>public_api</c> connection. Queries are schema-qualified
 /// (<c>evidence.*</c>) and select the currently open temporal rows via
@@ -76,4 +84,12 @@ public interface IEvidenceCatalog
 
     /// <summary>Bounding box of all current building coordinates, or null when none are set.</summary>
     Task<SpatialExtent?> GetSpatialExtentAsync(CancellationToken ct);
+
+    /// <summary>
+    /// All placement periods (room/building over time) for the given sensors, so an
+    /// observation's feature of interest can be resolved at its observation time.
+    /// Returns every period, open and closed; empty when the set is empty.
+    /// </summary>
+    Task<IReadOnlyList<SensorPlacement>> GetSensorPlacementsAsync(
+        IReadOnlyCollection<Guid> sensorIds, CancellationToken ct);
 }

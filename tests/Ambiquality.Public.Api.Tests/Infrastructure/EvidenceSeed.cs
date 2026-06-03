@@ -93,6 +93,9 @@ public static class EvidenceSeed
         VALUES ('{SensorId}', 'co2', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}'),
                ('{SensorId}', 'temperature', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
 
+        INSERT INTO evidence.sensor_placement_history (sensor_id, building_id, room_id, validity, recorded_at, recorded_by)
+        VALUES ('{SensorId}', '{BuildingId}', '{RoomId}', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
+
         -- Building: street anonymization
         INSERT INTO evidence.buildings ("Id", uri_slug, owner_id, created_by, created_at)
         VALUES ('{BuildingStreetId}', 'bld-street', '{RecordedBy}', '{RecordedBy}', '2026-01-01 00:00:00+00');

@@ -13,6 +13,7 @@ public sealed record ObservationResponse(
     Guid Id,
     string Iri,
     Guid SensorId,
+    string? FeatureOfInterestIri,
     string ParameterCode,
     double Value,
     string? Unit,
@@ -24,13 +25,19 @@ public sealed record ObservationResponse(
     bool IsInvalid,
     string License)
 {
-    public static ObservationResponse From(Measurement measurement, IriBuilder iri)
+    /// <summary>
+    /// Projects a measurement. <paramref name="featureOfInterestIri"/> is the IRI of the
+    /// room the sensor occupied at observation time (the feature of interest), or null
+    /// when no placement period covers it.
+    /// </summary>
+    public static ObservationResponse From(Measurement measurement, IriBuilder iri, string? featureOfInterestIri = null)
     {
         var qudt = QudtVocabulary.TryResolve(measurement.ParameterCode);
         return new ObservationResponse(
             measurement.Id,
             iri.Observation(measurement.Id),
             measurement.SensorId,
+            featureOfInterestIri,
             measurement.ParameterCode,
             measurement.Value,
             measurement.Unit,
@@ -77,6 +84,10 @@ public static class ObservationJsonLd
 
         if (o.QuantityKindUri is not null)
             doc["qudt:hasQuantityKind"] = new Dictionary<string, object?> { ["@id"] = o.QuantityKindUri };
+
+        // The room the sensor occupied at observation time; omitted when unknown.
+        if (o.FeatureOfInterestIri is not null)
+            doc["sosa:hasFeatureOfInterest"] = new Dictionary<string, object?> { ["@id"] = o.FeatureOfInterestIri };
 
         doc["sosa:madeBySensor"] = new Dictionary<string, object?> { ["@id"] = iri.Sensor(o.SensorId) };
         doc["sosa:hasSimpleResult"] = o.Value;
