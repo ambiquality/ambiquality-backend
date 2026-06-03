@@ -17,6 +17,57 @@ public static class CatalogEndpoints
     private const string DatasetTitle = "Ambiquality IEQ Open Data";
     private const string PublisherName = "Vilém Charwot, VŠE Prague";
 
+    // DCAT-AP-CZ requires cs+en language-tagged title/description on the Catalog and Dataset.
+    private static readonly (string Lang, string Value)[] CatalogTitle =
+    [
+        ("en", "Ambiquality IEQ Open Data Catalogue"),
+        ("cs", "Ambiquality – katalog otevřených dat o kvalitě vnitřního prostředí")
+    ];
+
+    private static readonly (string Lang, string Value)[] CatalogDescription =
+    [
+        ("en", "Open-data catalogue of the Ambiquality platform, publishing indoor "
+             + "environmental quality (IEQ) sensor measurements as linked open data. Coverage "
+             + "spans the four IEQ domains: indoor air quality, thermal comfort, acoustic "
+             + "comfort and visual comfort."),
+        ("cs", "Katalog otevřených dat platformy Ambiquality zveřejňující měření kvality "
+             + "vnitřního prostředí (IEQ) jako propojená otevřená data. Pokrytí zahrnuje "
+             + "čtyři oblasti IEQ: kvalitu vnitřního vzduchu, tepelnou pohodu, akustickou "
+             + "pohodu a zrakovou pohodu.")
+    ];
+
+    private static readonly (string Lang, string Value)[] DatasetTitleMultilingual =
+    [
+        ("en", DatasetTitle),
+        ("cs", "Ambiquality – otevřená data o kvalitě vnitřního prostředí")
+    ];
+
+    private static readonly (string Lang, string Value)[] DatasetDescription =
+    [
+        ("en", "Indoor Environmental Quality (IEQ) sensor measurements across four domains: "
+             + "indoor air quality (CO₂, VOCs, particulate matter, relative humidity), thermal "
+             + "comfort (air temperature, relative humidity), acoustic comfort (sound pressure "
+             + "level) and visual comfort (illuminance) — published as open linked data."),
+        ("cs", "Měření kvality vnitřního prostředí (IEQ) ve čtyřech oblastech: kvalita "
+             + "vnitřního vzduchu (CO₂, VOC, prachové částice, relativní vlhkost), tepelná "
+             + "pohoda (teplota vzduchu, relativní vlhkost), akustická pohoda (hladina "
+             + "akustického tlaku) a zraková pohoda (osvětlenost) — zveřejněná jako propojená "
+             + "otevřená data.")
+    ];
+
+    private static readonly (string Lang, string Value)[] Keywords =
+    [
+        ("en", "indoor environmental quality"), ("cs", "kvalita vnitřního prostředí"),
+        ("en", "IEQ"),
+        ("en", "indoor air quality"), ("cs", "kvalita vnitřního vzduchu"),
+        ("en", "thermal comfort"), ("cs", "tepelná pohoda"),
+        ("en", "acoustic comfort"), ("cs", "akustická pohoda"),
+        ("en", "visual comfort"), ("cs", "zraková pohoda"),
+        ("en", "CO₂"),
+        ("en", "particulate matter"),
+        ("en", "open data"), ("cs", "otevřená data")
+    ];
+
     private static readonly object[] DcatContext =
     [
         Constants.DcatApContextIri,
@@ -78,16 +129,14 @@ public static class CatalogEndpoints
         {
             ["@id"] = $"{iri.Catalog()}#dataset",
             ["@type"] = "dcat:Dataset",
-            ["dcterms:title"] = DatasetTitle,
-            ["dcterms:description"] =
-                "Indoor Environmental Quality (IEQ) sensor measurements — CO₂, temperature, humidity, "
-                + "particulate matter, VOCs, acoustics and light — published as open linked data.",
-            ["dcterms:publisher"] = new Dictionary<string, object?>
-            {
-                ["@type"] = "foaf:Agent",
-                ["foaf:name"] = PublisherName
-            },
+            ["dcterms:title"] = Multilingual(DatasetTitleMultilingual),
+            ["dcterms:description"] = Multilingual(DatasetDescription),
+            ["dcterms:publisher"] = Publisher(),
             ["dcterms:license"] = new Dictionary<string, object?> { ["@id"] = Constants.LicenseIri },
+            ["dcat:theme"] = new Dictionary<string, object?> { ["@id"] = Constants.ThemeEnvironment },
+            ["dcat:keyword"] = Multilingual(Keywords),
+            // Measurements stream in continuously; the dataset is updated continuously.
+            ["dcterms:accrualPeriodicity"] = new Dictionary<string, object?> { ["@id"] = Constants.FrequencyContinuous },
             ["dcat:contactPoint"] = new Dictionary<string, object?>
             {
                 ["@type"] = "vcard:Individual",
@@ -124,11 +173,35 @@ public static class CatalogEndpoints
             ["@context"] = DcatContext,
             ["@id"] = iri.Catalog(),
             ["@type"] = "dcat:Catalog",
-            ["dcterms:title"] = DatasetTitle,
+            ["dcterms:title"] = Multilingual(CatalogTitle),
+            // dcterms:description is DCAT-AP-CZ-mandatory on the Catalog; dcterms:publisher is
+            // mandatory in base DCAT-AP 3.0. Both were previously absent at the Catalog level.
+            ["dcterms:description"] = Multilingual(CatalogDescription),
+            ["dcterms:publisher"] = Publisher(),
             ["dcterms:license"] = new Dictionary<string, object?> { ["@id"] = Constants.LicenseIri },
             ["dcat:dataset"] = dataset
         };
     }
+
+    // Language-tagged literals ({"@language","@value"} form) — DCAT-AP-CZ wants parallel
+    // cs+en versions of title/description/keyword, not bare strings.
+    private static object[] Multilingual((string Lang, string Value)[] values) =>
+        values.Select(object (v) => new Dictionary<string, object?>
+        {
+            ["@language"] = v.Lang,
+            ["@value"] = v.Value
+        }).ToArray();
+
+    // Publisher as a free-text foaf:Agent. DCAT-AP-CZ ultimately wants dcterms:publisher to be an
+    // IRI from the Czech OVM/RPP register (orgán veřejné moci). This project is authored by an
+    // individual student, NOT an OVM — confirmed by e-mail with the national open-data coordinator —
+    // so no such IRI can be minted and full DCAT-AP-CZ conformance is structurally impossible.
+    // The catalogue is therefore DCAT-AP-CZ-aligned only in part; see Public.Api/README.md.
+    private static Dictionary<string, object?> Publisher() => new()
+    {
+        ["@type"] = "foaf:Agent",
+        ["foaf:name"] = PublisherName
+    };
 
     private static Dictionary<string, object?> Distribution(
         string accessUrl, string mediaType, string title, string? conformsTo = null)
@@ -141,6 +214,8 @@ public static class CatalogEndpoints
             ["dcat:mediaType"] = mediaType,
             ["dcterms:license"] = new Dictionary<string, object?> { ["@id"] = Constants.LicenseIri }
         };
+        if (FileTypeFor(mediaType) is { } formatIri)
+            dist["dcterms:format"] = new Dictionary<string, object?> { ["@id"] = formatIri };
         if (conformsTo is not null)
             dist["dcterms:conformsTo"] = new Dictionary<string, object?> { ["@id"] = conformsTo };
         return dist;
@@ -167,6 +242,9 @@ public static class CatalogEndpoints
             }
         };
 
+        if (FileTypeFor(e.MediaType) is { } formatIri)
+            dist["dcterms:format"] = new Dictionary<string, object?> { ["@id"] = formatIri };
+
         if (e.FileSizeBytes is { } size)
             dist["dcat:byteSize"] = size;
 
@@ -176,6 +254,15 @@ public static class CatalogEndpoints
 
         return dist;
     }
+
+    // Map a media type to its EU file-type codelist IRI (dcterms:format), alongside the
+    // existing dcat:mediaType. null for an unmapped type — the property is simply omitted.
+    private static string? FileTypeFor(string mediaType) => mediaType switch
+    {
+        Constants.MediaTypeJsonLd => Constants.FileTypeJsonLd,
+        Constants.MediaTypeCsv => Constants.FileTypeCsv,
+        _ => null
+    };
 
     private static Dictionary<string, object?> TypedDate(DateTime value, string xsdType) => new()
     {

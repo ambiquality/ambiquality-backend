@@ -97,6 +97,28 @@ On each observation, `sosa:observedProperty` is the specific IRI and
 this with an `observed_property_uri` column (`sosa:observedProperty`) alongside
 `quantity_kind_uri` (`qudt:hasQuantityKind`).
 
+## Catalog conformance (DCAT-AP 3.0 / DCAT-AP-CZ)
+
+`/v1/catalog` is structurally **DCAT-AP 3.0** and is **partially aligned** with the
+Czech **DCAT-AP-CZ / OFN** profile. What the document carries:
+
+- cs + en language-tagged `dcterms:title` and `dcterms:description` on both the
+  Catalog and the Dataset (DCAT-AP-CZ requires the multilingual literals);
+- `dcterms:publisher` on the **Catalog** (mandatory in base DCAT-AP 3.0) as well as
+  the Dataset, plus a `dcat:contactPoint`;
+- `dcat:theme` (EU data-theme `ENVI`), `dcat:keyword` (cs + en),
+  `dcterms:accrualPeriodicity` (EU frequency `CONT`), and `dcterms:format` (EU
+  file-type codelist) on every distribution alongside `dcat:mediaType`.
+
+**What it cannot meet — and why.** Full DCAT-AP-CZ conformance requires
+`dcterms:publisher` to be an **IRI from the Czech OVM/RPP register** (*orgán veřejné
+moci* — a public authority). This project is authored by an individual student, who
+is **not** an OVM; the national open-data coordinator confirmed by e-mail that no such
+publisher identity can be assigned. The publisher is therefore a free-text
+`foaf:Agent`, and the catalogue is **DCAT-AP-CZ-aligned only in part**. This is a
+structural limitation of the thesis context, not an implementation gap. RÚIAN spatial
+IRIs and SKOS `číselníky` for the catalog code attributes are likewise out of scope.
+
 ## Linked-data vocabularies
 
 QUDT (quantity kinds + units, via `Core`'s `QudtVocabulary`), SSN/SOSA

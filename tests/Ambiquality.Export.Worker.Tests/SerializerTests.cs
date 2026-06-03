@@ -18,6 +18,16 @@ public sealed class SerializerTests
         ReceivedAt: new DateTime(2026, 5, 28, 8, 0, 1, DateTimeKind.Utc),
         IsInvalid: false);
 
+    private static MeasurementRow Particulate(string code) => new(
+        Id: Guid.NewGuid(),
+        SensorId: Guid.Parse("22222222-2222-2222-2222-222222222222"),
+        ParameterCode: code,
+        Value: 12.3,
+        Unit: "ug/m3",
+        ObservedAt: new DateTime(2026, 5, 28, 8, 0, 0, DateTimeKind.Utc),
+        ReceivedAt: new DateTime(2026, 5, 28, 8, 0, 1, DateTimeKind.Utc),
+        IsInvalid: false);
+
     private static async IAsyncEnumerable<MeasurementRow> Rows(params MeasurementRow[] rows)
     {
         foreach (var r in rows)
@@ -69,6 +79,39 @@ public sealed class SerializerTests
             obs.GetProperty("qudt:unit").GetProperty("@id").GetString());
         Assert.Equal("https://example.org/v1/sensors/22222222-2222-2222-2222-222222222222",
             obs.GetProperty("sosa:madeBySensor").GetProperty("@id").GetString());
+
+        // observedProperty is the specific minted property IRI; the dimensional quantity
+        // kind lives on qudt:hasQuantityKind (not on observedProperty, the old bug).
+        Assert.Equal("https://example.org/v1/properties/co2",
+            obs.GetProperty("sosa:observedProperty").GetProperty("@id").GetString());
+        Assert.Equal("http://qudt.org/vocab/quantitykind/AmountOfSubstanceFraction",
+            obs.GetProperty("qudt:hasQuantityKind").GetProperty("@id").GetString());
+    }
+
+    [Fact]
+    public async Task JsonLd_DistinguishesParticulateSizesOnObservedProperty()
+    {
+        using var stream = new MemoryStream();
+        var serializer = new JsonLdMeasurementSerializer("https://example.org");
+
+        await serializer.WriteAsync(Rows(Particulate("pm2_5"), Particulate("pm10")), stream, CancellationToken.None);
+
+        using var doc = JsonDocument.Parse(stream.ToArray());
+        var graph = doc.RootElement.GetProperty("@graph").EnumerateArray().ToList();
+        Assert.Equal(2, graph.Count);
+
+        var pm25 = graph[0].GetProperty("sosa:observedProperty").GetProperty("@id").GetString();
+        var pm10 = graph[1].GetProperty("sosa:observedProperty").GetProperty("@id").GetString();
+
+        // The whole point of the fix: PM2.5 and PM10 get DIFFERENT observed-property IRIs…
+        Assert.Equal("https://example.org/v1/properties/pm2_5", pm25);
+        Assert.Equal("https://example.org/v1/properties/pm10", pm10);
+        Assert.NotEqual(pm25, pm10);
+
+        // …even though they share the same dimensional quantity kind (mass density).
+        Assert.Equal(
+            graph[0].GetProperty("qudt:hasQuantityKind").GetProperty("@id").GetString(),
+            graph[1].GetProperty("qudt:hasQuantityKind").GetProperty("@id").GetString());
     }
 
     [Fact]

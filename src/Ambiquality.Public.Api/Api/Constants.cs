@@ -43,4 +43,23 @@ public static class Constants
     /// <summary>Pinned DCAT-AP 3.0.0 JSON-LD context IRI used by the catalog endpoint.</summary>
     public const string DcatApContextIri =
         "https://semiceu.github.io/DCAT-AP/releases/3.0.0/context/dcat-ap.jsonld";
+
+    // EU Publications Office controlled-vocabulary IRIs (DCAT-AP / DCAT-AP-CZ expect
+    // codelist values, not free strings). Concept IRIs use the /resource/authority/ form.
+    /// <summary>Environment theme from the EU data-theme codelist (dcat:theme).</summary>
+    public const string ThemeEnvironment =
+        "http://publications.europa.eu/resource/authority/data-theme/ENVI";
+
+    /// <summary>"Continuous" from the EU frequency codelist (dcterms:accrualPeriodicity);
+    /// measurements stream in continuously.</summary>
+    public const string FrequencyContinuous =
+        "http://publications.europa.eu/resource/authority/frequency/CONT";
+
+    /// <summary>JSON-LD file type from the EU file-type codelist (dcterms:format).</summary>
+    public const string FileTypeJsonLd =
+        "http://publications.europa.eu/resource/authority/file-type/JSON_LD";
+
+    /// <summary>CSV file type from the EU file-type codelist (dcterms:format).</summary>
+    public const string FileTypeCsv =
+        "http://publications.europa.eu/resource/authority/file-type/CSV";
 }
