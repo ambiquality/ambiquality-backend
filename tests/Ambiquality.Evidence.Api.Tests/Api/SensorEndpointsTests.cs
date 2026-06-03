@@ -30,7 +30,7 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
             City = "Prague",
             Postcode = "12000",
             Country = "CZ",
-            BuildingTypeCode = "HOUSE",
+            BuildingTypeCode = "family_house",
             Latitude = 50.0755,
             Longitude = 14.4378,
             AnonymizationLevel = "precise",

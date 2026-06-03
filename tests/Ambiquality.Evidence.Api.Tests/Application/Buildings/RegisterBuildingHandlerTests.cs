@@ -103,6 +103,15 @@ public class RegisterBuildingHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WithUnknownBuildingType_Throws()
+    {
+        var handler = CreateHandler();
+        var command = SampleCommand() with { BuildingTypeCode = "castle" }; // not in building-type
+
+        await Assert.ThrowsAsync<UnknownCodelistCodeException>(() => handler.HandleAsync(command));
+    }
+
+    [Fact]
     public async Task Handle_WithOnlyOneOfLatLon_Throws()
     {
         var handler = CreateHandler();

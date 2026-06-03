@@ -46,7 +46,7 @@ public class RegisterRoomHandlerTests
             ExposureCode: null,
             AreaM2: 25.0,
             CeilingHeightM: 2.8,
-            VentilationType: "vzt",
+            VentilationType: "mechanical",
             PollutionSources: []);
 
         var mockClock = Substitute.For<IClock>();
@@ -119,6 +119,39 @@ public class RegisterRoomHandlerTests
         var mockCurrentUser = Substitute.For<ICurrentUser>();
         mockCurrentUser.ProjectionId.Returns(UserId);
 
+        var mockRepo = Substitute.For<IRoomRepository>();
+
+        var handler = new RegisterRoomHandler(mockClock, mockCurrentUser, mockRepo, BuildingRepoOwnedBy(UserId), new StubSlugGenerator());
+
+        await Assert.ThrowsAsync<UnknownCodelistCodeException>(
+            () => handler.Handle(command, CancellationToken.None));
+
+        mockRepo.DidNotReceive().Add(Arg.Any<Room>());
+        await mockRepo.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Theory]
+    [InlineData("function", "lounge", null, null)]       // not in room-function
+    [InlineData("ventilation", null, "passive", null)]   // not in ventilation-type
+    [InlineData("pollution", null, null, "radon")]       // not in pollution-source
+    public async Task Handle_WithUnknownRoomCode_ThrowsAndSavesNothing(
+        string _, string? function, string? ventilation, string? pollutionSource)
+    {
+        var command = new RegisterRoomCommand(
+            BuildingId: BuildingId,
+            Name: "Room 101",
+            Floor: 1,
+            FunctionCode: function,
+            ExposureCode: null,
+            AreaM2: null,
+            CeilingHeightM: null,
+            VentilationType: ventilation,
+            PollutionSources: pollutionSource is null ? [] : [pollutionSource]);
+
+        var mockClock = Substitute.For<IClock>();
+        mockClock.UtcNow.Returns(Now);
+        var mockCurrentUser = Substitute.For<ICurrentUser>();
+        mockCurrentUser.ProjectionId.Returns(UserId);
         var mockRepo = Substitute.For<IRoomRepository>();
 
         var handler = new RegisterRoomHandler(mockClock, mockCurrentUser, mockRepo, BuildingRepoOwnedBy(UserId), new StubSlugGenerator());

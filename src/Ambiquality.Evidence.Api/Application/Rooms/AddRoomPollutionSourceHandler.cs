@@ -11,6 +11,8 @@ public sealed class AddRoomPollutionSourceHandler(
 {
     public async Task Handle(AddRoomPollutionSourceCommand command, CancellationToken ct)
     {
+        RoomCodelists.ValidatePollutionSource(command.SourceCode);
+
         var room = await RoomAuthorizer.LoadOwnedAsync(
             repository, buildingRepository, command.RoomId, currentUser, ct);
 

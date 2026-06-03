@@ -178,7 +178,7 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
             City: "Prague",
             Postcode: "12000",
             Country: "CZ",
-            BuildingTypeCode: "HOUSE",
+            BuildingTypeCode: "family_house",
             Latitude: Latitude,
             Longitude: Longitude,
             AnonymizationLevel: anonymization,

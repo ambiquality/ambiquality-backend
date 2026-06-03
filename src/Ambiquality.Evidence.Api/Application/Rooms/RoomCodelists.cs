@@ -1,4 +1,5 @@
 using Ambiquality.Core.Domain.Rooms;
+using Ambiquality.Core.Domain.Vocabulary;
 
 namespace Ambiquality.Evidence.Api.Application.Rooms;
 
@@ -17,5 +18,23 @@ internal static class RoomCodelists
     {
         if (exposureCode is not null && !ExposureCode.IsValid(exposureCode))
             throw new UnknownCodelistCodeException("exposure", exposureCode);
+    }
+
+    /// <summary>Ensures an optional function code is in the codelist; <c>null</c> clears it.</summary>
+    public static void ValidateFunction(string? functionCode) =>
+        Require(Codelists.RoomFunction, "room_function", functionCode);
+
+    /// <summary>Ensures an optional ventilation code is in the codelist; <c>null</c> clears it.</summary>
+    public static void ValidateVentilation(string? ventilationType) =>
+        Require(Codelists.VentilationType, "ventilation_type", ventilationType);
+
+    /// <summary>Ensures a pollution-source code is in the codelist (the code is required).</summary>
+    public static void ValidatePollutionSource(string sourceCode) =>
+        Require(Codelists.PollutionSource, "pollution_source", sourceCode);
+
+    private static void Require(Codelist codelist, string name, string? code)
+    {
+        if (code is not null && !codelist.IsValid(code))
+            throw new UnknownCodelistCodeException(name, code);
     }
 }

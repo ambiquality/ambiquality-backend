@@ -39,7 +39,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
             City: "Prague",
             Postcode: "12000",
             Country: "CZ",
-            BuildingTypeCode: "HOUSE",
+            BuildingTypeCode: "family_house",
             Latitude: 50.0755,
             Longitude: 14.4378,
             AnonymizationLevel: "precise",
@@ -105,7 +105,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
             City: "Prague",
             Postcode: "12000",
             Country: "CZ",
-            BuildingTypeCode: "HOUSE",
+            BuildingTypeCode: "family_house",
             Latitude: 50.0755,
             Longitude: 14.4378,
             AnonymizationLevel: "invalid_level",
@@ -141,7 +141,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
         Assert.Equal(building.UriSlug, snapshot.UriSlug);
         Assert.Equal("Gettable Building", snapshot.Name);
         Assert.Equal("Prague", snapshot.City);
-        Assert.Equal("HOUSE", snapshot.BuildingTypeCode);
+        Assert.Equal("family_house", snapshot.BuildingTypeCode);
         Assert.Equal("precise", snapshot.AnonymizationLevel);
     }
 
@@ -221,7 +221,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
             City: "Prague",
             Postcode: "12000",
             Country: "CZ",
-            BuildingTypeCode: "HOUSE",
+            BuildingTypeCode: "family_house",
             Latitude: 50.0755,
             Longitude: 14.4378,
             AnonymizationLevel: "precise",

@@ -17,6 +17,8 @@ public sealed class RegisterBuildingHandler(
     public async Task<RegisterBuildingResult> HandleAsync(
         RegisterBuildingCommand command, CancellationToken cancellationToken = default)
     {
+        BuildingCodelists.ValidateType(command.BuildingTypeCode);
+
         var slug = await slugGenerator.NextAsync(
             "bld",
             async (candidate, ct) => await repository.GetBySlugAsync(candidate, ct) is not null,

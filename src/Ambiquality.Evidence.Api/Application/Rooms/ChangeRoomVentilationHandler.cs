@@ -11,6 +11,8 @@ public sealed class ChangeRoomVentilationHandler(
 {
     public async Task Handle(ChangeRoomVentilationCommand command, CancellationToken ct)
     {
+        RoomCodelists.ValidateVentilation(command.NewVentilationType);
+
         var room = await RoomAuthorizer.LoadOwnedAsync(
             repository, buildingRepository, command.RoomId, currentUser, ct);
 

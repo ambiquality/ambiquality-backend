@@ -11,6 +11,8 @@ public sealed class ChangeRoomFunctionHandler(
 {
     public async Task Handle(ChangeRoomFunctionCommand command, CancellationToken ct)
     {
+        RoomCodelists.ValidateFunction(command.NewFunctionCode);
+
         var room = await RoomAuthorizer.LoadOwnedAsync(
             repository, buildingRepository, command.RoomId, currentUser, ct);
 

@@ -16,6 +16,10 @@ public sealed class RegisterRoomHandler(
     public async Task<RegisterRoomResponse> Handle(RegisterRoomCommand command, CancellationToken ct)
     {
         RoomCodelists.ValidateExposure(command.ExposureCode);
+        RoomCodelists.ValidateFunction(command.FunctionCode);
+        RoomCodelists.ValidateVentilation(command.VentilationType);
+        foreach (var source in command.PollutionSources)
+            RoomCodelists.ValidatePollutionSource(source);
 
         await BuildingAuthorizer.LoadOwnedAsync(
             buildingRepository, command.BuildingId, currentUser, ct);
