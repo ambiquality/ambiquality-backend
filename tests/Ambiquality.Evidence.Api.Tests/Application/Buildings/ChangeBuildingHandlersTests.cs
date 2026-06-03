@@ -92,9 +92,9 @@ public class ChangeBuildingHandlersTests
         var building = SeedBuilding();
         var handler = new ChangeBuildingTypeHandler(_repository, _owner);
 
-        await handler.HandleAsync(new ChangeBuildingTypeCommand(building.Id, "school", T1));
+        await handler.HandleAsync(new ChangeBuildingTypeCommand(building.Id, "educational", T1));
 
-        Assert.Equal("school", building.TypeHistory.Single(h => h.Validity.UpperBoundInfinite).BuildingTypeCode);
+        Assert.Equal("educational", building.TypeHistory.Single(h => h.Validity.UpperBoundInfinite).BuildingTypeCode);
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public class ChangeBuildingHandlersTests
         await Assert.ThrowsAsync<ForbiddenException>(() => new ChangeBuildingAddressHandler(_repository, _intruder)
             .HandleAsync(new ChangeBuildingAddressCommand(building.Id, "S", "P", "11000", "CZ", T1)));
         await Assert.ThrowsAsync<ForbiddenException>(() => new ChangeBuildingTypeHandler(_repository, _intruder)
-            .HandleAsync(new ChangeBuildingTypeCommand(building.Id, "school", T1)));
+            .HandleAsync(new ChangeBuildingTypeCommand(building.Id, "educational", T1)));
         await Assert.ThrowsAsync<ForbiddenException>(() => new ChangeBuildingLocationHandler(_repository, _intruder)
             .HandleAsync(new ChangeBuildingLocationCommand(building.Id, null, null, "municipality", T1)));
         await Assert.ThrowsAsync<ForbiddenException>(() => new ChangeBuildingYearsHandler(_repository, _intruder)

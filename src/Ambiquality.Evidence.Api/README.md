@@ -41,6 +41,15 @@ the effective instant in the request body — `validFrom` on the attribute PUTs,
 collection-closing PUTs (`PUT …/pollution-sources/{code}`, `PUT …/measured-parameters/{code}`).
 Invalid or non-UTC timestamps are rejected with a 400.
 
+## Controlled codelists
+
+Code-valued attributes are validated on write against closed codelists; an unknown code is
+rejected with **400** (`UnknownCodelistCodeException`). The shared vocabularies live in
+`Core.Domain.Vocabulary.Codelists` (single source of truth, also published as SKOS `číselníky`
+by Public.Api): **building type**, **room function**, **ventilation type** and **pollution
+source**. **Room exposure** (`Core.ExposureCode`) and **sensor status** (`SensorStatus`) were
+already closed. Each concept carries parallel cs/en labels for the linked-data publication.
+
 ## Architecture
 
 DDD layering, dependencies pointing inward (`Domain` has no framework dependencies):

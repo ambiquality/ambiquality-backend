@@ -10,6 +10,8 @@ public sealed class ChangeBuildingTypeHandler(
 {
     public async Task HandleAsync(ChangeBuildingTypeCommand command, CancellationToken cancellationToken = default)
     {
+        BuildingCodelists.ValidateType(command.NewTypeCode);
+
         var building = await BuildingAuthorizer.LoadOwnedAsync(
             repository, command.BuildingId, currentUser, cancellationToken);
         building.ChangeType(command.NewTypeCode, command.ValidFrom, currentUser.ProjectionId);
