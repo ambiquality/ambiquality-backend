@@ -5,9 +5,11 @@ headers:
   Content-Type: application/json
 body:
   type: json
-  content: '{"newTypeCode": "educational","validFrom": "{{now}}"}'
+  content: '{"newTypeCode": "warehouse","validFrom": "{{now}}"}'
 scripts:
   - type: afterResponse
-    code: pm.test('Status 204', () => pm.response.to.have.status(204));
+    code: |-
+      pm.test('Status 400 — code not in the building-type codelist', () =>
+        pm.response.to.have.status(400));
     language: text/javascript
-order: 6000
+order: 6100

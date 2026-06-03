@@ -16,5 +16,11 @@ scripts:
         pm.expect(j.items).to.be.an('array');
         pm.expect(j).to.have.property('license');
       });
+      pm.test('Observations expose featureOfInterestIri (room IRI when known)', () => {
+        for (const o of j.items) {
+          pm.expect(o).to.have.property('featureOfInterestIri');
+          if (o.featureOfInterestIri) pm.expect(o.featureOfInterestIri).to.include('/v1/rooms/');
+        }
+      });
     language: text/javascript
 order: 1000
