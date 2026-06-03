@@ -35,18 +35,9 @@ are already baked into the repo YAML and the newman build order.
   Evidence/Account routes, 404 / 422 on bad payloads, etc.
 
 
-## Docs
+## Docs — hosted documentation site (optional)
 
-The API docs is handled by the openapi and a frontend for the openapi docs.
-However, there is not docs that explain the low level architeture decisions. There is only in code docs, no web.  
-
-The docs should include:
-
-- ER diagrams
-- architecture overview (handled by the archimate repo)
-
-That's only a rough plan - we need to chat about it 
-
-## Evidence HTTP methods
-
-There are HTTP `DELETE` methods in the evidence, the semantic meanings is wrong for the endpoints. Nothing get's actually deleted, only the status changes as every change is versioned. The question is if it should be left as is or corrected with `PUT`/`PATCH`/`POST`. 
+In-repo architecture docs now exist: `docs/adr/0001-…` (ADR) and `docs/er/` (ER diagrams for
+all three schemas), linked from the root README; OpenAPI/Scalar covers the API surface. Still
+open if desired: a **hosted** documentation site (out of scope for the docs plan), and keeping
+the separate ArchiMate repo's higher-level models consistent with ADR 0001.
