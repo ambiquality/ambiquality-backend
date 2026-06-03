@@ -189,8 +189,12 @@ app.UseRateLimiter();
 
 app.MapOpenApi();
 app.MapScalarApiReference();
-app.MapAuthEndpoints();
-app.MapAccountEndpoints();
+
+// Mount under /v1 so the auth contract is versioned like the other services
+// (Caddy strips the /auth prefix, leaving /v1/register, /v1/account/..., etc.).
+var v1 = app.MapGroup("/v1");
+v1.MapAuthEndpoints();
+v1.MapAccountEndpoints();
 
 app.Run();
 

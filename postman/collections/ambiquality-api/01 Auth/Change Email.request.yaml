@@ -1,5 +1,5 @@
 $kind: http-request
-url: "{{baseUrl}}/auth/account/change-email"
+url: "{{baseUrl}}/auth/v1/account/change-email"
 method: POST
 headers:
   Content-Type: application/json

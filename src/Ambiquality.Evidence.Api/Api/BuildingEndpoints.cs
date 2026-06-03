@@ -10,7 +10,7 @@ namespace Ambiquality.Evidence.Api.Api;
 
 public static class BuildingEndpoints
 {
-    public static void MapBuildingEndpoints(this WebApplication app)
+    public static void MapBuildingEndpoints(this IEndpointRouteBuilder app)
     {
         // Mutations require a valid bearer token; reads opt out via AllowAnonymous
         // below (the open-data catalog is publicly readable). Authentication still
@@ -23,6 +23,14 @@ public static class BuildingEndpoints
             .WithName("RegisterBuilding")
             .WithOpenApi()
             .WithDescription("Register a new building");
+
+        // Owner-scoped catalog listing: authenticated (no AllowAnonymous), returns
+        // only the caller's own buildings with unmasked coordinates. The public,
+        // masked listing lives in Public.Api. GET + HEAD share the route, so
+        // .WithOpenApi() is omitted (it throws on multi-method routes).
+        group.MapMethods("/", ["GET", "HEAD"], ListBuildings)
+            .WithName("ListBuildings")
+            .WithDescription("List the authenticated owner's buildings (unmasked coordinates)");
 
         // GET + HEAD share one route. The modern AddOpenApi pipeline advertises
         // both methods from route metadata; the legacy .WithOpenApi() helper is
@@ -40,27 +48,27 @@ public static class BuildingEndpoints
         group.MapPut("/{buildingId:guid}/name", ChangeBuildingName)
             .WithName("ChangeBuildingName")
             .WithOpenApi()
-            .WithDescription("Change a building's name");
+            .WithDescription("Record a new building name effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/address", ChangeBuildingAddress)
             .WithName("ChangeBuildingAddress")
             .WithOpenApi()
-            .WithDescription("Change a building's address");
+            .WithDescription("Record a new building address effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/type", ChangeBuildingType)
             .WithName("ChangeBuildingType")
             .WithOpenApi()
-            .WithDescription("Change a building's type");
+            .WithDescription("Record a new building type effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/location", ChangeBuildingLocation)
             .WithName("ChangeBuildingLocation")
             .WithOpenApi()
-            .WithDescription("Change a building's location");
+            .WithDescription("Record a new building location effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/years", ChangeBuildingYears)
             .WithName("ChangeBuildingYears")
             .WithOpenApi()
-            .WithDescription("Change a building's construction and renovation years");
+            .WithDescription("Record new construction/renovation years effective from validFrom (appends history, does not overwrite)");
     }
 
     private static async Task<Results<Created<RegisterBuildingResult>, ProblemHttpResult>> RegisterBuilding(
@@ -84,16 +92,38 @@ public static class BuildingEndpoints
                 YearRenovated: request.YearRenovated);
 
             var result = await handler.HandleAsync(command, cancellationToken);
-            return TypedResults.Created($"/buildings/{result.Id}", result);
+            return TypedResults.Created($"/{Constants.ApiVersion}/buildings/{result.Id}", result);
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
+        }
+    }
+
+    private static async Task<Results<Ok<IReadOnlyList<BuildingSnapshotResponse>>, ProblemHttpResult>> ListBuildings(
+        IBuildingRepository repository,
+        ICurrentUser currentUser,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var asOfError = Problems.TryParseAsOf(context, out var asOf);
+        if (asOfError is not null)
+            return asOfError;
+
+        var buildings = await repository.ListOwnedByAsync(currentUser.ProjectionId, cancellationToken);
+
+        try
+        {
+            // Every returned building is the caller's own, so isOwner is true and
+            // coordinates are never masked.
+            var responses = buildings
+                .Select(b => ToResponse(b.SnapshotAt(asOf), isOwner: true))
+                .ToList();
+            return TypedResults.Ok((IReadOnlyList<BuildingSnapshotResponse>)responses);
+        }
+        catch (DomainException ex)
+        {
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -195,12 +225,7 @@ public static class BuildingEndpoints
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -225,12 +250,7 @@ public static class BuildingEndpoints
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -252,12 +272,7 @@ public static class BuildingEndpoints
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -281,12 +296,7 @@ public static class BuildingEndpoints
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
         }
     }
 
@@ -309,12 +319,7 @@ public static class BuildingEndpoints
         }
         catch (DomainException ex)
         {
-            var problem = Problems.Describe(ex);
-            return TypedResults.Problem(
-                detail: problem.Detail,
-                title: problem.Title,
-                type: problem.Type,
-                statusCode: problem.StatusCode);
+            return Problems.ToProblemResult(ex);
         }
     }
 }

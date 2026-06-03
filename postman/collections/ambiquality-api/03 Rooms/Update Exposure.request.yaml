@@ -1,6 +1,6 @@
 $kind: http-request
 name: Update Exposure
-url: "{{baseUrl}}/evidence/buildings/{{buildingId}}/rooms/{{roomId}}/exposure"
+url: "{{baseUrl}}/evidence/v1/buildings/{{buildingId}}/rooms/{{roomId}}/exposure"
 method: PUT
 headers:
   Content-Type: application/json

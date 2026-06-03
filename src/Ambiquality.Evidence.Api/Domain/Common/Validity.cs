@@ -42,6 +42,20 @@ public static class Validity
             upperBoundInfinite: false);
     }
 
+    /// <summary>
+    /// True when <paramref name="asOf"/> falls within the half-open range
+    /// <c>[lower, upper)</c>. This is the single coverage predicate behind every
+    /// temporal projection (<c>SnapshotAt</c>) across the building, room and
+    /// sensor aggregates: lower bound inclusive, upper bound exclusive, and an
+    /// infinite upper bound covers everything at or after the lower bound.
+    /// </summary>
+    public static bool Covers(NpgsqlRange<DateTime> validity, DateTime asOf)
+    {
+        if (asOf < validity.LowerBound)
+            return false;
+        return validity.UpperBoundInfinite || asOf < validity.UpperBound;
+    }
+
     private static void EnsureUtc(DateTime value, string paramName)
     {
         if (value.Kind != DateTimeKind.Utc)

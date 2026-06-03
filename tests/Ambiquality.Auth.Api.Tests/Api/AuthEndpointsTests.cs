@@ -16,7 +16,7 @@ public class AuthEndpointsTests(AuthApiFactory factory)
         const string password = "Sup3rSecret!";
 
         var register = await client.PostAsJsonAsync(
-            "/register", new RegisterRequest(email, password));
+            "/v1/register", new RegisterRequest(email, password));
         Assert.Equal(HttpStatusCode.Created, register.StatusCode);
 
         var sent = factory.EmailSender.LastTo(email);
@@ -24,7 +24,7 @@ public class AuthEndpointsTests(AuthApiFactory factory)
         var token = CapturingEmailSender.ExtractToken(sent.Body);
 
         var userId = await GetUserIdFromConfirmLink(sent.Body);
-        var confirm = await client.GetAsync($"/confirm-email?userId={userId}&token={token}");
+        var confirm = await client.GetAsync($"/v1/confirm-email?userId={userId}&token={token}");
         Assert.Equal(HttpStatusCode.OK, confirm.StatusCode);
 
         return (email, password);
@@ -45,7 +45,7 @@ public class AuthEndpointsTests(AuthApiFactory factory)
         var email = UniqueEmail();
 
         var response = await client.PostAsJsonAsync(
-            "/register", new RegisterRequest(email, "Sup3rSecret!"));
+            "/v1/register", new RegisterRequest(email, "Sup3rSecret!"));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.NotNull(factory.EmailSender.LastTo(email));
@@ -56,10 +56,10 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     {
         var client = factory.CreateClient();
         var email = UniqueEmail();
-        await client.PostAsJsonAsync("/register", new RegisterRequest(email, "Sup3rSecret!"));
+        await client.PostAsJsonAsync("/v1/register", new RegisterRequest(email, "Sup3rSecret!"));
 
         var response = await client.PostAsJsonAsync(
-            "/login", new LoginRequest(email, "Sup3rSecret!"));
+            "/v1/login", new LoginRequest(email, "Sup3rSecret!"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -72,7 +72,7 @@ public class AuthEndpointsTests(AuthApiFactory factory)
         var (email, password) = await RegisterAndConfirmAsync(client);
 
         var response = await client.PostAsJsonAsync(
-            "/login", new LoginRequest(email, password));
+            "/v1/login", new LoginRequest(email, password));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
@@ -86,12 +86,12 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     {
         var client = factory.CreateClient();
         var (email, password) = await RegisterAndConfirmAsync(client);
-        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var login = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
         var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
 
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
-        var response = await client.GetAsync("/account/me");
+        var response = await client.GetAsync("/v1/account/me");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var me = await response.Content.ReadFromJsonAsync<MeResponse>();
@@ -105,7 +105,7 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     {
         var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/account/me");
+        var response = await client.GetAsync("/v1/account/me");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -115,23 +115,23 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     {
         var client = factory.CreateClient();
         var (email, password) = await RegisterAndConfirmAsync(client);
-        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var login = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
         var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
 
         const string newPassword = "An0therSecret!";
         var change = await client.PostAsJsonAsync(
-            "/account/change-password", new ChangePasswordRequest(password, newPassword));
+            "/v1/account/change-password", new ChangePasswordRequest(password, newPassword));
         Assert.Equal(HttpStatusCode.OK, change.StatusCode);
 
         client.DefaultRequestHeaders.Authorization = null;
         var relogin = await client.PostAsJsonAsync(
-            "/login", new LoginRequest(email, newPassword));
+            "/v1/login", new LoginRequest(email, newPassword));
         Assert.Equal(HttpStatusCode.OK, relogin.StatusCode);
 
         var oldLogin = await client.PostAsJsonAsync(
-            "/login", new LoginRequest(email, password));
+            "/v1/login", new LoginRequest(email, password));
         Assert.Equal(HttpStatusCode.Unauthorized, oldLogin.StatusCode);
     }
 
@@ -140,18 +140,18 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     {
         var client = factory.CreateClient();
         var (email, password) = await RegisterAndConfirmAsync(client);
-        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var login = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
         var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
 
         var refresh = await client.PostAsJsonAsync(
-            "/refresh", new RefreshRequest(tokens!.RefreshToken));
+            "/v1/refresh", new RefreshRequest(tokens!.RefreshToken));
         Assert.Equal(HttpStatusCode.OK, refresh.StatusCode);
         var refreshed = await refresh.Content.ReadFromJsonAsync<AuthResponse>();
         Assert.NotNull(refreshed);
         Assert.NotEqual(tokens.RefreshToken, refreshed.RefreshToken);
 
         var reuse = await client.PostAsJsonAsync(
-            "/refresh", new RefreshRequest(tokens.RefreshToken));
+            "/v1/refresh", new RefreshRequest(tokens.RefreshToken));
         Assert.Equal(HttpStatusCode.Unauthorized, reuse.StatusCode);
         Assert.Equal("application/problem+json", reuse.Content.Headers.ContentType?.MediaType);
     }
@@ -161,24 +161,24 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     {
         var client = factory.CreateClient();
         var (email, password) = await RegisterAndConfirmAsync(client);
-        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var login = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
         var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
 
         var newEmail = UniqueEmail();
         var change = await client.PostAsJsonAsync(
-            "/account/change-email", new ChangeEmailRequest(password, newEmail));
+            "/v1/account/change-email", new ChangeEmailRequest(password, newEmail));
         Assert.Equal(HttpStatusCode.Accepted, change.StatusCode);
 
         var sent = factory.EmailSender.LastTo(newEmail);
         Assert.NotNull(sent);
         var token = CapturingEmailSender.ExtractToken(sent.Body);
 
-        var confirm = await client.GetAsync($"/account/confirm-email-change?token={token}");
+        var confirm = await client.GetAsync($"/v1/account/confirm-email-change?token={token}");
         Assert.Equal(HttpStatusCode.OK, confirm.StatusCode);
 
-        var me = await client.GetFromJsonAsync<MeResponse>("/account/me");
+        var me = await client.GetFromJsonAsync<MeResponse>("/v1/account/me");
         Assert.Equal(newEmail, me!.Email);
     }
 
@@ -187,20 +187,20 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     {
         var client = factory.CreateClient();
         var (email, password) = await RegisterAndConfirmAsync(client);
-        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var login = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
         var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
-        var me = await client.GetFromJsonAsync<MeResponse>("/account/me");
+        var me = await client.GetFromJsonAsync<MeResponse>("/v1/account/me");
 
-        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/account/{me!.Id}")
+        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/v1/account/{me!.Id}")
         {
             Content = JsonContent.Create(new DeleteAccountRequest(password))
         });
         Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
 
         client.DefaultRequestHeaders.Authorization = null;
-        var relogin = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var relogin = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
         Assert.Equal(HttpStatusCode.Unauthorized, relogin.StatusCode);
     }
 
@@ -209,12 +209,12 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     {
         var client = factory.CreateClient();
         var (email, password) = await RegisterAndConfirmAsync(client);
-        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var login = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
         var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
 
-        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/account/{Guid.NewGuid()}")
+        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/v1/account/{Guid.NewGuid()}")
         {
             Content = JsonContent.Create(new DeleteAccountRequest(password))
         });
@@ -222,7 +222,7 @@ public class AuthEndpointsTests(AuthApiFactory factory)
         Assert.Equal("application/problem+json", delete.Content.Headers.ContentType?.MediaType);
 
         // The caller's own account is untouched.
-        var me = await client.GetAsync("/account/me");
+        var me = await client.GetAsync("/v1/account/me");
         Assert.Equal(HttpStatusCode.OK, me.StatusCode);
     }
 
@@ -231,20 +231,20 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     {
         var client = factory.CreateClient();
         var (email, password) = await RegisterAndConfirmAsync(client);
-        var login = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var login = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
         var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
-        var me = await client.GetFromJsonAsync<MeResponse>("/account/me");
+        var me = await client.GetFromJsonAsync<MeResponse>("/v1/account/me");
 
-        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/account/{me!.Id}")
+        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/v1/account/{me!.Id}")
         {
             Content = JsonContent.Create(new DeleteAccountRequest("wrong-password"))
         });
         Assert.Equal(HttpStatusCode.Unauthorized, delete.StatusCode);
         Assert.Equal("application/problem+json", delete.Content.Headers.ContentType?.MediaType);
 
-        var stillThere = await client.PostAsJsonAsync("/login", new LoginRequest(email, password));
+        var stillThere = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
         Assert.Equal(HttpStatusCode.OK, stillThere.StatusCode);
     }
 
@@ -253,7 +253,7 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     {
         var client = factory.CreateClient();
 
-        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/account/{Guid.NewGuid()}")
+        var delete = await client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, $"/v1/account/{Guid.NewGuid()}")
         {
             Content = JsonContent.Create(new DeleteAccountRequest("Sup3rSecret!"))
         });
@@ -266,10 +266,10 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     {
         var client = factory.CreateClient();
         var email = UniqueEmail();
-        await client.PostAsJsonAsync("/register", new RegisterRequest(email, "Sup3rSecret!"));
+        await client.PostAsJsonAsync("/v1/register", new RegisterRequest(email, "Sup3rSecret!"));
 
         var response = await client.PostAsJsonAsync(
-            "/register", new RegisterRequest(email, "An0therSecret!"));
+            "/v1/register", new RegisterRequest(email, "An0therSecret!"));
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
@@ -281,7 +281,7 @@ public class AuthEndpointsTests(AuthApiFactory factory)
         var client = factory.CreateClient();
 
         var response = await client.PostAsJsonAsync(
-            "/register", new RegisterRequest("not-an-email", "Sup3rSecret!"));
+            "/v1/register", new RegisterRequest("not-an-email", "Sup3rSecret!"));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);

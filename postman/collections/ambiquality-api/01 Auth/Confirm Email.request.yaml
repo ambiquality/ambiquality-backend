@@ -1,5 +1,5 @@
 $kind: http-request
-url: "{{baseUrl}}/auth/confirm-email?userId={{confirmUserId}}&token={{confirmToken}}"
+url: "{{baseUrl}}/auth/v1/confirm-email?userId={{confirmUserId}}&token={{confirmToken}}"
 method: GET
 queryParams:
   userId: "{{confirmUserId}}"

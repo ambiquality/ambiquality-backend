@@ -1,5 +1,5 @@
 $kind: http-request
-url: "{{baseUrl}}/evidence/buildings/{{buildingId}}/rooms/{{roomId}}/pollution-sources"
+url: "{{baseUrl}}/evidence/v1/buildings/{{buildingId}}/rooms/{{roomId}}/pollution-sources"
 method: POST
 headers:
   Content-Type: application/json
@@ -8,6 +8,6 @@ body:
   content: '{"sourceCode": "chemicals","validFrom": "{{now}}"}'
 scripts:
   - type: afterResponse
-    code: pm.test('Status 200', () => pm.response.to.have.status(200));
+    code: pm.test('Status 204', () => pm.response.to.have.status(204));
     language: text/javascript
 order: 10000

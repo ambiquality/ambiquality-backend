@@ -1,25 +1,19 @@
+using Ambiquality.Evidence.Api.Domain.Common;
 using NpgsqlTypes;
 
 namespace Ambiquality.Evidence.Api.Domain.Rooms;
 
-public sealed class RoomVentilationHistory
+public sealed class RoomVentilationHistory : HistoryRow
 {
     public Guid RoomId { get; init; }
-    public NpgsqlRange<DateTime> Validity { get; set; }
     public string? VentilationType { get; init; }
-    public DateTime RecordedAt { get; init; }
-    public Guid RecordedBy { get; init; }
 
     private RoomVentilationHistory() { }
 
     public RoomVentilationHistory(Guid roomId, NpgsqlRange<DateTime> validity, string? ventilationType, Guid recordedBy, DateTime recordedAt)
+        : base(validity, recordedBy, recordedAt)
     {
         RoomId = roomId;
-        Validity = validity;
         VentilationType = ventilationType;
-        RecordedAt = new DateTime(recordedAt.Ticks / 10 * 10, recordedAt.Kind);
-        RecordedBy = recordedBy;
     }
-
-    public void Close(DateTime validFrom) => Validity = Common.Validity.Closed(Validity.LowerBound, validFrom);
 }

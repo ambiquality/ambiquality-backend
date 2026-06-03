@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using Ambiquality.Evidence.Api.Api;
 using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Application.Rooms;
 using Ambiquality.Evidence.Api.Tests.Infrastructure;
+using Ambiquality.Evidence.Api.Tests.TestSupport;
 
 namespace Ambiquality.Evidence.Api.Tests.Api;
 
@@ -38,7 +40,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             YearRenovated = (int?)null
         };
 
-        var response = await _client.PostAsJsonAsync("/buildings", buildingRequest);
+        var response = await _client.PostAsJsonAsync("/v1/buildings", buildingRequest);
         var buildingResult = await response.Content.ReadFromJsonAsync<RegisterBuildingResult>();
         _buildingId = buildingResult?.Id ?? throw new InvalidOperationException("Failed to create test building");
     }
@@ -62,7 +64,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: "mechanical",
             PollutionSources: new[] { "traffic" });
 
-        var response = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", request);
+        var response = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", request);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
@@ -71,6 +73,39 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
         Assert.Matches(SlugPattern, result.UriSlug);
         Assert.Equal("Conference Room", result.Name);
         Assert.Equal(1, result.Floor);
+    }
+
+    [Fact]
+    public async Task ListRooms_AsOwner_ReturnsBuildingsRooms()
+    {
+        async Task RegisterRoomAsync(string name) =>
+            (await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", new RegisterRoomRequest(
+                Name: name, Floor: 1, FunctionCode: null, ExposureCode: null,
+                AreaM2: null, CeilingHeightM: null, VentilationType: null,
+                PollutionSources: Array.Empty<string>()))).EnsureSuccessStatusCode();
+
+        await RegisterRoomAsync("List Room A");
+        await RegisterRoomAsync("List Room B");
+
+        var response = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var rooms = (await response.Content.ReadFromJsonAsync<List<RoomSnapshotResponse>>())!;
+
+        Assert.Equal(2, rooms.Count);
+        Assert.Contains(rooms, r => r.Name == "List Room A");
+        Assert.Contains(rooms, r => r.Name == "List Room B");
+        Assert.All(rooms, r => Assert.Equal(_buildingId, r.BuildingId));
+    }
+
+    [Fact]
+    public async Task ListRooms_ByNonOwner_Returns403()
+    {
+        using var otherUser = _factory.CreateClient();
+        otherUser.DefaultRequestHeaders.Add(TestAuthHandler.SubHeader, Guid.NewGuid().ToString());
+
+        var response = await otherUser.GetAsync($"/v1/buildings/{_buildingId}/rooms");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
@@ -87,12 +122,12 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: "mechanical",
             PollutionSources: new[] { "chemicals" });
 
-        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registerResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         var roomId = registeredRoom!.Id;
 
         // Now retrieve it by ID
-        var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{roomId}");
+        var getResponse = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{roomId}");
 
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
         var retrievedRoom = await getResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
@@ -117,11 +152,11 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: "natural",
             PollutionSources: Array.Empty<string>());
 
-        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registerResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
 
         // Now retrieve it by its server-generated slug
-        var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{registeredRoom!.UriSlug}");
+        var getResponse = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{registeredRoom!.UriSlug}");
 
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
         var retrievedRoom = await getResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
@@ -145,14 +180,14 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: "mechanical",
             PollutionSources: Array.Empty<string>());
 
-        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registerResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         var roomId = registeredRoom!.Id;
         var registrationTime = registeredRoom.AsOf;
 
         // Retrieve at the time of registration
         var asOfQuery = registrationTime.ToString("o");
-        var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{roomId}?asOf={Uri.EscapeDataString(asOfQuery)}");
+        var getResponse = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{roomId}?asOf={Uri.EscapeDataString(asOfQuery)}");
 
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
         var retrievedRoom = await getResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
@@ -164,7 +199,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     public async Task GetRoomById_WithNonexistentId_Returns404NotFound()
     {
         var nonexistentId = Guid.NewGuid();
-        var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{nonexistentId}");
+        var getResponse = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{nonexistentId}");
 
         Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
     }
@@ -172,7 +207,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
     [Fact]
     public async Task GetRoomBySlug_WithNonexistentSlug_Returns404NotFound()
     {
-        var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/nonexistent-slug");
+        var getResponse = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/nonexistent-slug");
 
         Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
     }
@@ -191,13 +226,13 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: "mechanical",
             PollutionSources: Array.Empty<string>());
 
-        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registerResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         var roomId = registeredRoom!.Id;
 
         // Try to retrieve with wrong building ID
         var wrongBuildingId = Guid.NewGuid();
-        var getResponse = await _client.GetAsync($"/buildings/{wrongBuildingId}/rooms/{roomId}");
+        var getResponse = await _client.GetAsync($"/v1/buildings/{wrongBuildingId}/rooms/{roomId}");
 
         Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
     }
@@ -216,7 +251,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: "mechanical",
             PollutionSources: Array.Empty<string>());
 
-        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registerResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         var roomId = registeredRoom!.Id;
 
@@ -226,13 +261,13 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             ValidFrom: DateTime.UtcNow);
 
         var changeResponse = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{roomId}/name",
+            $"/v1/buildings/{_buildingId}/rooms/{roomId}/name",
             changeRequest);
 
         Assert.Equal(HttpStatusCode.NoContent, changeResponse.StatusCode);
 
         // Verify the change by retrieving the room
-        var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{roomId}");
+        var getResponse = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{roomId}");
         var updatedRoom = await getResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         Assert.Equal("Updated Name", updatedRoom!.Name);
     }
@@ -251,29 +286,29 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: null,
             PollutionSources: Array.Empty<string>());
 
-        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registerResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         var roomId = registeredRoom!.Id;
 
         // Change the floor
-        var changeRequest = new ChangeRoomAttributeRequest(
-            NewValue: "3",
+        var changeRequest = new ChangeRoomFloorRequest(
+            Floor: 3,
             ValidFrom: DateTime.UtcNow);
 
         var changeResponse = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{roomId}/floor",
+            $"/v1/buildings/{_buildingId}/rooms/{roomId}/floor",
             changeRequest);
 
         Assert.Equal(HttpStatusCode.NoContent, changeResponse.StatusCode);
 
         // Verify the change
-        var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{roomId}");
+        var getResponse = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{roomId}");
         var updatedRoom = await getResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         Assert.Equal(3, updatedRoom!.Floor);
     }
 
     [Fact]
-    public async Task AddPollutionSource_WithValidData_Returns200Ok()
+    public async Task AddPollutionSource_WithValidData_Returns204NoContent()
     {
         // Register a room first
         var registerRequest = new RegisterRoomRequest(
@@ -286,7 +321,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: null,
             PollutionSources: Array.Empty<string>());
 
-        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registerResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         var roomId = registeredRoom!.Id;
 
@@ -296,19 +331,19 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             ValidFrom: DateTime.UtcNow);
 
         var addResponse = await _client.PostAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{roomId}/pollution-sources",
+            $"/v1/buildings/{_buildingId}/rooms/{roomId}/pollution-sources",
             addRequest);
 
-        Assert.Equal(HttpStatusCode.OK, addResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, addResponse.StatusCode);
 
         // Verify the source was added
-        var getResponse = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{roomId}");
+        var getResponse = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{roomId}");
         var updatedRoom = await getResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         Assert.Contains("chemicals", updatedRoom!.PollutionSources);
     }
 
     [Fact]
-    public async Task RemovePollutionSource_WithValidData_Returns200Ok()
+    public async Task RemovePollutionSource_WithValidData_Returns204NoContent()
     {
         // Register a room with pollution source
         var registerRequest = new RegisterRoomRequest(
@@ -321,23 +356,24 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: null,
             PollutionSources: new[] { "traffic" });
 
-        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registerResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         var roomId = registeredRoom!.Id;
 
         // Verify source exists
-        var beforeRemoval = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{roomId}");
+        var beforeRemoval = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{roomId}");
         var beforeRoom = await beforeRemoval.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         Assert.Contains("traffic", beforeRoom!.PollutionSources);
 
-        // Remove pollution source
-        var removeUrl = $"/buildings/{_buildingId}/rooms/{roomId}/pollution-sources/traffic?validTo={Uri.EscapeDataString(DateTime.UtcNow.ToString("o"))}";
-        var removeResponse = await _client.DeleteAsync(removeUrl);
+        // Close the pollution source's validity via PUT with validTo in the body
+        var removeResponse = await _client.PutAsJsonAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{roomId}/pollution-sources/traffic",
+            new RemovePollutionSourceRequest(ValidTo: DateTime.UtcNow));
 
-        Assert.Equal(HttpStatusCode.OK, removeResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, removeResponse.StatusCode);
 
         // Verify source was removed at current time
-        var afterRemoval = await _client.GetAsync($"/buildings/{_buildingId}/rooms/{roomId}");
+        var afterRemoval = await _client.GetAsync($"/v1/buildings/{_buildingId}/rooms/{roomId}");
         var afterRoom = await afterRemoval.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         Assert.DoesNotContain("traffic", afterRoom!.PollutionSources);
     }
@@ -355,7 +391,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: null,
             PollutionSources: Array.Empty<string>());
 
-        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registerResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         var roomId = registeredRoom!.Id;
 
@@ -366,7 +402,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             ValidFrom: DateTime.UtcNow.AddYears(-1));
 
         var changeResponse = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{roomId}/name",
+            $"/v1/buildings/{_buildingId}/rooms/{roomId}/name",
             changeRequest);
 
         Assert.Equal(HttpStatusCode.BadRequest, changeResponse.StatusCode);
@@ -380,7 +416,7 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             ValidFrom: DateTime.UtcNow.AddHours(1));
 
         var changeResponse = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{Guid.NewGuid()}/name",
+            $"/v1/buildings/{_buildingId}/rooms/{Guid.NewGuid()}/name",
             changeRequest);
 
         Assert.Equal(HttpStatusCode.NotFound, changeResponse.StatusCode);
@@ -399,22 +435,26 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: null,
             PollutionSources: Array.Empty<string>());
 
-        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registerResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         var roomId = registeredRoom!.Id;
 
         var getResponse = await _client.GetAsync(
-            $"/buildings/{_buildingId}/rooms/{roomId}?asOf=not-a-timestamp");
+            $"/v1/buildings/{_buildingId}/rooms/{roomId}?asOf=not-a-timestamp");
 
         Assert.Equal(HttpStatusCode.BadRequest, getResponse.StatusCode);
     }
 
+    // Raw JSON floor tokens that the typed ChangeRoomFloorRequest(byte Floor)
+    // must reject as a client error (problem+json), never a 500. The first three
+    // fail framework byte-binding; "200" binds as a byte but trips the endpoint's
+    // 0–100 domain guard.
     [Theory]
-    [InlineData("abc")]   // non-numeric → byte.Parse FormatException would 500
-    [InlineData("-1")]    // negative → byte.Parse FormatException would 500
-    [InlineData("300")]   // > 255 → byte.Parse OverflowException would 500
-    [InlineData("200")]   // parses as a byte but > 100 → FloorNumber.Create would 500
-    public async Task ChangeRoomFloor_WithInvalidValue_Returns400ProblemJson(string newValue)
+    [InlineData("\"abc\"")] // non-numeric → byte binding 400
+    [InlineData("-1")]      // negative → byte binding 400
+    [InlineData("300")]     // > 255 → byte binding 400
+    [InlineData("200")]     // valid byte but > 100 → domain guard 400
+    public async Task ChangeRoomFloor_WithInvalidValue_Returns400ProblemJson(string floorJson)
     {
         var registerRequest = new RegisterRoomRequest(
             Name: "Bad Floor Room",
@@ -426,17 +466,14 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             VentilationType: null,
             PollutionSources: Array.Empty<string>());
 
-        var registerResponse = await _client.PostAsJsonAsync($"/buildings/{_buildingId}/rooms", registerRequest);
+        var registerResponse = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", registerRequest);
         var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
         var roomId = registeredRoom!.Id;
 
-        var changeRequest = new ChangeRoomAttributeRequest(
-            NewValue: newValue,
-            ValidFrom: DateTime.UtcNow);
-
-        var changeResponse = await _client.PutAsJsonAsync(
-            $"/buildings/{_buildingId}/rooms/{roomId}/floor",
-            changeRequest);
+        var body = $$"""{"floor": {{floorJson}}, "validFrom": "{{DateTime.UtcNow:o}}"}""";
+        var changeResponse = await _client.PutAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{roomId}/floor",
+            new StringContent(body, Encoding.UTF8, "application/json"));
 
         // A malformed floor must be rejected at the edge as a client error
         // (problem+json), never escape as a 500.

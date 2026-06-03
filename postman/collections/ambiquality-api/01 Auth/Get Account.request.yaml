@@ -1,5 +1,5 @@
 $kind: http-request
-url: "{{baseUrl}}/auth/account/me"
+url: "{{baseUrl}}/auth/v1/account/me"
 method: GET
 scripts:
   - type: afterResponse

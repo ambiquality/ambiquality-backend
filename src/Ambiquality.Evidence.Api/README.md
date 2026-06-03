@@ -36,9 +36,10 @@ carrying a **validity period**:
   the database level that two history rows for the same attribute can never overlap in time.
 
 Reads accept an optional **`asOf`** query parameter (ISO-8601 UTC, default = now) to project
-the aggregate's state at any past instant. Mutations accept an optional **`validTo`** /
-valid-from to control the effective instant of the change. Invalid or non-UTC timestamps are
-rejected with a 400 (`Problems.TryParseAsOf` / `TryParseValidTo`).
+the aggregate's state at any past instant (parsed by `Problems.TryParseAsOf`). Mutations carry
+the effective instant in the request body — `validFrom` on the attribute PUTs, `validTo` on the
+collection-closing PUTs (`PUT …/pollution-sources/{code}`, `PUT …/measured-parameters/{code}`).
+Invalid or non-UTC timestamps are rejected with a 400.
 
 ## Architecture
 

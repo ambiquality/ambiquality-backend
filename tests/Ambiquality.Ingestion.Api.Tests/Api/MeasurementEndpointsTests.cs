@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Ambiquality.Ingestion.Api.Api;
 using Ambiquality.Ingestion.Api.Tests.Infrastructure;
 
@@ -26,7 +27,7 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
     private async Task<HttpResponseMessage> PostAsync(
         Guid sensorId, string parameterCode, double value, string? apiKey)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, "/measurements")
+        var request = new HttpRequestMessage(HttpMethod.Post, "/v1/measurements")
         {
             Content = JsonContent.Create(new
             {
@@ -132,5 +133,13 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
         Assert.Empty(_factory.Queue.Published);
+
+        // Every problem carries the urn:ambiquality:ingestion:<reason> type, uniform
+        // with the other services (A3 of the REST-consistency work).
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(
+            "urn:ambiquality:ingestion:value-out-of-range",
+            problem.RootElement.GetProperty("type").GetString());
     }
 }

@@ -1,6 +1,10 @@
+using Ambiquality.Evidence.Api.Application.Abstractions;
+using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Application.Sensors;
 using Ambiquality.Evidence.Api.Domain;
+using Ambiquality.Evidence.Api.Domain.Buildings;
 using Ambiquality.Evidence.Api.Domain.Common;
+using Ambiquality.Evidence.Api.Domain.Rooms;
 using Ambiquality.Evidence.Api.Domain.Sensors;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -8,7 +12,7 @@ namespace Ambiquality.Evidence.Api.Api;
 
 public static class SensorEndpoints
 {
-    public static void MapSensorEndpoints(this WebApplication app)
+    public static void MapSensorEndpoints(this IEndpointRouteBuilder app)
     {
         // Mutations require a valid bearer token; reads opt out via AllowAnonymous.
         var group = app.MapGroup("/buildings/{buildingId:guid}/rooms/{roomId:guid}/sensors")
@@ -19,6 +23,13 @@ public static class SensorEndpoints
             .WithName("RegisterSensor")
             .WithOpenApi()
             .WithDescription("Register a new sensor in a room");
+
+        // Owner-scoped listing: authenticated (no AllowAnonymous), requires the
+        // caller to own the containing building. GET + HEAD share the route, so
+        // .WithOpenApi() is omitted (it throws on multi-method routes).
+        group.MapMethods("/", ["GET", "HEAD"], ListSensors)
+            .WithName("ListSensors")
+            .WithDescription("List the sensors of a room in a building the caller owns");
 
         // GET + HEAD share one route; the AddOpenApi pipeline advertises both
         // methods from route metadata, so .WithOpenApi() is omitted here.
@@ -35,27 +46,31 @@ public static class SensorEndpoints
         group.MapPut("/{sensorId:guid}/identity", ChangeSensorIdentity)
             .WithName("ChangeSensorIdentity")
             .WithOpenApi()
-            .WithDescription("Change sensor hardware identity (manufacturer, model, serial)");
+            .WithDescription("Record new sensor identity (manufacturer, model, serial) effective from validFrom (appends history)");
 
         group.MapPut("/{sensorId:guid}/placement", ChangeSensorPlacement)
             .WithName("ChangeSensorPlacement")
             .WithOpenApi()
-            .WithDescription("Relocate the sensor to a different room");
+            .WithDescription("Record a new sensor placement (room) effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{sensorId:guid}/status", ChangeSensorStatus)
             .WithName("ChangeSensorStatus")
             .WithOpenApi()
-            .WithDescription("Change sensor lifecycle status");
+            .WithDescription("Record a new sensor lifecycle status effective from validFrom (appends history, does not overwrite)");
 
         group.MapPost("/{sensorId:guid}/measured-parameters", AddMeasuredParameter)
             .WithName("AddMeasuredParameter")
             .WithOpenApi()
-            .WithDescription("Add a measured parameter capability to the sensor");
+            .WithDescription("Record a measured-parameter capability effective from validFrom (appends history)");
 
-        group.MapDelete("/{sensorId:guid}/measured-parameters/{parameterCode}", RemoveMeasuredParameter)
+        // PUT, not DELETE: closing a capability's validity period is a soft-history
+        // mutation — nothing is physically removed (RFC 9110 §9.3.4 vs §9.3.5). The
+        // effective end instant travels in the body, uniform with every other
+        // temporal mutation.
+        group.MapPut("/{sensorId:guid}/measured-parameters/{parameterCode}", RemoveMeasuredParameter)
             .WithName("RemoveMeasuredParameter")
             .WithOpenApi()
-            .WithDescription("Remove a measured parameter capability from the sensor");
+            .WithDescription("Close a measured-parameter capability's validity as of validTo (soft history)");
     }
 
     private static async Task<Results<Created<SensorRegisteredResponse>, ProblemHttpResult>> RegisterSensor(
@@ -93,7 +108,52 @@ public static class SensorEndpoints
                 ApiKey: result.ApiKey);
 
             return TypedResults.Created(
-                $"/buildings/{buildingId}/rooms/{roomId}/sensors/{result.SensorId}", response);
+                $"/{Constants.ApiVersion}/buildings/{buildingId}/rooms/{roomId}/sensors/{result.SensorId}", response);
+        }
+        catch (DomainException ex)
+        {
+            return Problems.ToProblemResult(ex);
+        }
+    }
+
+    private static async Task<Results<Ok<IReadOnlyList<SensorSnapshotResponse>>, ProblemHttpResult>> ListSensors(
+        Guid buildingId,
+        Guid roomId,
+        ISensorRepository repository,
+        IRoomRepository roomRepository,
+        IBuildingRepository buildingRepository,
+        ICurrentUser currentUser,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var asOfError = Problems.TryParseAsOf(context, out var asOf);
+        if (asOfError is not null)
+            return asOfError;
+
+        try
+        {
+            // Owner-scoped: caller must own the building (403 otherwise, 404 if the
+            // building is unknown).
+            await BuildingAuthorizer.LoadOwnedAsync(
+                buildingRepository, buildingId, currentUser, cancellationToken);
+
+            // The room must exist and sit in the building named in the route.
+            var room = await roomRepository.GetByIdAsync(roomId, cancellationToken);
+            if (room is null || room.BuildingId != buildingId)
+                return Problems.ToProblemResult(new RoomNotFoundException(roomId));
+
+            var sensors = await repository.GetByRoomIdAsync(roomId, cancellationToken);
+            var responses = new List<SensorSnapshotResponse>();
+            foreach (var sensor in sensors)
+            {
+                // GetByRoomIdAsync filters on the denormalised current placement;
+                // re-check the snapshot so an asOf in the past only includes sensors
+                // that were actually in this room/building at that instant.
+                var snapshot = sensor.SnapshotAt(asOf);
+                if (snapshot.BuildingId == buildingId && snapshot.RoomId == roomId)
+                    responses.Add(ToResponse(snapshot));
+            }
+            return TypedResults.Ok((IReadOnlyList<SensorSnapshotResponse>)responses);
         }
         catch (DomainException ex)
         {
@@ -200,7 +260,7 @@ public static class SensorEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> AddMeasuredParameter(
+    private static async Task<Results<NoContent, ProblemHttpResult>> AddMeasuredParameter(
         Guid buildingId,
         Guid roomId,
         Guid sensorId,
@@ -212,7 +272,7 @@ public static class SensorEndpoints
         {
             var command = new AddSensorMeasuredParameterCommand(sensorId, request.ParameterCode, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {
@@ -220,24 +280,20 @@ public static class SensorEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> RemoveMeasuredParameter(
+    private static async Task<Results<NoContent, ProblemHttpResult>> RemoveMeasuredParameter(
         Guid buildingId,
         Guid roomId,
         Guid sensorId,
         string parameterCode,
+        RemoveMeasuredParameterRequest request,
         RemoveSensorMeasuredParameterHandler handler,
-        HttpContext context,
         CancellationToken cancellationToken)
     {
-        var validToError = Problems.TryParseValidTo(context, out var validTo);
-        if (validToError is not null)
-            return validToError;
-
         try
         {
-            var command = new RemoveSensorMeasuredParameterCommand(sensorId, parameterCode, validTo);
+            var command = new RemoveSensorMeasuredParameterCommand(sensorId, parameterCode, request.ValidTo);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {

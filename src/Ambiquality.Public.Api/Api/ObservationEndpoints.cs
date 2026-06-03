@@ -21,7 +21,11 @@ public static class ObservationEndpoints
             .WithDescription(
                 "Keyset-paginated measurements as SSN/SOSA observations. Filters: from, to, "
                 + "sensorId, parameterCode, buildingId, roomId, bbox, includeInvalid, limit, cursor. "
-                + "Negotiates application/json (default), application/ld+json, and text/csv.");
+                + "Negotiates application/json (default), application/ld+json, and text/csv. "
+                + "Paging is keyset (opaque cursor), not offset: the observations hypertable is "
+                + "append-only and unbounded, so a cursor gives stable, gap-free pages and constant "
+                + "latency at any depth — unlike the catalog endpoints, which use small, bounded "
+                + "offset/page collections.");
 
         group.MapMethods("/{id:guid}", ["GET", "HEAD"], GetObservationById)
             .WithName("GetObservationById")

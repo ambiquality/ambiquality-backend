@@ -35,6 +35,16 @@ public sealed record ChangeRoomAttributeRequest(
     string NewValue,
     DateTime ValidFrom);
 
+/// <summary>
+/// Typed floor change: the framework binds and range-checks <c>Floor</c> as a byte,
+/// so a non-numeric, negative or &gt;255 value is rejected as 400 before the handler
+/// runs — the handler never parses a string. The domain accepts 0–100, so the
+/// endpoint additionally rejects 101–255 as a 400.
+/// </summary>
+public sealed record ChangeRoomFloorRequest(
+    byte Floor,
+    DateTime ValidFrom);
+
 public sealed record ChangeRoomGeometryRequest(
     double? AreaM2,
     double? CeilingHeightM,

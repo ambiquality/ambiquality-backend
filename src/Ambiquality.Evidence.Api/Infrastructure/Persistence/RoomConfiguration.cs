@@ -98,32 +98,6 @@ public sealed class RoomConfiguration : IEntityTypeConfiguration<Room>
                 .IsRequired();
         });
 
-        // Building history (tracks building_id changes if a room is moved)
-        builder.OwnsMany(r => r.BuildingHistory, bh =>
-        {
-            bh.ToTable("room_building_history");
-            bh.WithOwner().HasForeignKey(o => o.RoomId);
-            bh.Property(o => o.RoomId).HasColumnName("room_id");
-            bh.HasKey(o => new { o.RoomId, o.RecordedAt });
-
-            bh.Property(b => b.BuildingId)
-                .HasColumnName("building_id")
-                .IsRequired();
-
-            bh.Property(b => b.Validity)
-                .HasColumnName("validity")
-                .HasColumnType("tstzrange")
-                .IsRequired();
-
-            bh.Property(b => b.RecordedAt)
-                .HasColumnName("recorded_at")
-                .IsRequired();
-
-            bh.Property(b => b.RecordedBy)
-                .HasColumnName("recorded_by")
-                .IsRequired();
-        });
-
         // Function history (room function code from codelist)
         builder.OwnsMany(r => r.FunctionHistory, fnh =>
         {

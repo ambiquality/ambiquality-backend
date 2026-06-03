@@ -58,7 +58,9 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-app.MapMeasurementEndpoints();
+// Mount under /v1 so the ingestion contract is versioned like the other services
+// (Caddy strips the /ingestion prefix, leaving /v1/measurements).
+app.MapGroup("/v1").MapMeasurementEndpoints();
 
 app.Run();
 

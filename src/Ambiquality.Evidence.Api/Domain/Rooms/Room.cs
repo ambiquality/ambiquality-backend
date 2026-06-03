@@ -22,9 +22,6 @@ public sealed class Room
     private readonly List<RoomFloorHistory> _floorHistory = [];
     public IReadOnlyCollection<RoomFloorHistory> FloorHistory => _floorHistory.AsReadOnly();
 
-    private readonly List<RoomBuildingHistory> _buildingHistory = [];
-    public IReadOnlyCollection<RoomBuildingHistory> BuildingHistory => _buildingHistory.AsReadOnly();
-
     private readonly List<RoomFunctionHistory> _functionHistory = [];
     public IReadOnlyCollection<RoomFunctionHistory> FunctionHistory => _functionHistory.AsReadOnly();
 
@@ -68,7 +65,6 @@ public sealed class Room
 
         room._nameHistory.Add(new RoomNameHistory(id, validity, name, createdBy, now));
         room._floorHistory.Add(new RoomFloorHistory(id, validity, floor.Value, createdBy, now));
-        room._buildingHistory.Add(new RoomBuildingHistory(id, validity, buildingId, createdBy, now));
         room._functionHistory.Add(new RoomFunctionHistory(id, validity, functionCode, createdBy, now));
         room._exposureHistory.Add(new RoomExposureHistory(id, validity, exposureCode, createdBy, now));
         room._geometryHistory.Add(new RoomGeometryHistory(id, validity, areaM2, ceilingHeightM, createdBy, now));
@@ -202,15 +198,15 @@ public sealed class Room
             BuildingId: BuildingId,
             CreatedAt: CreatedAt,
             CreatedBy: CreatedBy,
-            Name: _nameHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).Name,
-            Floor: _floorHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).Floor,
-            FunctionCode: _functionHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).FunctionCode,
-            ExposureCode: _exposureHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).ExposureCode,
-            AreaM2: _geometryHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).AreaM2,
-            CeilingHeightM: _geometryHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).CeilingHeightM,
-            VentilationType: _ventilationHistory.Single(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound)).VentilationType,
+            Name: _nameHistory.Single(h => Validity.Covers(h.Validity, asOf)).Name,
+            Floor: _floorHistory.Single(h => Validity.Covers(h.Validity, asOf)).Floor,
+            FunctionCode: _functionHistory.Single(h => Validity.Covers(h.Validity, asOf)).FunctionCode,
+            ExposureCode: _exposureHistory.Single(h => Validity.Covers(h.Validity, asOf)).ExposureCode,
+            AreaM2: _geometryHistory.Single(h => Validity.Covers(h.Validity, asOf)).AreaM2,
+            CeilingHeightM: _geometryHistory.Single(h => Validity.Covers(h.Validity, asOf)).CeilingHeightM,
+            VentilationType: _ventilationHistory.Single(h => Validity.Covers(h.Validity, asOf)).VentilationType,
             PollutionSources: _pollutionSourceHistory
-                .Where(h => asOf >= h.Validity.LowerBound && (h.Validity.UpperBoundInfinite || asOf < h.Validity.UpperBound))
+                .Where(h => Validity.Covers(h.Validity, asOf))
                 .Select(h => h.SourceCode)
                 .ToList(),
             AsOf: asOf);

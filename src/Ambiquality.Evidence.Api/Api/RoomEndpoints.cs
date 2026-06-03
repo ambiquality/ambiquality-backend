@@ -1,5 +1,8 @@
+using Ambiquality.Evidence.Api.Application.Abstractions;
+using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Application.Rooms;
 using Ambiquality.Evidence.Api.Domain;
+using Ambiquality.Evidence.Api.Domain.Buildings;
 using Ambiquality.Evidence.Api.Domain.Common;
 using Ambiquality.Evidence.Api.Domain.Rooms;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -8,7 +11,7 @@ namespace Ambiquality.Evidence.Api.Api;
 
 public static class RoomEndpoints
 {
-    public static void MapRoomEndpoints(this WebApplication app)
+    public static void MapRoomEndpoints(this IEndpointRouteBuilder app)
     {
         // Mutations require a valid bearer token; reads opt out via AllowAnonymous.
         var group = app.MapGroup("/buildings/{buildingId:guid}/rooms")
@@ -19,6 +22,13 @@ public static class RoomEndpoints
             .WithName("RegisterRoom")
             .WithOpenApi()
             .WithDescription("Register a new room in a building");
+
+        // Owner-scoped listing: authenticated (no AllowAnonymous), requires the
+        // caller to own the containing building. GET + HEAD share the route, so
+        // .WithOpenApi() is omitted (it throws on multi-method routes).
+        group.MapMethods("/", ["GET", "HEAD"], ListRooms)
+            .WithName("ListRooms")
+            .WithDescription("List the rooms of a building the caller owns");
 
         // GET + HEAD share one route. The modern AddOpenApi pipeline advertises
         // both methods from route metadata; the legacy .WithOpenApi() helper is
@@ -36,42 +46,46 @@ public static class RoomEndpoints
         group.MapPut("/{roomId:guid}/name", ChangeRoomName)
             .WithName("ChangeRoomName")
             .WithOpenApi()
-            .WithDescription("Change room name");
+            .WithDescription("Record a new room name effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/floor", ChangeRoomFloor)
             .WithName("ChangeRoomFloor")
             .WithOpenApi()
-            .WithDescription("Change room floor");
+            .WithDescription("Record a new room floor effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/function", ChangeRoomFunction)
             .WithName("ChangeRoomFunction")
             .WithOpenApi()
-            .WithDescription("Change room function code");
+            .WithDescription("Record a new room function effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/exposure", ChangeRoomExposure)
             .WithName("ChangeRoomExposure")
             .WithOpenApi()
-            .WithDescription("Change room exposure category");
+            .WithDescription("Record a new room exposure effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/geometry", ChangeRoomGeometry)
             .WithName("ChangeRoomGeometry")
             .WithOpenApi()
-            .WithDescription("Change room geometry (area, ceiling height)");
+            .WithDescription("Record new room geometry (area, ceiling height) effective from validFrom (appends history)");
 
         group.MapPut("/{roomId:guid}/ventilation", ChangeRoomVentilation)
             .WithName("ChangeRoomVentilation")
             .WithOpenApi()
-            .WithDescription("Change room ventilation type");
+            .WithDescription("Record a new room ventilation type effective from validFrom (appends history, does not overwrite)");
 
         group.MapPost("/{roomId:guid}/pollution-sources", AddPollutionSource)
             .WithName("AddPollutionSource")
             .WithOpenApi()
-            .WithDescription("Add pollution source to room");
+            .WithDescription("Record a pollution source effective from validFrom (appends history)");
 
-        group.MapDelete("/{roomId:guid}/pollution-sources/{sourceCode}", RemovePollutionSource)
+        // PUT, not DELETE: closing a pollution source's validity period is a
+        // soft-history mutation — nothing is physically removed (RFC 9110 §9.3.4
+        // vs §9.3.5). The effective end instant travels in the body, uniform with
+        // every other temporal mutation.
+        group.MapPut("/{roomId:guid}/pollution-sources/{sourceCode}", RemovePollutionSource)
             .WithName("RemovePollutionSource")
             .WithOpenApi()
-            .WithDescription("Remove pollution source from room");
+            .WithDescription("Close a pollution source's validity as of validTo (soft history)");
     }
 
     private static async Task<Results<Created<RoomSnapshotResponse>, ProblemHttpResult>> RegisterRoom(
@@ -108,7 +122,38 @@ public static class RoomEndpoints
                 PollutionSources: request.PollutionSources,
                 AsOf: DateTime.UtcNow);
 
-            return TypedResults.Created($"/buildings/{buildingId}/rooms/{result.RoomId}", response);
+            return TypedResults.Created($"/{Constants.ApiVersion}/buildings/{buildingId}/rooms/{result.RoomId}", response);
+        }
+        catch (DomainException ex)
+        {
+            return Problems.ToProblemResult(ex);
+        }
+    }
+
+    private static async Task<Results<Ok<IReadOnlyList<RoomSnapshotResponse>>, ProblemHttpResult>> ListRooms(
+        Guid buildingId,
+        IRoomRepository repository,
+        IBuildingRepository buildingRepository,
+        ICurrentUser currentUser,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var asOfError = Problems.TryParseAsOf(context, out var asOf);
+        if (asOfError is not null)
+            return asOfError;
+
+        try
+        {
+            // Owner-scoped: rejects a non-owner (403) or unknown building (404)
+            // before any room is read.
+            await BuildingAuthorizer.LoadOwnedAsync(
+                buildingRepository, buildingId, currentUser, cancellationToken);
+
+            var rooms = await repository.GetByBuildingIdAsync(buildingId, cancellationToken);
+            var responses = rooms
+                .Select(r => ToResponse(r.SnapshotAt(asOf)))
+                .ToList();
+            return TypedResults.Ok((IReadOnlyList<RoomSnapshotResponse>)responses);
         }
         catch (DomainException ex)
         {
@@ -188,16 +233,15 @@ public static class RoomEndpoints
     private static async Task<Results<NoContent, ProblemHttpResult>> ChangeRoomFloor(
         Guid buildingId,
         Guid roomId,
-        ChangeRoomAttributeRequest request,
+        ChangeRoomFloorRequest request,
         ChangeRoomFloorHandler handler,
         CancellationToken cancellationToken)
     {
-        // Guard the floor parse at the edge: byte.Parse would throw
-        // FormatException/OverflowException (escaping as a 500) on "abc"/"-1"/
-        // "300", and a parsed-but-too-large value (101–255) would trip
-        // FloorNumber.Create's ArgumentException — also a 500. The domain accepts
-        // 0–100, so reject anything outside that here as a 400.
-        if (!byte.TryParse(request.NewValue, out var floor) || floor > 100)
+        // The framework already bound Floor as a byte (0–255), rejecting
+        // non-numeric / negative / >255 input as 400. The domain accepts 0–100,
+        // so 101–255 (a valid byte but FloorNumber.Create's ArgumentException,
+        // which would 500) is rejected here as a 400.
+        if (request.Floor > 100)
         {
             return Problems.InvalidAttributeValue(
                 "Floor must be an integer between 0 and 100.");
@@ -205,7 +249,7 @@ public static class RoomEndpoints
 
         try
         {
-            var command = new ChangeRoomFloorCommand(roomId, floor, request.ValidFrom);
+            var command = new ChangeRoomFloorCommand(roomId, request.Floor, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
             return TypedResults.NoContent();
         }
@@ -291,7 +335,7 @@ public static class RoomEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> AddPollutionSource(
+    private static async Task<Results<NoContent, ProblemHttpResult>> AddPollutionSource(
         Guid buildingId,
         Guid roomId,
         AddPollutionSourceRequest request,
@@ -302,7 +346,7 @@ public static class RoomEndpoints
         {
             var command = new AddRoomPollutionSourceCommand(roomId, request.SourceCode, request.ValidFrom);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {
@@ -310,23 +354,19 @@ public static class RoomEndpoints
         }
     }
 
-    private static async Task<Results<Ok, ProblemHttpResult>> RemovePollutionSource(
+    private static async Task<Results<NoContent, ProblemHttpResult>> RemovePollutionSource(
         Guid buildingId,
         Guid roomId,
         string sourceCode,
+        RemovePollutionSourceRequest request,
         RemoveRoomPollutionSourceHandler handler,
-        HttpContext context,
         CancellationToken cancellationToken)
     {
-        var validToError = Problems.TryParseValidTo(context, out var validTo);
-        if (validToError is not null)
-            return validToError;
-
         try
         {
-            var command = new RemoveRoomPollutionSourceCommand(roomId, sourceCode, validTo);
+            var command = new RemoveRoomPollutionSourceCommand(roomId, sourceCode, request.ValidTo);
             await handler.Handle(command, cancellationToken);
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
         catch (DomainException ex)
         {
