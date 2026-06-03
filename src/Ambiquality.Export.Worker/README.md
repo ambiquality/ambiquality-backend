@@ -25,6 +25,19 @@ No EF Core: all DB access is raw Npgsql (`ExportRepository`), the same pattern a
 Ingestion.Worker. The `MeasurementExport` entity and its migration are owned by
 Ingestion.Api's `IeqDbContext` migrations pipeline.
 
+## Feature of interest
+
+The JSON-LD archive tags each observation with `sosa:hasFeatureOfInterest` — the room the
+sensor occupied **at observation time**. Sensor placement is temporally versioned, so the
+room is resolved against the placement period covering each observation (not the sensor's
+current room). `SensorPlacementCatalog` reads `evidence.sensor_placement_history` once per
+export over a read-only `EvidenceDb` connection (the `export_worker` role has SELECT on the
+evidence schema); the bounded device registry is held in memory and resolved per row. A row
+with no covering placement simply omits the feature. The **CSV** archive keeps its fixed
+CSVW column set and does not carry it — matching Public.Api's live observations. This
+mirrors Public.Api's `sosa:hasFeatureOfInterest`, which the export cannot share code with
+(it streams the `ieq` database directly).
+
 ## Storage
 
 `IExportStorage` has two implementations selected by `Export:StorageType`:

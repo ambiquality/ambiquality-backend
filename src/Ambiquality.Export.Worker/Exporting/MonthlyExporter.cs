@@ -16,6 +16,7 @@ namespace Ambiquality.Export.Worker.Exporting;
 /// </summary>
 public sealed class MonthlyExporter(
     ExportRepository repository,
+    ISensorPlacementCatalog placements,
     IExportStorage storage,
     IOptions<ExportOptions> options,
     ILogger<MonthlyExporter> logger)
@@ -26,15 +27,21 @@ public sealed class MonthlyExporter(
 
     public IReadOnlyList<ExportFormat> Formats =>
     [
-        new ExportFormat("text/csv", "csv", "measurements.csv", CsvMeasurementSerializer.WriteAsync),
+        new ExportFormat("text/csv", "csv", "measurements.csv",
+            (rows, dest, _, ct) => CsvMeasurementSerializer.WriteAsync(rows, dest, ct)),
         new ExportFormat("application/ld+json", "jsonld", "measurements.jsonld",
-            (rows, dest, ct) => _jsonLd.WriteAsync(rows, dest, ct))
+            (rows, dest, foi, ct) => _jsonLd.WriteAsync(rows, dest, foi, ct))
     ];
 
     public async Task ExportAsync(ExportMonth month, ExportFormat format, CancellationToken ct)
     {
         var key = BuildKey(month, format);
         var tempPath = Path.GetTempFileName();
+
+        // The room each sensor occupied over time, to stamp every observation's feature of
+        // interest. The placement set is the bounded device registry, so it loads once here
+        // (not per row) and resolves in memory.
+        var featureOfInterest = await placements.LoadResolverAsync(ct);
 
         try
         {
@@ -46,7 +53,7 @@ public sealed class MonthlyExporter(
                     var entry = archive.CreateEntry(format.ZipEntryName, CompressionLevel.Optimal);
                     await using var entryStream = entry.Open();
                     var rows = repository.StreamMonthAsync(month.StartUtc, month.NextMonthStartUtc, ct);
-                    recordCount = await format.Serialize(rows, entryStream, ct);
+                    recordCount = await format.Serialize(rows, entryStream, featureOfInterest, ct);
                 }
 
                 temp.Position = 0;

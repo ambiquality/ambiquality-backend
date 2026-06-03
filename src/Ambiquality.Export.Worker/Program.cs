@@ -19,6 +19,17 @@ builder.Services.AddSingleton(_ =>
 
 builder.Services.AddSingleton<ExportRepository>();
 
+// evidence: read-only, to resolve each observation's feature of interest (the room the
+// sensor occupied at observation time) from the sensor placement history.
+builder.Services.AddSingleton(_ =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("EvidenceDb")
+        ?? throw new InvalidOperationException("Missing 'EvidenceDb' connection string.");
+    return new EvidenceDataSource(NpgsqlDataSource.Create(connectionString));
+});
+
+builder.Services.AddSingleton<ISensorPlacementCatalog, SensorPlacementCatalog>();
+
 var storageType = builder.Configuration.GetSection(ExportOptions.SectionName)["StorageType"];
 if (string.Equals(storageType, "S3", StringComparison.OrdinalIgnoreCase))
     builder.Services.AddSingleton<IExportStorage, S3ExportStorage>();
