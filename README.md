@@ -13,10 +13,12 @@ the write-heavy and read-heavy paths can scale separately. Each project has its 
 | Project | Status | Responsibility | Thesis FRs |
 |---------|--------|----------------|-----------|
 | [`Ambiquality.Auth.Api`](src/Ambiquality.Auth.Api/README.md) | **Built** | Authentication & account management | F01–F04 |
-| [`Ambiquality.Evidence.Api`](src/Ambiquality.Evidence.Api/README.md) | **Built** | Building & room registration / lifecycle catalog | F05–F09 |
-| [`Ambiquality.Ingestion.Api`](src/Ambiquality.Ingestion.Api/README.md) | **Built** | Write-only measurement ingestion & validation | F10 |
+| [`Ambiquality.Evidence.Api`](src/Ambiquality.Evidence.Api/README.md) | **Built** | Building, room & sensor registration / lifecycle catalog | F05–F09 |
+| [`Ambiquality.Ingestion.Api`](src/Ambiquality.Ingestion.Api/README.md) | **Built** | Validates a measurement and enqueues it (202); never writes the DB | F10 |
+| [`Ambiquality.Ingestion.Worker`](src/Ambiquality.Ingestion.Worker/README.md) | **Built** | Drains the Redis stream and bulk-inserts measurements into the hypertable | F10 |
 | [`Ambiquality.Public.Api`](src/Ambiquality.Public.Api/README.md) | **Built** | Read-only public/open-data API (JSON/JSON-LD/CSV), DCAT-AP 3.0, OpenAPI | F11–F17 |
-| [`Ambiquality.Core`](src/Ambiquality.Core/README.md) | **Built** | Shared library: `IeqDbContext`, measurement & range models | — |
+| [`Ambiquality.Export.Worker`](src/Ambiquality.Export.Worker/README.md) | **Built** | Publishes monthly downloadable archives (CSV + JSON-LD) to object storage | F17 |
+| [`Ambiquality.Core`](src/Ambiquality.Core/README.md) | **Built** | Shared library: `IeqDbContext`, measurement & range models, queue contract | — |
 
 Each `src/*` project has a matching test project under `tests/`.
 
@@ -64,28 +66,51 @@ cp .env.example .env
 [Caddy](https://caddyserver.com/) is the public ingress; the API services are not published
 directly except where noted. Routing is defined in `conf/Caddyfile`.
 
+Caddy's `handle_path` strips the matched prefix, so each service sees paths without it
+(e.g. `/public/v1/observations` reaches Public.Api as `/v1/observations`).
+
 | Endpoint | URL | Notes |
 |----------|-----|-------|
-| Auth API | <http://localhost:8080/> | Caddy default upstream → `auth-api:6100` |
+| Auth API | <http://localhost:8080/auth/> | Caddy `/auth/*` → `auth-api:6100` |
 | Evidence API | <http://localhost:8080/evidence/> | Caddy `/evidence/*` → `evidence-api:6200` |
-| Evidence API (direct) | <http://localhost:6200/> | Published for convenience/dev |
+| Ingestion API | <http://localhost:8080/ingestion/> | Caddy `/ingestion/*` → `ingestion-api:6300` |
+| Public API | <http://localhost:8080/public/> | Caddy `/public/*` → `public-api:6400` |
 | Mailpit (email UI) | <http://localhost:8025> | Catches all outgoing emails (dev profile) |
 | PostgreSQL + TimescaleDB | internal | Exposed on a random host port for debugging |
-| Redis | internal | Cache layer |
+| Redis | internal | **Durable ingestion queue** — Redis Streams + consumer groups, AOF `appendfsync always` |
+
+The Ingestion.Worker and Export.Worker are background services with no HTTP ingress.
 
 ## Architecture & conventions
 
-- **Two databases, one Postgres instance** (see `init-databases.sql`):
-  `auth` (owned by Auth.Api) and `evidence` (owned by Evidence.Api). Each service connects as
-  its own least-privilege role (`auth_api`, `evidence_api`). User identity never crosses a DB
-  boundary as a foreign key — it travels in the JWT `sub` claim.
+See [`docs/adr/0001-monorepo-and-service-per-bounded-context.md`](docs/adr/0001-monorepo-and-service-per-bounded-context.md)
+for the architecture decision record, and [`docs/er/`](docs/er/README.md) for the entity-relationship
+diagrams of the three schemas.
+
+- **Three databases, one Postgres instance** (see `init-databases.sql`):
+  `auth` (owned by Auth.Api), `evidence` (owned by Evidence.Api), and `ieq` (the
+  TimescaleDB `measurements` hypertable + `parameter_ranges`). Each service connects as its own
+  least-privilege role: `auth_api`, `evidence_api`, `ingestion_api` (rw on `ieq`), and
+  `public_api` (ro on `ieq` + `evidence`). User identity never crosses a DB boundary as a
+  foreign key — it travels in the JWT `sub` claim; a measurement's `sensor_id` references the
+  evidence catalog with no cross-database FK.
+- **Ingestion is a queue + worker write path.** Ingestion.Api validates a measurement
+  synchronously, stamps `received_at`, and appends it to a durable Redis stream, returning
+  **202 Accepted** (or **503** if the enqueue fails) — it never touches the `measurements`
+  table. Ingestion.Worker drains the stream's consumer group and bulk-inserts into the
+  hypertable (idempotent on the measurement id). This decouples accept-from-sensor from
+  persist-to-DB so write spikes don't couple to request throughput.
 - **Minimal APIs + Domain-Driven layering.** Built services use the layering
   `Api → Application → Domain ← Infrastructure`, with `Domain` free of framework dependencies.
 - **OpenAPI.** Each service uses .NET 10 `AddOpenApi` and serves an interactive
   [Scalar](https://github.com/scalar/scalar) reference at `/scalar/v1`.
 - **Errors as RFC 9457 ProblemDetails** with stable `urn:ambiquality:*` type URIs.
-- **EF Core migrations** are code-first and applied automatically at startup by a per-service
-  `migrate` / `evidence-migrate` container. Do not scaffold from an existing database.
+- **Open-data conformance.** The catalog is structurally **DCAT-AP 3.0** and partially aligned
+  with the Czech **DCAT-AP-CZ / OFN** profile; full conformance is structurally impossible
+  because it requires an OVM (public-authority) publisher identity the author does not hold. See
+  the [Public.Api README](src/Ambiquality.Public.Api/README.md#catalog-conformance-dcat-ap-30--dcat-ap-cz).
+- **EF Core migrations** are code-first and applied automatically at startup by per-service
+  `migrate` / `evidence-migrate` / `ingestion-migrate` containers. Do not scaffold from an existing database.
 
 ## Running tests
 

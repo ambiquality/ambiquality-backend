@@ -17,6 +17,7 @@ src/
   Ambiquality.Ingestion.Api/    ← [BUILT] validates sensor measurements & enqueues them to Redis (F10/UC10); does NOT write the DB
   Ambiquality.Ingestion.Worker/ ← [BUILT] background service: drains the Redis stream and bulk-writes measurements to the ieq hypertable
   Ambiquality.Public.Api/       ← [BUILT] read-only open-data API: observations (JSON/JSON-LD/CSV), evidence catalog, DCAT-AP 3.0, OpenAPI (F11–F17)
+  Ambiquality.Export.Worker/    ← [BUILT] background service: publishes monthly downloadable archives (CSV + JSON-LD, zipped) to object storage; records them in ieq.measurement_exports for Public.Api's DCAT distributions (F17)
 tests/
   Ambiquality.Core.Tests/
   Ambiquality.Auth.Api.Tests/
@@ -24,11 +25,12 @@ tests/
   Ambiquality.Ingestion.Api.Tests/
   Ambiquality.Ingestion.Worker.Tests/
   Ambiquality.Public.Api.Tests/
+  Ambiquality.Export.Worker.Tests/
 ```
 
-**Auth.Api**, **Evidence.Api**, **Ingestion.Api**, **Ingestion.Worker** and **Public.Api** are
-implemented, and `Core` holds the shared measurement model, `IeqDbContext` and the queue message
-contract. See each project's `README.md` for detail.
+**Auth.Api**, **Evidence.Api**, **Ingestion.Api**, **Ingestion.Worker**, **Public.Api** and
+**Export.Worker** are implemented, and `Core` holds the shared measurement model, `IeqDbContext`
+and the queue message contract. See each project's `README.md` for detail.
 Per-project READMEs and the root `README.md` are the human-facing docs; this file is the agent guide.
 
 **Ingestion is a queue + worker write path.** Ingestion.Api validates an observation synchronously
@@ -56,8 +58,8 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
 | Database | Schema | Owner role | Used by |
 |----------|--------|-----------|---------|
 | `auth` | `auth` | `auth_api` | Auth.Api — users, password hashes, tokens |
-| `evidence` | `evidence` | `evidence_api` | Evidence.Api — buildings, rooms, sensors + their attribute history |
-| `ieq` | `ieq` | `ingestion_api` (rw), `public_api` (ro) | Ingestion.Worker writes the `measurements` hypertable; Ingestion.Api reads `parameter_ranges` for validation |
+| `evidence` | `evidence` | `evidence_api` | Evidence.Api — buildings, rooms, sensors + their attribute history; read-only by `public_api` and `export_worker` (sensor placement → feature of interest) |
+| `ieq` | `ieq` | `ingestion_api` (rw), `public_api` (ro), `export_worker` (ro + INSERT on `measurement_exports`) | Ingestion.Worker writes the `measurements` hypertable; Ingestion.Api reads `parameter_ranges` for validation; Export.Worker reads measurements and records exports |
 
 - The Postgres image is `timescale/timescaledb` (TimescaleDB preloaded) and the `evidence`
   database has the `btree_gist` extension enabled for temporal exclusion constraints.
@@ -95,7 +97,7 @@ Provisioned by `init-databases.sql` on first container start. **Current reality:
 | F10 | Measurement validation on ingestion | Ingestion.Api (validate + enqueue) + Ingestion.Worker (persist) ✅ |
 | F11–F15 | Public read API, filtering, pagination, search, OpenAPI spec | Public.Api ✅ |
 | F16 | DCAT-AP catalog metadata publication | Public.Api ✅ |
-| F17 | Downloadable data archive (CSV) | Public.Api ✅ |
+| F17 | Downloadable data archive (CSV + JSON-LD) | Export.Worker (produces archives) + Public.Api (lists them) ✅ |
 | F18 | (Frontend) Interactive map — not in this repo |
 
 Note: F05–F09 were originally scoped to Public.Api but were implemented in a dedicated
