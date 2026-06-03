@@ -7,10 +7,11 @@ namespace Ambiquality.Export.Worker.Serialization;
 
 /// <summary>
 /// Streams measurement rows as a JSON-LD document — a single <c>@context</c> reference
-/// and a <c>@graph</c> array of SSN/SOSA observations — mirroring the shape produced by
-/// Public.Api's <c>ObservationJsonLd.ToGraph</c>. Written incrementally with a
-/// <see cref="Utf8JsonWriter"/> so a whole month never buffers in memory. Returns the
-/// number of observations written.
+/// and a <c>@graph</c> array of SSN/SOSA observations — mirroring the per-observation
+/// shape produced by Public.Api's <c>ObservationJsonLd.ToResource</c> (specific
+/// <c>sosa:observedProperty</c> IRI, dimensional kind on <c>qudt:hasQuantityKind</c>).
+/// Written incrementally with a <see cref="Utf8JsonWriter"/> so a whole month never
+/// buffers in memory. Returns the number of observations written.
 /// </summary>
 public sealed class JsonLdMeasurementSerializer(string baseIri)
 {
@@ -47,15 +48,25 @@ public sealed class JsonLdMeasurementSerializer(string baseIri)
 
     private void WriteObservation(Utf8JsonWriter writer, MeasurementRow m)
     {
-        var qudt = QudtVocabulary.TryResolve(m.ParameterCode);
+        // The specific, substance-distinguishing property goes on sosa:observedProperty;
+        // the shared dimensional quantity kind (which collapses PM2.5/PM10, CO₂/eCO₂/VOC)
+        // belongs on qudt:hasQuantityKind. Mirrors Public.Api's ObservationJsonLd.ToResource.
+        var property = ObservablePropertyVocabulary.TryGet(m.ParameterCode);
+        var qudt = property?.Qudt;
 
         writer.WriteStartObject();
         writer.WriteString("@id", $"{_root}/observations/{m.Id:D}");
         writer.WriteString("@type", "sosa:Observation");
 
-        if (qudt is { } q)
+        if (property is { } p)
         {
             writer.WritePropertyName("sosa:observedProperty");
+            WriteIdObject(writer, $"{_root}/properties/{p.Code}");
+        }
+
+        if (qudt is { } q)
+        {
+            writer.WritePropertyName("qudt:hasQuantityKind");
             WriteIdObject(writer, q.QuantityKindUri);
         }
 
