@@ -28,8 +28,7 @@ public static class MeasurementEndpoints
                 SensorId: request.SensorId,
                 PresentedApiKey: apiKey,
                 ParameterCode: request.ParameterCode,
-                Value: request.Value,
-                ObservedAt: request.ObservedAt),
+                Value: request.Value),
             cancellationToken);
 
         // 202, not 201: the measurement is durably enqueued but not yet materialized

@@ -4,8 +4,7 @@ public sealed record IngestMeasurementCommand(
     Guid SensorId,
     string PresentedApiKey,
     string ParameterCode,
-    double Value,
-    DateTime ObservedAt);
+    double Value);
 
 /// <summary>Why an observation was rejected; maps to an HTTP status at the edge.</summary>
 public enum IngestRejectionReason

@@ -61,7 +61,7 @@ public class IngestMeasurementHandlerTests
     }
 
     private static IngestMeasurementCommand Command(double value = 800, string parameterCode = "co2") =>
-        new(SensorId, PlainKey, parameterCode, value, DateTime.UtcNow);
+        new(SensorId, PlainKey, parameterCode, value);
 
     private static IngestMeasurementHandler Handler(
         SensorValidationView? view, FakeQueue queue, DateTime? now = null) =>
@@ -150,6 +150,8 @@ public class IngestMeasurementHandlerTests
         Assert.Equal("co2", message.ParameterCode);
         Assert.Equal(800, message.Value);
         Assert.Equal(now, message.ReceivedAt);
+        // ObservedAt is server-stamped (sensor clock untrusted), so it equals ReceivedAt.
+        Assert.Equal(now, message.ObservedAt);
     }
 
     [Fact]
