@@ -8,8 +8,11 @@ namespace Ambiquality.Ingestion.Api.Application;
 /// <summary>
 /// Validates a single observation per UC10 (authenticate the sensor, confirm it is
 /// active and declares the parameter, check the value range) then hands it to the
-/// durable ingestion queue. The acceptance timestamp (<c>ReceivedAt</c>) is stamped
-/// here, on the request thread, so subsequent queue lag never shifts it. Durability
+/// durable ingestion queue. Both timestamps — the observation time (<c>ObservedAt</c>)
+/// and the acceptance time (<c>ReceivedAt</c>) — are stamped here from the trusted
+/// server clock, never taken from the sensor: an unsynchronized sensor clock must not
+/// be able to skew the recorded time. They are stamped from a single clock read on the
+/// request thread, so subsequent queue lag never shifts them. Durability
 /// NFR is reinterpreted as "durably enqueued before ack": a publish failure yields
 /// <see cref="IngestRejectionReason.QueueUnavailable"/> (→ 503) and acks nothing;
 /// the actual hypertable write is performed asynchronously by Ingestion.Worker.
@@ -50,14 +53,18 @@ public sealed class IngestMeasurementHandler(
                 IngestRejectionReason.ValueOutOfRange,
                 $"Value {command.Value} is outside the permitted range [{range.MinValue}, {range.MaxValue}] for '{command.ParameterCode}'.");
 
+        // Stamp the observation and acceptance times from the trusted server clock in a
+        // single read — the sensor's own clock is never trusted, so both reflect when the
+        // platform accepted the measurement.
+        var now = clock.UtcNow;
         var message = new MeasurementMessage(
             Id: Guid.NewGuid(),
             SensorId: command.SensorId,
             ParameterCode: command.ParameterCode,
             Value: command.Value,
             Unit: null,
-            ObservedAt: command.ObservedAt,
-            ReceivedAt: clock.UtcNow);
+            ObservedAt: now,
+            ReceivedAt: now);
 
         try
         {

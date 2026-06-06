@@ -25,11 +25,14 @@ the thesis non-functional constraints:
 Request body:
 
 ```json
-{ "sensorId": "<guid>", "parameterCode": "co2", "value": 812, "observedAt": "2026-05-27T11:00:00Z" }
+{ "sensorId": "<guid>", "parameterCode": "co2", "value": 812 }
 ```
 
-The sensor's secret key travels in the **`X-Sensor-Key`** header, never the body. On success the
-response carries the new measurement id and its server-side `receivedAt`.
+The sensor's secret key travels in the **`X-Sensor-Key`** header, never the body. The
+observation time is **not** taken from the request: the sensor's clock is untrusted, so the
+API stamps both `observedAt` and the acceptance `receivedAt` from the server clock at
+acceptance (a single read, so they are equal). Any `observedAt` sent in the body is ignored.
+On success the response carries the new measurement id and its server-side `receivedAt`.
 
 ## Validation pipeline (UC10)
 

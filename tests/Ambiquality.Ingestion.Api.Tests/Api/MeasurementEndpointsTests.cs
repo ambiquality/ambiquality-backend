@@ -34,7 +34,6 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
                 sensorId,
                 parameterCode,
                 value,
-                observedAt = DateTime.UtcNow,
             }),
         };
         if (apiKey is not null)
@@ -59,6 +58,39 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
         Assert.Equal(sensorId, message.SensorId);
         Assert.Equal("co2", message.ParameterCode);
         Assert.Equal(body.ReceivedAt, message.ReceivedAt);
+        // ObservedAt is server-stamped, not taken from the sensor.
+        Assert.Equal(body.ReceivedAt, message.ObservedAt);
+    }
+
+    [Fact]
+    public async Task ClientSuppliedObservedAt_IsIgnored_AndServerStampsTheTime()
+    {
+        var (sensorId, apiKey) = await _factory.SeedSensorAsync(["co2"]);
+
+        // A sensor with a badly skewed clock (or a malicious client) tries to dictate
+        // observedAt. The API must ignore the body field and stamp the time itself.
+        var skewed = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var request = new HttpRequestMessage(HttpMethod.Post, "/v1/measurements")
+        {
+            Content = JsonContent.Create(new
+            {
+                sensorId,
+                parameterCode = "co2",
+                value = 800,
+                observedAt = skewed,
+            }),
+        };
+        request.Headers.Add(MeasurementEndpoints.SensorKeyHeader, apiKey);
+
+        var before = DateTime.UtcNow;
+        var response = await _client.SendAsync(request);
+        var after = DateTime.UtcNow;
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var message = Assert.Single(_factory.Queue.Published);
+        Assert.NotEqual(skewed, message.ObservedAt);
+        Assert.InRange(message.ObservedAt, before, after);
+        Assert.Equal(message.ReceivedAt, message.ObservedAt);
     }
 
     [Fact]
