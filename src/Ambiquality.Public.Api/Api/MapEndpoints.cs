@@ -28,7 +28,10 @@ public static class MapEndpoints
                 "One marker per building with ≥1 active sensor measuring parameterCode. latestValue "
                 + "is the mean of each sensor's most-recent value; stale markers (freshest observation "
                 + "older than the freshness window) carry a null latestValue. Filters: parameterCode "
-                + "(required), bbox (minLon,minLat,maxLon,maxLat). Cached ~60 s.");
+                + "(required), bbox (minLon,minLat,maxLon,maxLat). Cached ~60 s.")
+            .Produces<MapSnapshotResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
 
     private static async Task<IResult> GetSnapshot(

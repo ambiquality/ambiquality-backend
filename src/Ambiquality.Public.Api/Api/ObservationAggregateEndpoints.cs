@@ -25,7 +25,10 @@ public static class ObservationAggregateEndpoints
                 "Server-side aggregation for the map's click-through chart. Either buildingId "
                 + "(aggregate across the building's sensors) or sensorId (one sensor) is required, "
                 + "plus parameterCode. Filters: from, to (ISO-8601), bucket (auto|5m|1h|6h|1d|1w). "
-                + "bucket=auto picks a granularity from the span and caps the bucket count.");
+                + "bucket=auto picks a granularity from the span and caps the bucket count.")
+            .Produces<AggregateResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
 
     private static async Task<IResult> Aggregate(

@@ -138,6 +138,29 @@ services:
       - db
     restart: "no"
 
+  seed-dev:
+    image: docker.io/timescale/timescaledb:2.27.0-pg18
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      evidence-migrate:
+        condition: service_completed_successfully
+      ingestion-migrate:
+        condition: service_completed_successfully
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?error}
+    volumes:
+      - ./seed-dev.sh:/seed-dev.sh:ro
+      - ./seed-dev-auth.sql:/seed-dev-auth.sql:ro
+      - ./seed-dev-evidence.sql:/seed-dev-evidence.sql:ro
+      - ./seed-dev-ieq.sql:/seed-dev-ieq.sql:ro
+    command: ["sh", "/seed-dev.sh"]
+    networks:
+      - db
+    restart: "no"
+    profiles:
+      - development
+
   ingestion-api: # on port 6300
     build:
       context: .
