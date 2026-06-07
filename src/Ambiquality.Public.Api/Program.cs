@@ -1,6 +1,7 @@
 using Ambiquality.Core.Infrastructure.Persistence;
 using Ambiquality.Public.Api.Api;
 using Ambiquality.Public.Api.Infrastructure.Catalog;
+using Ambiquality.Public.Api.Infrastructure.Observations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Npgsql;
@@ -31,6 +32,27 @@ builder.Services.AddSingleton<IExportCatalog>(sp =>
         ?? throw new InvalidOperationException("ConnectionStrings:IeqDb is not configured.");
     return new ExportCatalog(NpgsqlDataSource.Create(connectionString));
 });
+
+// --- Analytical measurement reader (raw read-only Npgsql over the public_api ieq
+// connection) for the map snapshot + observation aggregation: TimescaleDB time_bucket,
+// percentile_cont and DISTINCT ON, which EF cannot translate. Same singleton-owns-the-pool
+// pattern as the catalog readers.
+builder.Services.AddSingleton<IMeasurementReader>(sp =>
+{
+    var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString("IeqDb")
+        ?? throw new InvalidOperationException("ConnectionStrings:IeqDb is not configured.");
+    return new MeasurementReader(NpgsqlDataSource.Create(connectionString));
+});
+
+// --- Distributed cache for the map snapshot (the only call the map makes on load /
+// filter change). Redis-backed when ConnectionStrings:Redis is set (production, shared
+// across replicas); otherwise an in-memory store (tests, local single-process runs). The
+// read path degrades gracefully if the cache faults — see JsonDistributedCache.
+var redisConnection = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrWhiteSpace(redisConnection))
+    builder.Services.AddStackExchangeRedisCache(options => options.Configuration = redisConnection);
+else
+    builder.Services.AddDistributedMemoryCache();
 
 // --- CORS (open data: any origin may read) -----------------------------------
 builder.Services.AddCors(options =>
@@ -129,6 +151,8 @@ app.MapScalarApiReference();
 
 // --- Routing -----------------------------------------------------------------
 app.MapObservationEndpoints();
+app.MapObservationAggregateEndpoints();
+app.MapMapEndpoints();
 app.MapCsvEndpoints();
 app.MapContextEndpoints();
 app.MapPropertyEndpoints();

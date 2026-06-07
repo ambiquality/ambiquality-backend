@@ -322,6 +322,53 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
         return rows;
     }
 
+    public async Task<IReadOnlyList<MapBuildingRow>> GetMapBuildingsAsync(
+        string parameterCode, BoundingBox? bbox, CancellationToken ct)
+    {
+        // Inner-join the building to its active sensors that currently measure the quantity;
+        // a building only appears when at least one such sensor exists. array_agg collects
+        // those sensor ids so the caller can fetch and mean their latest values.
+        const string sql = """
+            SELECT b."Id", b.uri_slug, nh.name,
+                   lh.latitude::float8  AS latitude,
+                   lh.longitude::float8 AS longitude,
+                   lh.anonymization,
+                   array_agg(s."Id") AS sensor_ids
+            FROM evidence.buildings b
+            JOIN evidence.sensors s ON s.current_building_id = b."Id"
+            JOIN evidence.sensor_status_history sh
+              ON sh.sensor_id = s."Id" AND upper_inf(sh.validity) AND sh.status_code = 'active'
+            JOIN evidence.sensor_measured_parameter_history mph
+              ON mph.sensor_id = s."Id" AND upper_inf(mph.validity) AND mph.parameter_code = @pc
+            LEFT JOIN evidence.building_name_history     nh ON nh.building_id = b."Id" AND upper_inf(nh.validity)
+            LEFT JOIN evidence.building_location_history lh ON lh.building_id = b."Id" AND upper_inf(lh.validity)
+            WHERE (@hasBbox = FALSE OR (lh.longitude BETWEEN @minLon AND @maxLon
+                                        AND lh.latitude BETWEEN @minLat AND @maxLat))
+            GROUP BY b."Id", b.uri_slug, nh.name, lh.latitude, lh.longitude, lh.anonymization
+            ORDER BY b."Id"
+            """;
+
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.Add(Text("pc", parameterCode));
+        AddBbox(command, bbox);
+
+        var rows = new List<MapBuildingRow>();
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            rows.Add(new MapBuildingRow(
+                Id: reader.GetGuid(0),
+                Slug: reader.GetString(1),
+                Name: NullableString(reader, 2),
+                Latitude: NullableDouble(reader, 3),
+                Longitude: NullableDouble(reader, 4),
+                Anonymization: NullableString(reader, 5),
+                SensorIds: reader.GetFieldValue<Guid[]>(6)));
+        }
+        return rows;
+    }
+
     public async Task<SpatialExtent?> GetSpatialExtentAsync(CancellationToken ct)
     {
         const string sql = """

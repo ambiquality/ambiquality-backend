@@ -12,4 +12,11 @@ internal static class ResponseHeaders
         http.Response.Headers.CacheControl = $"public, max-age={Constants.CacheSeconds}";
         http.Response.Headers.Append("Link", $"<{iri.Schema(resource)}>; rel=\"describedby\"");
     }
+
+    /// <summary>
+    /// Sets only the public cache lifetime, for the analytical map/aggregate endpoints,
+    /// which have no JSON Schema document to link via <c>describedby</c>.
+    /// </summary>
+    public static void SetCacheHeader(HttpContext http, int maxAgeSeconds) =>
+        http.Response.Headers.CacheControl = $"public, max-age={maxAgeSeconds}";
 }

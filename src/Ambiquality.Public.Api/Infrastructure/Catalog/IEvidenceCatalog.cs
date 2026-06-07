@@ -45,6 +45,20 @@ public sealed record SensorRow(
 public sealed record SpatialExtent(double MinLat, double MinLon, double MaxLat, double MaxLon);
 
 /// <summary>
+/// A building that carries ≥1 active sensor measuring a requested quantity, with the
+/// (pre-masking) coordinates and the ids of those contributing sensors. Backs the map
+/// snapshot: the caller fetches each sensor's latest value and means them per building.
+/// </summary>
+public sealed record MapBuildingRow(
+    Guid Id,
+    string Slug,
+    string? Name,
+    double? Latitude,
+    double? Longitude,
+    string? Anonymization,
+    IReadOnlyList<Guid> SensorIds);
+
+/// <summary>
 /// One placement period of a sensor — the room/building it occupied over a half-open
 /// <c>[ValidFrom, ValidTo)</c> UTC window (<see cref="ValidTo"/> is null while open).
 /// Used to resolve an observation's feature of interest at the time it was measured.
@@ -84,6 +98,14 @@ public interface IEvidenceCatalog
 
     /// <summary>Bounding box of all current building coordinates, or null when none are set.</summary>
     Task<SpatialExtent?> GetSpatialExtentAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Buildings carrying ≥1 active sensor that currently measures <paramref name="parameterCode"/>,
+    /// optionally constrained to a bounding box, each with the ids of those contributing sensors.
+    /// One row per building; ordered by id.
+    /// </summary>
+    Task<IReadOnlyList<MapBuildingRow>> GetMapBuildingsAsync(
+        string parameterCode, BoundingBox? bbox, CancellationToken ct);
 
     /// <summary>
     /// All placement periods (room/building over time) for the given sensors, so an
