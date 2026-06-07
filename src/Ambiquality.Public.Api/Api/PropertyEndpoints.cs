@@ -21,12 +21,17 @@ public static class PropertyEndpoints
             .WithDescription(
                 "The platform's IEQ observable-property vocabulary. Each entry is the "
                 + "sosa:observedProperty target for its parameter, with its QUDT quantity kind "
-                + "+ applicable unit and any authoritative external match. JSON or JSON-LD.");
+                + "+ applicable unit and any authoritative external match. JSON or JSON-LD.")
+            .Produces<PropertyCollection>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
 
         group.MapMethods("/{code}", ["GET", "HEAD"], GetPropertyByCode)
             .WithName("GetPropertyByCode")
             .WithSummary("Get an observable property by code")
-            .WithDescription("The dereferenceable IRI target for a single observed property (JSON or JSON-LD).");
+            .WithDescription("The dereferenceable IRI target for a single observed property (JSON or JSON-LD).")
+            .Produces<PropertyResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
 
     private static IResult ListProperties(HttpContext http, IConfiguration configuration)
