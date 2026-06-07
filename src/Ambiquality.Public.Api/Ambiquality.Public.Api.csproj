@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.8" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.*" />
     <!-- Align EF Core to the version Ambiquality.Core compiles against (10.0.8,
          pulled there transitively via EntityFrameworkCore.Design). The Npgsql

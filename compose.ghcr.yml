@@ -188,12 +188,17 @@ services:
         condition: service_completed_successfully
       evidence-migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ASPNETCORE_URLS: http://+:6400
       # public_api role: read-only on both ieq (measurements) and evidence (catalog).
       ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=public_api;Password=${PUBLIC_API_DB_PASSWORD:?error}"
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=public_api;Password=${PUBLIC_API_DB_PASSWORD:?error}"
+      # Short-lived cache for the F18 map snapshot (the one call the map makes on load /
+      # filter change). Degrades gracefully if Redis is down — see JsonDistributedCache.
+      ConnectionStrings__Redis: "redis:6379"
       # Behind Caddy's path-stripping /public/* route; set the absolute base so
       # linked-data IRIs keep the public prefix.
       PublicApi__BaseIri: ${PUBLIC_API_BASE_IRI:-}

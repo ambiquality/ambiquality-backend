@@ -23,7 +23,9 @@ Serves IEQ measurements as SSN/SOSA observations and the evidence catalog
 |-------|---------|
 | `/v1/observations` | Keyset-paginated observations. Filters: `from`, `to`, `sensorId`, `parameterCode`, `buildingId`, `roomId`, `bbox`, `includeInvalid`, `limit`, `cursor`. |
 | `/v1/observations/{id}` | A single observation (stable IRI target). |
+| `/v1/observations/aggregate` | Server-side aggregation (F18 map chart): bucketed trend + distribution. Requires `buildingId` *or* `sensorId`, plus `parameterCode`; filters `from`, `to`, `bucket` (`auto`/`5m`/`1h`/`6h`/`1d`/`1w`). JSON only. |
 | `/v1/observations.csv` | Streamed CSV export (F17), no page cap. |
+| `/v1/map/snapshot` | Latest-value building markers for the F18 map. Requires `parameterCode`; filters `bbox`. One item per building with ≥1 active sensor measuring the quantity; `latestValue` is the mean of each sensor's most-recent value, `null` when stale. Redis-cached ~60 s. JSON only. |
 | `/v1/context/measurements.jsonld` | The JSON-LD `@context` for observations. |
 | `/v1/properties` | The IEQ observable-property vocabulary (all 18). |
 | `/v1/properties/{code}` | A single observable property — the `sosa:observedProperty` target. |
@@ -159,6 +161,13 @@ and `isInvalid`.
 Behind Caddy's path-stripping `handle_path /public/*`, the app no longer sees the
 `/public` prefix. Set `PublicApi:BaseIri` (env `PublicApi__BaseIri`) to the public
 base so the linked-data IRIs (`@id`, `next`, schema/context links) stay correct.
+
+`/v1/map/snapshot` caches its result for ~60 s in Redis when `ConnectionStrings:Redis`
+(env `ConnectionStrings__Redis`) is set; with no Redis configured it falls back to an
+in-process memory cache, and any cache fault degrades to a fresh compute (the read path
+never fails because of the cache). The snapshot's freshness window — beyond which a
+marker's `latestValue` is nulled and `stale` is set — defaults to 15 min and is
+overridable via `PublicApi:MapSnapshotFreshnessSeconds`.
 
 ## Running
 
