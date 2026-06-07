@@ -1,0 +1,69 @@
+name: Release images to GHCR
+
+# Tag-release-only: pushing a semver tag (v1.2.0) builds and pushes all nine
+# container images to GHCR, each stamped with the same unified version. Ordinary
+# pushes to main publish nothing.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write          # required to push images to GHCR
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: auth-api,          dockerfile: Dockerfile,            target: final }
+          - { name: auth-migrate,      dockerfile: Dockerfile,            target: migrator }
+          - { name: evidence-api,      dockerfile: Dockerfile.evidence,   target: final }
+          - { name: evidence-migrate,  dockerfile: Dockerfile.evidence,   target: migrator }
+          - { name: ingestion-api,     dockerfile: Dockerfile.ingestion,  target: final }
+          - { name: ingestion-migrate, dockerfile: Dockerfile.ingestion,  target: migrator }
+          - { name: ingestion-worker,  dockerfile: Dockerfile.worker,     target: final }
+          - { name: public-api,        dockerfile: Dockerfile.public,     target: final }
+          - { name: export-worker,     dockerfile: Dockerfile.export,     target: final }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          # Move :latest only for the highest non-prerelease tag, so a future
+          # v1.0.0-rc1 tag does not clobber the released :latest.
+          flavor: latest=auto
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Per-image cache scope so the nine parallel builds do not collide.
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

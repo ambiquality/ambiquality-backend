@@ -119,6 +119,43 @@ dotnet test                                    # whole solution
 dotnet test tests/Ambiquality.Evidence.Api.Tests   # a single project
 ```
 
+## Releasing
+
+Container images are published to the [GitHub Container Registry](https://ghcr.io)
+(`ghcr.io/ambiquality/*`). Releases use **unified versioning** — one semantic version
+stamps every image at once.
+
+To cut a release, push an annotated `vMAJOR.MINOR.PATCH` tag from `main`:
+
+```bash
+git tag -a v1.2.0 -m "Release 1.2.0"
+git push origin v1.2.0
+```
+
+The [`Release images to GHCR`](.github/workflows/release.yml) workflow then builds and
+pushes all nine images in parallel, each tagged `1.2.0`, `1.2`, and `latest`:
+
+| Image | Role |
+|-------|------|
+| `auth-api` / `auth-migrate` | Auth.Api + its EF migration bundle |
+| `evidence-api` / `evidence-migrate` | Evidence.Api + its EF migration bundle |
+| `ingestion-api` / `ingestion-migrate` | Ingestion.Api + its EF migration bundle |
+| `ingestion-worker` | Drains the Redis stream → measurements hypertable |
+| `public-api` | Read-only open-data API |
+| `export-worker` | Monthly downloadable archives |
+
+Deploy a released version with the GHCR compose file (pulls images instead of building):
+
+```bash
+TAG=1.2.0 podman compose -f compose.ghcr.yml up -d
+```
+
+> **One-time setup:** GHCR packages are created **private**. To serve the open-data
+> backend, make each of the nine packages **public** (GitHub → *Packages* → package →
+> *Package settings* → *Change visibility*), or link them to this repository so its
+> visibility applies. The workflow only needs the repo's built-in `GITHUB_TOKEN` — no
+> extra secrets.
+
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and the
