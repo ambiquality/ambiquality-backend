@@ -1,0 +1,227 @@
+# Deployment compose: pulls released images from GHCR instead of building locally.
+#
+# The dev source of truth is podman-compose.yml (local `build:`). This file is its
+# deploy-time mirror — same wiring and env, but every app service references a pinned
+# image at ghcr.io/ambiquality/<name>:${TAG}. Dev-only tooling (mailpit, pgAdmin) is
+# omitted and only Caddy is published to the host; the APIs are reached through it.
+#
+#   TAG=1.2.0 podman compose -f compose.ghcr.yml up -d
+#
+# TAG defaults to `latest` if unset.
+services:
+  postgres:
+    image: docker.io/timescale/timescaledb:2.27.0-pg18
+    environment:
+      POSTGRES_INITDB_ARGS: "-c shared_preload_libraries=timescaledb"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?error}
+      AUTH_API_DB_PASSWORD: ${AUTH_API_DB_PASSWORD:?error}
+      EVIDENCE_API_DB_PASSWORD: ${EVIDENCE_API_DB_PASSWORD:?error}
+      INGESTION_API_DB_PASSWORD: ${INGESTION_API_DB_PASSWORD:?error}
+      PUBLIC_API_DB_PASSWORD: ${PUBLIC_API_DB_PASSWORD:?error}
+      EXPORT_WORKER_DB_PASSWORD: ${EXPORT_WORKER_DB_PASSWORD:?error}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./init-databases.sql.tpl:/docker-entrypoint-initdb.d/init-databases.sql.tpl:ro
+      - ./init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+    networks:
+      - db
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U auth_api -d auth -c 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    # AOF with per-write fsync: the ingestion stream is the durable write-ahead log
+    # the HTTP 202 depends on, so an XADD must hit disk before it is acknowledged.
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - db
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: ghcr.io/ambiquality/auth-migrate:${TAG:-latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__AuthDb: "Host=postgres;Port=5432;Database=auth;Username=auth_api;Password=${AUTH_API_DB_PASSWORD:?error}"
+    networks:
+      - db
+    restart: "no"
+
+  evidence-migrate:
+    image: ghcr.io/ambiquality/evidence-migrate:${TAG:-latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=postgres;Password=${POSTGRES_PASSWORD:?error}"
+    networks:
+      - db
+    restart: "no"
+
+  ingestion-migrate:
+    image: ghcr.io/ambiquality/ingestion-migrate:${TAG:-latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Runs as postgres (superuser) so the migration can CREATE EXTENSION
+      # timescaledb (idempotent) and create_hypertable on the ieq schema.
+      ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=postgres;Password=${POSTGRES_PASSWORD:?error}"
+    networks:
+      - db
+    restart: "no"
+
+  auth-api: # on port 6100
+    image: ghcr.io/ambiquality/auth-api:${TAG:-latest}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:6100
+      ConnectionStrings__AuthDb: "Host=postgres;Port=5432;Database=auth;Username=auth_api;Password=${AUTH_API_DB_PASSWORD:?error}"
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__Secret: ${JWT_SECRET:?error}
+      Jwt__AccessTokenMinutes: "${JWT_ACCESS_TOKEN_MINUTES}"
+      Jwt__RefreshTokenDays: "${JWT_REFRESH_TOKEN_DAYS}"
+      Jwt__ConfirmationTokenHours: "${JWT_CONFIRMATION_TOKEN_HOURS}"
+      Smtp__Host: ${SMTP_HOST}
+      Smtp__Port: "${SMTP_PORT}"
+      Smtp__UseStartTls: "${SMTP_USE_STARTTLS}"
+      Smtp__FromAddress: ${SMTP_FROM_ADDRESS}
+      Smtp__FromName: ${SMTP_FROM_NAME}
+      App__FrontendBaseUrl: ${APP_FRONTEND_BASE_URL}
+    networks:
+      - db
+      - public
+
+  evidence-api: # on port 6200
+    image: ghcr.io/ambiquality/evidence-api:${TAG:-latest}
+    depends_on:
+      evidence-migrate:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:6200
+      ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=evidence_api;Password=${EVIDENCE_API_DB_PASSWORD:?error}"
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__Secret: ${JWT_SECRET:?error}
+    networks:
+      - db
+      - public
+
+  ingestion-api: # on port 6300
+    image: ghcr.io/ambiquality/ingestion-api:${TAG:-latest}
+    depends_on:
+      ingestion-migrate:
+        condition: service_completed_successfully
+      evidence-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:6300
+      # ingestion_api: read-write on ieq, read-only on the evidence catalog.
+      ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=ingestion_api;Password=${INGESTION_API_DB_PASSWORD:?error}"
+      ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=ingestion_api;Password=${INGESTION_API_DB_PASSWORD:?error}"
+      # The API only enqueues; the worker drains the stream and writes to ieq.
+      ConnectionStrings__Redis: "redis:6379"
+    networks:
+      - db
+      - public
+
+  ingestion-worker:
+    image: ghcr.io/ambiquality/ingestion-worker:${TAG:-latest}
+    depends_on:
+      ingestion-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      DOTNET_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      # ingestion_api role: read-write on ieq (the worker is the only measurements writer).
+      ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=ingestion_api;Password=${INGESTION_API_DB_PASSWORD:?error}"
+      ConnectionStrings__Redis: "redis:6379"
+    networks:
+      - db
+
+  export-worker:
+    image: ghcr.io/ambiquality/export-worker:${TAG:-latest}
+    depends_on:
+      ingestion-migrate:
+        condition: service_completed_successfully
+      evidence-migrate:
+        condition: service_completed_successfully
+    environment:
+      ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=export_worker;Password=${EXPORT_WORKER_DB_PASSWORD:?error}"
+      # Read-only: resolve each observation's feature of interest (room at observation time).
+      ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=export_worker;Password=${EXPORT_WORKER_DB_PASSWORD:?error}"
+      Export__StorageType: ${EXPORT_STORAGE_TYPE:-FileSystem}
+      Export__FileSystem__BasePath: /exports
+      Export__S3__ServiceUrl: ${EXPORT_S3_SERVICE_URL:-}
+      Export__S3__BucketName: ${EXPORT_S3_BUCKET_NAME:-}
+      Export__S3__AccessKey: ${EXPORT_S3_ACCESS_KEY:-}
+      Export__S3__SecretKey: ${EXPORT_S3_SECRET_KEY:-}
+      Export__S3__PublicBaseUrl: ${EXPORT_S3_PUBLIC_BASE_URL:-}
+    volumes:
+      - export-data:/exports
+    networks:
+      - db
+
+  public-api: # on port 6400 (read-only open-data API; never migrates)
+    image: ghcr.io/ambiquality/public-api:${TAG:-latest}
+    depends_on:
+      ingestion-migrate:
+        condition: service_completed_successfully
+      evidence-migrate:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:6400
+      # public_api role: read-only on both ieq (measurements) and evidence (catalog).
+      ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=public_api;Password=${PUBLIC_API_DB_PASSWORD:?error}"
+      ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=public_api;Password=${PUBLIC_API_DB_PASSWORD:?error}"
+      # Behind Caddy's path-stripping /public/* route; set the absolute base so
+      # linked-data IRIs keep the public prefix.
+      PublicApi__BaseIri: ${PUBLIC_API_BASE_IRI:-}
+    networks:
+      - db
+      - public
+
+  caddy:
+    image: docker.io/library/caddy:2.11.3-alpine
+    networks:
+      - public
+    restart: unless-stopped
+    stop_grace_period: 10s
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./conf:/etc/caddy
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  postgres-data:
+  redis-data:
+  caddy_data:
+  caddy_config:
+  export-data:
+
+networks:
+  db:
+  public:
