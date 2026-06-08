@@ -114,11 +114,16 @@ erDiagram
         text name
     }
     building_address_history {
-        uuid building_id FK
-        text street
-        text city
-        text postcode
-        text country
+        bigint address_point_code "RÚIAN (OFN Adresy)"
+        text street_name "nullable"
+        int house_number
+        text house_number_type "č.p./č.ev."
+        int orientation_number "nullable"
+        text municipality_name
+        text municipality_part_name "nullable"
+        text psc
+        text district_name "nullable, okres"
+        text region_name "nullable, kraj"
     }
     building_type_history {
         uuid building_id FK
@@ -128,7 +133,6 @@ erDiagram
         uuid building_id FK
         float8 latitude
         float8 longitude
-        text anonymization "precise/street/municipality"
     }
     building_years_history {
         uuid building_id FK

@@ -79,8 +79,8 @@ public sealed class IngestionApiFactory : WebApplicationFactory<Program>, IAsync
 
         var building = Building.Register(
             UriSlug.Create($"seed-building-{suffix}"), owner, owner,
-            "Seed Building", Address.Create("1 Main St", "Prague", "11000", "CZ"),
-            "HOUSE", Coordinates.Create(50.0, 14.0), AnonymizationLevel.Precise,
+            "Seed Building", Address.Create(10000001, "Hlavní", 1, "č.p.", null, null, "Praha", null, "11000", null, null),
+            "HOUSE", Coordinates.Create(50.0, 14.0),
             yearBuilt: 2000, yearRenovated: null, now);
 
         var room = Room.Register(

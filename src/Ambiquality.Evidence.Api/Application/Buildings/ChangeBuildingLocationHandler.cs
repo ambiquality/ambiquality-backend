@@ -3,7 +3,7 @@ using Ambiquality.Evidence.Api.Domain.Buildings;
 
 namespace Ambiquality.Evidence.Api.Application.Buildings;
 
-/// <summary>UC07 — change a building's location and / or anonymization level.</summary>
+/// <summary>UC07 — change a building's spatial coordinates, closing the previous range.</summary>
 public sealed class ChangeBuildingLocationHandler(
     IBuildingRepository repository,
     ICurrentUser currentUser)
@@ -12,9 +12,8 @@ public sealed class ChangeBuildingLocationHandler(
     {
         var building = await BuildingAuthorizer.LoadOwnedAsync(
             repository, command.BuildingId, currentUser, cancellationToken);
-        var anonymization = RegisterBuildingHandler.ParseAnonymization(command.AnonymizationLevel);
         var coordinates = RegisterBuildingHandler.ParseCoordinates(command.Latitude, command.Longitude);
-        building.ChangeLocation(coordinates, anonymization, command.ValidFrom, currentUser.ProjectionId);
+        building.ChangeLocation(coordinates, command.ValidFrom, currentUser.ProjectionId);
         await repository.SaveChangesAsync(cancellationToken);
     }
 }

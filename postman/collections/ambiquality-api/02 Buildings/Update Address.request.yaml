@@ -5,7 +5,7 @@ headers:
   Content-Type: application/json
 body:
   type: json
-  content: '{"street": "Zizkova 11","city": "Prague 3","postcode": "130 67","country": "CZ","validFrom": "{{now}}"}'
+  content: '{"addressPointCode": 21794548,"streetName": "Žižkova","houseNumber": 11,"houseNumberType": "č.p.","orientationNumber": null,"orientationNumberLetter": null,"municipalityName": "Praha","municipalityPartName": "Žižkov","psc": "13067","districtName": "Hlavní město Praha","regionName": "Hlavní město Praha","validFrom": "{{now}}"}'
 scripts:
   - type: afterResponse
     code: pm.test('Status 204', () => pm.response.to.have.status(204));

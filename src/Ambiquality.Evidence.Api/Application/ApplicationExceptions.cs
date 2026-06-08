@@ -38,7 +38,7 @@ public sealed class OverlappingValidityRangeException : DomainException
 
 /// <summary>
 /// Raised when a user-supplied codelist code does not appear in the
-/// referenced vocabulary (e.g. an unknown anonymization level).
+/// referenced vocabulary (e.g. an unknown building type).
 /// </summary>
 public sealed class UnknownCodelistCodeException : DomainException
 {

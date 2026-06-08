@@ -35,7 +35,7 @@ public sealed class MapSnapshotTests(TimescaleFixture fixture) : PublicApiTestBa
         Assert.Equal("bld-test", item.GetProperty("slug").GetString());
         Assert.Equal("Test Tower", item.GetProperty("name").GetString());
         Assert.Equal(1, item.GetProperty("sensorCount").GetInt32());
-        // anonymization 'precise' → coordinates unmasked.
+        // Open data: coordinates are precise (no anonymization).
         Assert.Equal(50.087465, item.GetProperty("lat").GetDouble(), 5);
     }
 

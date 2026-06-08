@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://data.ambiquality.org/v1/schema/building.json",
   "title": "Building",
-  "description": "Public projection of a building; coordinates are masked per anonymization level.",
+  "description": "Public projection of a building. The address follows the Czech OFN \"Adresy\" (2020-07-01) standard, anchored on the RÚIAN address-point code; coordinates are the precise stored values (open data, no anonymization).",
   "type": "object",
   "required": ["id", "iri", "address", "license"],
   "properties": {
@@ -11,11 +11,19 @@
     "name": { "type": ["string", "null"] },
     "address": {
       "type": "object",
+      "description": "Czech OFN address. The RÚIAN address-point code is the canonical anchor; street name, orientation number, municipal part, district (okres) and region (kraj) are optional.",
       "properties": {
-        "street": { "type": ["string", "null"] },
-        "city": { "type": ["string", "null"] },
-        "postcode": { "type": ["string", "null"] },
-        "country": { "type": ["string", "null"], "description": "ISO 3166-1 alpha-2 code." }
+        "addressPointCode": { "type": ["integer", "null"], "description": "RÚIAN kód adresního místa." },
+        "streetName": { "type": ["string", "null"], "description": "název ulice (optional — small municipalities have no streets)." },
+        "houseNumber": { "type": ["integer", "null"], "description": "číslo domovní." },
+        "houseNumberType": { "type": ["string", "null"], "enum": ["č.p.", "č.ev.", null], "description": "typ čísla domovního." },
+        "orientationNumber": { "type": ["integer", "null"], "description": "číslo orientační." },
+        "orientationNumberLetter": { "type": ["string", "null"], "description": "znak čísla orientačního." },
+        "municipalityName": { "type": ["string", "null"], "description": "název obce." },
+        "municipalityPartName": { "type": ["string", "null"], "description": "název části obce." },
+        "psc": { "type": ["string", "null"], "description": "PSČ (five digits)." },
+        "districtName": { "type": ["string", "null"], "description": "název okresu." },
+        "regionName": { "type": ["string", "null"], "description": "název kraje (VÚSC)." }
       }
     },
     "buildingTypeCode": { "type": ["string", "null"] },

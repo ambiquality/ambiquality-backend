@@ -97,8 +97,6 @@ public static class MapEndpoints
                 .Select(obs => obs!)
                 .ToList();
 
-            var (lat, lon) = CoordinateMasking.Apply(b.Latitude, b.Longitude, b.Anonymization);
-
             DateTime? observedAt = contributing.Count > 0 ? contributing.Max(o => o.ObservedAt) : null;
             var stale = observedAt is null || asOf - observedAt.Value > freshness;
             double? latestValue = stale ? null : contributing.Average(o => o.Value);
@@ -109,8 +107,8 @@ public static class MapEndpoints
                 BuildingId: b.Id,
                 Slug: b.Slug,
                 Name: b.Name,
-                Lat: lat,
-                Lon: lon,
+                Lat: b.Latitude,
+                Lon: b.Longitude,
                 LatestValue: latestValue,
                 ObservedAt: observedAt,
                 Stale: stale,

@@ -12,8 +12,9 @@ public class ChangeBuildingHandlersTests
     private static readonly DateTime T1 = new(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc);
     private static readonly Guid Owner = Guid.NewGuid();
     private static readonly Guid OtherUser = Guid.NewGuid();
-    private static readonly Address Addr =
-        Address.Create("Náměstí 1", "Praha", "11000", "CZ");
+    private static readonly Address Addr = Address.Create(
+        21794547, "Náměstí Winstona Churchilla", 1938, "č.p.", 4, null,
+        "Praha", "Žižkov", "13067", "Hlavní město Praha", "Hlavní město Praha");
 
     private readonly InMemoryBuildingRepository _repository = new();
     private readonly FakeClock _clock = new(T1);
@@ -30,7 +31,6 @@ public class ChangeBuildingHandlersTests
             address: Addr,
             buildingTypeCode: "office",
             coordinates: Coordinates.Create(50.0, 14.0),
-            anonymization: AnonymizationLevel.Precise,
             yearBuilt: 1990,
             yearRenovated: null,
             now: T0);
@@ -77,10 +77,15 @@ public class ChangeBuildingHandlersTests
     {
         var building = SeedBuilding();
         var handler = new ChangeBuildingAddressHandler(_repository, _owner);
-        var newAddr = Address.Create("Jiná 2", "Brno", "60200", "CZ");
+        var newAddr = Address.Create(
+            25001234, "Žerotínovo náměstí", 617, "č.p.", 9, null,
+            "Brno", "Veveří", "60200", "Brno-město", "Jihomoravský kraj");
 
         await handler.HandleAsync(new ChangeBuildingAddressCommand(
-            building.Id, newAddr.Street, newAddr.City, newAddr.Postcode, newAddr.Country, T1));
+            building.Id,
+            newAddr.AddressPointCode, newAddr.StreetName, newAddr.HouseNumber, newAddr.HouseNumberType,
+            newAddr.OrientationNumber, newAddr.OrientationNumberLetter, newAddr.MunicipalityName,
+            newAddr.MunicipalityPartName, newAddr.Psc, newAddr.DistrictName, newAddr.RegionName, T1));
 
         Assert.Equal(2, building.AddressHistory.Count);
         Assert.Equal(newAddr, building.AddressHistory.Single(h => h.Validity.UpperBoundInfinite).Address);
@@ -104,22 +109,10 @@ public class ChangeBuildingHandlersTests
         var handler = new ChangeBuildingLocationHandler(_repository, _owner);
 
         await handler.HandleAsync(new ChangeBuildingLocationCommand(
-            building.Id, Latitude: null, Longitude: null, AnonymizationLevel: "municipality", T1));
+            building.Id, Latitude: null, Longitude: null, T1));
 
         var open = building.LocationHistory.Single(h => h.Validity.UpperBoundInfinite);
         Assert.Null(open.Coordinates);
-        Assert.Equal(AnonymizationLevel.Municipality, open.Anonymization);
-    }
-
-    [Fact]
-    public async Task ChangeLocation_WithUnknownLevel_Throws()
-    {
-        var building = SeedBuilding();
-        var handler = new ChangeBuildingLocationHandler(_repository, _owner);
-
-        await Assert.ThrowsAsync<UnknownCodelistCodeException>(() =>
-            handler.HandleAsync(new ChangeBuildingLocationCommand(
-                building.Id, 50.0, 14.0, "city", T1)));
     }
 
     [Fact]
@@ -140,11 +133,12 @@ public class ChangeBuildingHandlersTests
     {
         var building = SeedBuilding();
         await Assert.ThrowsAsync<ForbiddenException>(() => new ChangeBuildingAddressHandler(_repository, _intruder)
-            .HandleAsync(new ChangeBuildingAddressCommand(building.Id, "S", "P", "11000", "CZ", T1)));
+            .HandleAsync(new ChangeBuildingAddressCommand(
+                building.Id, 1, "S", 1, "č.p.", null, null, "P", null, "11000", null, null, T1)));
         await Assert.ThrowsAsync<ForbiddenException>(() => new ChangeBuildingTypeHandler(_repository, _intruder)
             .HandleAsync(new ChangeBuildingTypeCommand(building.Id, "educational", T1)));
         await Assert.ThrowsAsync<ForbiddenException>(() => new ChangeBuildingLocationHandler(_repository, _intruder)
-            .HandleAsync(new ChangeBuildingLocationCommand(building.Id, null, null, "municipality", T1)));
+            .HandleAsync(new ChangeBuildingLocationCommand(building.Id, null, null, T1)));
         await Assert.ThrowsAsync<ForbiddenException>(() => new ChangeBuildingYearsHandler(_repository, _intruder)
             .HandleAsync(new ChangeBuildingYearsCommand(building.Id, 1990, 2020, T1)));
     }

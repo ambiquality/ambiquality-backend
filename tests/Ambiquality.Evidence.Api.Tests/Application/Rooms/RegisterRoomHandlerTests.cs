@@ -22,10 +22,9 @@ public class RegisterRoomHandlerTests
             ownerId: ownerId,
             createdBy: ownerId,
             name: "Owned Building",
-            address: Address.Create("Street 1", "City", "12345", "CZ"),
+            address: Address.Create(10000001, "Hlavní", 1, "č.p.", null, null, "Praha", null, "11000", null, null),
             buildingTypeCode: "office",
             coordinates: null,
-            anonymization: AnonymizationLevel.Precise,
             yearBuilt: null,
             yearRenovated: null,
             now: Now);

@@ -15,7 +15,6 @@ public sealed record BuildingSnapshot(
     Address Address,
     string BuildingTypeCode,
     Coordinates? Coordinates,
-    AnonymizationLevel Anonymization,
     short? YearBuilt,
     short? YearRenovated,
     DateTime AsOf);

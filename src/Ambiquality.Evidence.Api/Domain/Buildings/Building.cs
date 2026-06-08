@@ -53,8 +53,8 @@ public sealed class Building
     /// <summary>
     /// Creates a new building with one open-ended history row per attribute.
     /// The optional <paramref name="coordinates"/> is null when the operator
-    /// only knows the building's municipality; the row is still seeded so the
-    /// <paramref name="anonymization"/> level is queryable.
+    /// only knows the building's municipality; the location row is still seeded
+    /// so the attribute has an open history from registration.
     /// </summary>
     public static Building Register(
         UriSlug slug,
@@ -64,14 +64,12 @@ public sealed class Building
         Address address,
         string buildingTypeCode,
         Coordinates? coordinates,
-        AnonymizationLevel anonymization,
         short? yearBuilt,
         short? yearRenovated,
         DateTime now)
     {
         ArgumentNullException.ThrowIfNull(slug);
         ArgumentNullException.ThrowIfNull(address);
-        ArgumentNullException.ThrowIfNull(anonymization);
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("Building name cannot be empty.");
         if (string.IsNullOrWhiteSpace(buildingTypeCode))
@@ -84,7 +82,7 @@ public sealed class Building
         building._nameHistory.Add(new BuildingNameHistory(name, open, now, createdBy));
         building._addressHistory.Add(new BuildingAddressHistory(address, open, now, createdBy));
         building._typeHistory.Add(new BuildingTypeHistory(buildingTypeCode, open, now, createdBy));
-        building._locationHistory.Add(new BuildingLocationHistory(coordinates, anonymization, open, now, createdBy));
+        building._locationHistory.Add(new BuildingLocationHistory(coordinates, open, now, createdBy));
         building._yearsHistory.Add(new BuildingYearsHistory(yearBuilt, yearRenovated, open, now, createdBy));
 
         return building;
@@ -139,23 +137,19 @@ public sealed class Building
 
     public void ChangeLocation(
         Coordinates? newCoordinates,
-        AnonymizationLevel anonymization,
         DateTime validFrom,
         Guid recordedBy)
     {
-        ArgumentNullException.ThrowIfNull(anonymization);
-
         var current = OpenRow(_locationHistory, "location");
         // Idempotent replay: re-applying the same value at the same instant is a no-op.
         if (validFrom == current.Validity.LowerBound
-            && current.Coordinates == newCoordinates
-            && current.Anonymization.Equals(anonymization))
+            && current.Coordinates == newCoordinates)
             return;
         EnsureAdvancing(current.Validity.LowerBound, validFrom, "location");
 
         current.Close(validFrom);
         _locationHistory.Add(new BuildingLocationHistory(
-            newCoordinates, anonymization, Validity.OpenFrom(validFrom), validFrom, recordedBy));
+            newCoordinates, Validity.OpenFrom(validFrom), validFrom, recordedBy));
     }
 
     public void ChangeYears(short? yearBuilt, short? yearRenovated, DateTime validFrom, Guid recordedBy)
@@ -199,7 +193,6 @@ public sealed class Building
             address.Address,
             type.BuildingTypeCode,
             location.Coordinates,
-            location.Anonymization,
             years.YearBuilt,
             years.YearRenovated,
             asOf);

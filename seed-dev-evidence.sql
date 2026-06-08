@@ -1,7 +1,7 @@
 -- Seed data for evidence database (development only)
 -- Creates:
 -- - 2 user projections (alice, bob)
--- - 3 buildings (Prague, Berlin, Brno) with one each of precise/street/municipality anonymization
+-- - 3 Czech buildings (Praha, Ostrava, Brno) with OFN (RÚIAN-anchored) addresses
 -- - 10 rooms total
 -- - 15 sensors covering all 18 parameters
 --
@@ -37,7 +37,7 @@ DO $$ BEGIN
     ('40000000-0000-0000-0000-000000000001'::uuid, '20000000-0000-0000-0000-000000000001'::uuid, NOW());
 
   -- ============================================================================
-  -- Buildings (3 total: Prague precise, Berlin street, Brno municipality)
+  -- Buildings (3 total: Praha, Ostrava, Brno — Czech OFN addresses)
   -- ============================================================================
 
   -- Prague Building
@@ -47,33 +47,33 @@ DO $$ BEGIN
   INSERT INTO evidence.building_name_history (building_id, recorded_at, recorded_by, validity, name) VALUES
     ('50100000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'VŠE Prague - Faculty of Informatics and Statistics');
 
-  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, street, city, postcode, country) VALUES
-    ('50100000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'Nám. W. Churchilla 4', 'Prague', '13067', 'CZ');
+  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name) VALUES
+    ('50100000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 21794547, 'Náměstí Winstona Churchilla', 1938, 'č.p.', 4, NULL, 'Praha', 'Žižkov', '13067', 'Hlavní město Praha', 'Hlavní město Praha');
 
   INSERT INTO evidence.building_type_history (building_id, recorded_at, recorded_by, validity, building_type_code) VALUES
     ('50100000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'educational');
 
-  INSERT INTO evidence.building_location_history (building_id, recorded_at, recorded_by, validity, latitude, longitude, anonymization) VALUES
-    ('50100000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 50.079167, 14.433056, 'precise');
+  INSERT INTO evidence.building_location_history (building_id, recorded_at, recorded_by, validity, latitude, longitude) VALUES
+    ('50100000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 50.079167, 14.433056);
 
   INSERT INTO evidence.building_years_history (building_id, recorded_at, recorded_by, validity, year_built, year_renovated) VALUES
     ('50100000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 1964, 2018);
 
-  -- Berlin Building
+  -- Ostrava Building
   INSERT INTO evidence.buildings ("Id", uri_slug, owner_id, created_by, created_at) VALUES
-    ('50200000-0000-0000-0000-000000000001'::uuid, 'berlin-unter-linden', '40000000-0000-0000-0000-000000000001'::uuid, '40000000-0000-0000-0000-000000000001'::uuid, NOW());
+    ('50200000-0000-0000-0000-000000000001'::uuid, 'ostrava-nadrazni-office', '40000000-0000-0000-0000-000000000001'::uuid, '40000000-0000-0000-0000-000000000001'::uuid, NOW());
 
   INSERT INTO evidence.building_name_history (building_id, recorded_at, recorded_by, validity, name) VALUES
-    ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'Berlin Office Complex');
+    ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'Ostrava Office Complex');
 
-  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, street, city, postcode, country) VALUES
-    ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'Unter den Linden 77', 'Berlin', '10117', 'DE');
+  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name) VALUES
+    ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 22730045, 'Nádražní', 545, 'č.p.', 3, NULL, 'Ostrava', 'Moravská Ostrava', '70200', 'Ostrava-město', 'Moravskoslezský kraj');
 
   INSERT INTO evidence.building_type_history (building_id, recorded_at, recorded_by, validity, building_type_code) VALUES
     ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'office');
 
-  INSERT INTO evidence.building_location_history (building_id, recorded_at, recorded_by, validity, latitude, longitude, anonymization) VALUES
-    ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 52.516667, 13.388889, 'street');
+  INSERT INTO evidence.building_location_history (building_id, recorded_at, recorded_by, validity, latitude, longitude) VALUES
+    ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 49.820923, 18.262524);
 
   INSERT INTO evidence.building_years_history (building_id, recorded_at, recorded_by, validity, year_built, year_renovated) VALUES
     ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 1995, NULL);
@@ -85,14 +85,14 @@ DO $$ BEGIN
   INSERT INTO evidence.building_name_history (building_id, recorded_at, recorded_by, validity, name) VALUES
     ('50300000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'Brno Educational Center');
 
-  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, street, city, postcode, country) VALUES
-    ('50300000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'Žerotínovo nám. 9', 'Brno', '60200', 'CZ');
+  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name) VALUES
+    ('50300000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 25001234, 'Žerotínovo náměstí', 617, 'č.p.', 9, NULL, 'Brno', 'Veveří', '60200', 'Brno-město', 'Jihomoravský kraj');
 
   INSERT INTO evidence.building_type_history (building_id, recorded_at, recorded_by, validity, building_type_code) VALUES
     ('50300000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'educational');
 
-  INSERT INTO evidence.building_location_history (building_id, recorded_at, recorded_by, validity, latitude, longitude, anonymization) VALUES
-    ('50300000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 49.195278, 16.608056, 'municipality');
+  INSERT INTO evidence.building_location_history (building_id, recorded_at, recorded_by, validity, latitude, longitude) VALUES
+    ('50300000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 49.195278, 16.608056);
 
   INSERT INTO evidence.building_years_history (building_id, recorded_at, recorded_by, validity, year_built, year_renovated) VALUES
     ('50300000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 1972, 2012);

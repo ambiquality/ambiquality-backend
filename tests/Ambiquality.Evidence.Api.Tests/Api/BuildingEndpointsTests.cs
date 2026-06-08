@@ -30,23 +30,29 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
         await _factory.DisposeAsync();
     }
 
+    private static RegisterBuildingRequest BuildRequest(string name) => new(
+        Name: name,
+        AddressPointCode: 21794547,
+        StreetName: "Náměstí Winstona Churchilla",
+        HouseNumber: 1938,
+        HouseNumberType: "č.p.",
+        OrientationNumber: 4,
+        OrientationNumberLetter: null,
+        MunicipalityName: "Praha",
+        MunicipalityPartName: "Žižkov",
+        Psc: "13067",
+        DistrictName: "Hlavní město Praha",
+        RegionName: "Hlavní město Praha",
+        BuildingTypeCode: "family_house",
+        Latitude: 50.0755,
+        Longitude: 14.4378,
+        YearBuilt: 2000,
+        YearRenovated: null);
+
     [Fact]
     public async Task RegisterBuilding_WithValidData_Returns201Created()
     {
-        var request = new RegisterBuildingRequest(
-            Name: "Test Building",
-            Street: "123 Main St",
-            City: "Prague",
-            Postcode: "12000",
-            Country: "CZ",
-            BuildingTypeCode: "family_house",
-            Latitude: 50.0755,
-            Longitude: 14.4378,
-            AnonymizationLevel: "precise",
-            YearBuilt: 2000,
-            YearRenovated: null);
-
-        var response = await _client.PostAsJsonAsync("/v1/buildings", request);
+        var response = await _client.PostAsJsonAsync("/v1/buildings", BuildRequest("Test Building"));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<RegisterBuildingResult>();
@@ -86,10 +92,17 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
         var building = await RegisterBuildingAsync("Building Name");
 
         var changeRequest = new ChangeBuildingAddressRequest(
-            Street: "456 New St",
-            City: "Brno",
-            Postcode: "60000",
-            Country: "CZ",
+            AddressPointCode: 25001234,
+            StreetName: "Žerotínovo náměstí",
+            HouseNumber: 617,
+            HouseNumberType: "č.p.",
+            OrientationNumber: 9,
+            OrientationNumberLetter: null,
+            MunicipalityName: "Brno",
+            MunicipalityPartName: "Veveří",
+            Psc: "60200",
+            DistrictName: "Brno-město",
+            RegionName: "Jihomoravský kraj",
             ValidFrom: DateTime.UtcNow.AddHours(1));
 
         var response = await _client.PutAsJsonAsync($"/v1/buildings/{building.Id}/address", changeRequest);
@@ -97,20 +110,9 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task RegisterBuilding_WithInvalidAnonymizationLevel_Returns400BadRequest()
+    public async Task RegisterBuilding_WithInvalidPsc_Returns400BadRequest()
     {
-        var request = new RegisterBuildingRequest(
-            Name: "Test Building",
-            Street: "123 Main St",
-            City: "Prague",
-            Postcode: "12000",
-            Country: "CZ",
-            BuildingTypeCode: "family_house",
-            Latitude: 50.0755,
-            Longitude: 14.4378,
-            AnonymizationLevel: "invalid_level",
-            YearBuilt: 2000,
-            YearRenovated: null);
+        var request = BuildRequest("Test Building") with { Psc = "not-a-psc" };
 
         var response = await _client.PostAsJsonAsync("/v1/buildings", request);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -140,9 +142,10 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
         Assert.Equal(building.Id, snapshot.Id);
         Assert.Equal(building.UriSlug, snapshot.UriSlug);
         Assert.Equal("Gettable Building", snapshot.Name);
-        Assert.Equal("Prague", snapshot.City);
+        Assert.Equal("Praha", snapshot.MunicipalityName);
+        Assert.Equal(1938, snapshot.HouseNumber);
+        Assert.Equal(21794547, snapshot.AddressPointCode);
         Assert.Equal("family_house", snapshot.BuildingTypeCode);
-        Assert.Equal("precise", snapshot.AnonymizationLevel);
     }
 
     [Fact]
@@ -215,20 +218,7 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
 
     private async Task<RegisterBuildingResult> RegisterBuildingAsync(string name)
     {
-        var request = new RegisterBuildingRequest(
-            Name: name,
-            Street: "123 Main St",
-            City: "Prague",
-            Postcode: "12000",
-            Country: "CZ",
-            BuildingTypeCode: "family_house",
-            Latitude: 50.0755,
-            Longitude: 14.4378,
-            AnonymizationLevel: "precise",
-            YearBuilt: 2000,
-            YearRenovated: null);
-
-        var response = await _client.PostAsJsonAsync("/v1/buildings", request);
+        var response = await _client.PostAsJsonAsync("/v1/buildings", BuildRequest(name));
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<RegisterBuildingResult>();
         Assert.NotNull(result);

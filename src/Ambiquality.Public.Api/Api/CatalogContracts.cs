@@ -2,16 +2,27 @@ using Ambiquality.Core.Domain.Vocabulary;
 
 namespace Ambiquality.Public.Api.Api;
 
-/// <summary>Postal address of a building (current temporal state).</summary>
+/// <summary>
+/// Czech postal address of a building (current temporal state), following the OFN
+/// "Adresy" (2020-07-01) standard. <see cref="AddressPointCode"/> is the RÚIAN
+/// address-point anchor; the optional components are null when not recorded.
+/// </summary>
 public sealed record AddressDto(
-    string? Street,
-    string? City,
-    string? Postcode,
-    string? Country);
+    long? AddressPointCode,
+    string? StreetName,
+    int? HouseNumber,
+    string? HouseNumberType,
+    int? OrientationNumber,
+    string? OrientationNumberLetter,
+    string? MunicipalityName,
+    string? MunicipalityPartName,
+    string? Psc,
+    string? DistrictName,
+    string? RegionName);
 
 /// <summary>
-/// Public projection of a building. Coordinates are already masked per the
-/// building's anonymization level (see <see cref="CoordinateMasking"/>).
+/// Public projection of a building. Coordinates are the precise stored values
+/// (this is open data; there is no anonymization).
 /// </summary>
 public sealed record BuildingResponse(
     Guid Id,

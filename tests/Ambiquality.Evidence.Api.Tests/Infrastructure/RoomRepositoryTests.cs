@@ -33,10 +33,9 @@ public sealed class RoomRepositoryTests(PostgresFixture postgres)
             ownerId: Guid.NewGuid(),
             createdBy: Guid.NewGuid(),
             name: "Test Building",
-            address: Address.Create("Test St 1", "Test City", "12345", "CZ"),
+            address: Address.Create(10000001, "Hlavní", 1, "č.p.", null, null, "Praha", null, "11000", null, null),
             buildingTypeCode: "office",
             coordinates: null,
-            anonymization: AnonymizationLevel.Precise,
             yearBuilt: 2020,
             yearRenovated: null,
             now: DateTime.UtcNow);
@@ -198,10 +197,9 @@ public sealed class RoomRepositoryTests(PostgresFixture postgres)
                 ownerId: Guid.NewGuid(),
                 createdBy: Guid.NewGuid(),
                 name: "Other Building",
-                address: Address.Create("Test St 2", "Test City", "12345", "CZ"),
+                address: Address.Create(10000002, "Vedlejší", 2, "č.p.", null, null, "Praha", null, "11000", null, null),
                 buildingTypeCode: "office",
                 coordinates: null,
-                anonymization: AnonymizationLevel.Precise,
                 yearBuilt: 2020,
                 yearRenovated: null,
                 now: DateTime.UtcNow);

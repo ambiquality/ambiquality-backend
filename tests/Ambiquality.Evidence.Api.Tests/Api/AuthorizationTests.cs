@@ -9,11 +9,12 @@ namespace Ambiquality.Evidence.Api.Tests.Api;
 
 /// <summary>
 /// End-to-end coverage of JWT-gated mutations, building ownership enforcement,
-/// owner-only precise coordinates, and the lazy user-projection upsert. The test
-/// auth scheme authenticates the default client as the owner; a second client
-/// acts as a different user and a third is anonymous.
+/// and the lazy user-projection upsert. Coordinates are open data and returned
+/// precisely to every reader (there is no anonymization). The test auth scheme
+/// authenticates the default client as the owner; a second client acts as a
+/// different user and a third is anonymous.
 /// </summary>
-public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
+public sealed class AuthorizationTests : IAsyncLifetime
 {
     private const double Latitude = 50.0755123;
     private const double Longitude = 14.4378456;
@@ -75,38 +76,16 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetBuilding_AsOwner_ReturnsPreciseCoordinates()
+    public async Task GetBuilding_ReturnsPreciseCoordinatesToEveryReader()
     {
-        var building = await RegisterAsOwnerAsync("municipality");
+        var building = await RegisterAsOwnerAsync();
 
-        var snapshot = await ReadSnapshot(_owner, building.Id);
-
-        Assert.Equal(Latitude, snapshot.Latitude!.Value, 6);
-        Assert.Equal(Longitude, snapshot.Longitude!.Value, 6);
-    }
-
-    [Fact]
-    public async Task GetBuilding_AsNonOwner_MasksToMunicipality()
-    {
-        var building = await RegisterAsOwnerAsync("municipality");
-
-        var snapshot = await ReadSnapshot(_otherUser, building.Id);
-
-        // municipality => 2 decimal places
-        Assert.Equal(50.08, snapshot.Latitude!.Value, 6);
-        Assert.Equal(14.44, snapshot.Longitude!.Value, 6);
-    }
-
-    [Fact]
-    public async Task GetBuilding_Anonymous_MasksToStreet()
-    {
-        var building = await RegisterAsOwnerAsync("street");
-
-        var snapshot = await ReadSnapshot(_anonymous, building.Id);
-
-        // street => 3 decimal places
-        Assert.Equal(50.076, snapshot.Latitude!.Value, 6);
-        Assert.Equal(14.438, snapshot.Longitude!.Value, 6);
+        foreach (var client in new[] { _owner, _otherUser, _anonymous })
+        {
+            var snapshot = await ReadSnapshot(client, building.Id);
+            Assert.Equal(Latitude, snapshot.Latitude!.Value, 6);
+            Assert.Equal(Longitude, snapshot.Longitude!.Value, 6);
+        }
     }
 
     [Fact]
@@ -151,15 +130,14 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
         Assert.Contains(mine2.Id, ids);
         Assert.DoesNotContain(theirs.Id, ids);
 
-        // The owner sees their own coordinates unmasked, regardless of anonymisation.
         var mine = list.First(b => b.Id == mine1.Id);
         Assert.Equal(Latitude, mine.Latitude!.Value, 6);
         Assert.Equal(Longitude, mine.Longitude!.Value, 6);
     }
 
-    private async Task<RegisterBuildingResult> RegisterAsOwnerAsync(string anonymization = "precise")
+    private async Task<RegisterBuildingResult> RegisterAsOwnerAsync()
     {
-        var response = await _owner.PostAsJsonAsync("/v1/buildings", BuildingRequest(anonymization));
+        var response = await _owner.PostAsJsonAsync("/v1/buildings", BuildingRequest());
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<RegisterBuildingResult>())!;
     }
@@ -171,17 +149,23 @@ public sealed class AuthorizationAndMaskingTests : IAsyncLifetime
         return (await response.Content.ReadFromJsonAsync<BuildingSnapshotResponse>())!;
     }
 
-    private static RegisterBuildingRequest BuildingRequest(string anonymization = "precise") =>
+    private static RegisterBuildingRequest BuildingRequest() =>
         new(
             Name: "Auth Test Building",
-            Street: "123 Main St",
-            City: "Prague",
-            Postcode: "12000",
-            Country: "CZ",
+            AddressPointCode: 21794547,
+            StreetName: "Náměstí Winstona Churchilla",
+            HouseNumber: 1938,
+            HouseNumberType: "č.p.",
+            OrientationNumber: 4,
+            OrientationNumberLetter: null,
+            MunicipalityName: "Praha",
+            MunicipalityPartName: "Žižkov",
+            Psc: "13067",
+            DistrictName: "Hlavní město Praha",
+            RegionName: "Hlavní město Praha",
             BuildingTypeCode: "family_house",
             Latitude: Latitude,
             Longitude: Longitude,
-            AnonymizationLevel: anonymization,
             YearBuilt: 2000,
             YearRenovated: null);
 }

@@ -6,8 +6,11 @@ scripts:
     code: |-
       pm.test('Status 200', () => pm.response.to.have.status(200));
       const j = pm.response.json();
-      pm.test('Shape: id, uriSlug, name, city, buildingTypeCode', () => {
-        pm.expect(j).to.include.all.keys('id', 'uriSlug', 'name', 'city', 'buildingTypeCode');
+      pm.test('Shape: id, uriSlug, name, municipalityName, buildingTypeCode', () => {
+        pm.expect(j).to.include.all.keys('id', 'uriSlug', 'name', 'municipalityName', 'buildingTypeCode');
+      });
+      pm.test('OFN address fields present', () => {
+        pm.expect(j).to.include.all.keys('addressPointCode', 'houseNumber', 'houseNumberType', 'psc');
       });
     language: text/javascript
 order: 2000

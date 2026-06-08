@@ -1,7 +1,6 @@
 using Ambiquality.Evidence.Api.Application;
 using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Domain.Buildings;
-using Ambiquality.Evidence.Api.Domain.Common;
 using Ambiquality.Evidence.Api.Tests.TestSupport;
 
 namespace Ambiquality.Evidence.Api.Tests.Application.Buildings;
@@ -22,14 +21,20 @@ public class RegisterBuildingHandlerTests
 
     private static RegisterBuildingCommand SampleCommand() => new(
         Name: "Sídlo VŠE",
-        Street: "Náměstí 1",
-        City: "Praha",
-        Postcode: "11000",
-        Country: "CZ",
+        AddressPointCode: 21794547,
+        StreetName: "Náměstí Winstona Churchilla",
+        HouseNumber: 1938,
+        HouseNumberType: "č.p.",
+        OrientationNumber: 4,
+        OrientationNumberLetter: null,
+        MunicipalityName: "Praha",
+        MunicipalityPartName: "Žižkov",
+        Psc: "13067",
+        DistrictName: "Hlavní město Praha",
+        RegionName: "Hlavní město Praha",
         BuildingTypeCode: "office",
         Latitude: 50.087,
         Longitude: 14.421,
-        AnonymizationLevel: "precise",
         YearBuilt: 1990,
         YearRenovated: null);
 
@@ -69,14 +74,13 @@ public class RegisterBuildingHandlerTests
     public async Task Handle_WithNullCoordinates_StillRegisters()
     {
         var handler = CreateHandler();
-        var command = SampleCommand() with { Latitude = null, Longitude = null, AnonymizationLevel = "municipality" };
+        var command = SampleCommand() with { Latitude = null, Longitude = null };
 
         await handler.HandleAsync(command);
 
         var building = _repository.Buildings.Single();
         var location = Assert.Single(building.LocationHistory);
         Assert.Null(location.Coordinates);
-        Assert.Equal(AnonymizationLevel.Municipality, location.Anonymization);
     }
 
     [Fact]
@@ -94,12 +98,21 @@ public class RegisterBuildingHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithUnknownAnonymizationLevel_Throws()
+    public async Task Handle_WithInvalidPsc_Throws()
     {
         var handler = CreateHandler();
-        var command = SampleCommand() with { AnonymizationLevel = "city" };
+        var command = SampleCommand() with { Psc = "abc" };
 
-        await Assert.ThrowsAsync<UnknownCodelistCodeException>(() => handler.HandleAsync(command));
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(command));
+    }
+
+    [Fact]
+    public async Task Handle_WithInvalidHouseNumberType_Throws()
+    {
+        var handler = CreateHandler();
+        var command = SampleCommand() with { HouseNumberType = "bogus" };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(command));
     }
 
     [Fact]
