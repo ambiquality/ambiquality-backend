@@ -11,14 +11,36 @@ public class BuildingTests
     private static readonly DateTime T2 = new(2026, 7, 1, 12, 0, 0, DateTimeKind.Utc);
     private static readonly Guid Owner = Guid.NewGuid();
     private static readonly Guid Creator = Guid.NewGuid();
-    private static readonly Address SampleAddress =
-        Address.Create("Náměstí 1", "Praha", "11000", "CZ");
+    private static readonly Address SampleAddress = Address.Create(
+        addressPointCode: 21794547,
+        streetName: "Náměstí Winstona Churchilla",
+        houseNumber: 1938,
+        houseNumberType: "č.p.",
+        orientationNumber: 4,
+        orientationNumberLetter: null,
+        municipalityName: "Praha",
+        municipalityPartName: "Žižkov",
+        psc: "13067",
+        districtName: "Hlavní město Praha",
+        regionName: "Hlavní město Praha");
     private static readonly Coordinates SampleCoords =
         Coordinates.Create(50.087, 14.421);
 
+    private static Address OtherAddress() => Address.Create(
+        addressPointCode: 25001234,
+        streetName: "Žerotínovo náměstí",
+        houseNumber: 617,
+        houseNumberType: "č.p.",
+        orientationNumber: 9,
+        orientationNumberLetter: null,
+        municipalityName: "Brno",
+        municipalityPartName: "Veveří",
+        psc: "60200",
+        districtName: "Brno-město",
+        regionName: "Jihomoravský kraj");
+
     private static Building RegisterBuilding(
         Coordinates? coordinates = null,
-        AnonymizationLevel? anonymization = null,
         short? yearBuilt = 1990,
         short? yearRenovated = null)
     {
@@ -30,7 +52,6 @@ public class BuildingTests
             address: SampleAddress,
             buildingTypeCode: "office",
             coordinates: coordinates,
-            anonymization: anonymization ?? AnonymizationLevel.Precise,
             yearBuilt: yearBuilt,
             yearRenovated: yearRenovated,
             now: T0);
@@ -67,7 +88,6 @@ public class BuildingTests
 
         var location = Assert.Single(building.LocationHistory);
         Assert.Equal(SampleCoords, location.Coordinates);
-        Assert.Equal(AnonymizationLevel.Precise, location.Anonymization);
         Assert.True(location.Validity.UpperBoundInfinite);
 
         var years = Assert.Single(building.YearsHistory);
@@ -77,15 +97,13 @@ public class BuildingTests
     }
 
     [Fact]
-    public void Register_WithNullCoordinates_StillSeedsLocationRowForLevel()
+    public void Register_WithNullCoordinates_StillSeedsLocationRow()
     {
-        var building = RegisterBuilding(
-            coordinates: null,
-            anonymization: AnonymizationLevel.Municipality);
+        var building = RegisterBuilding(coordinates: null);
 
         var location = Assert.Single(building.LocationHistory);
         Assert.Null(location.Coordinates);
-        Assert.Equal(AnonymizationLevel.Municipality, location.Anonymization);
+        Assert.True(location.Validity.UpperBoundInfinite);
     }
 
     [Fact]
@@ -150,7 +168,7 @@ public class BuildingTests
     public void ChangeAddress_ClosesPreviousAndOpensNew()
     {
         var building = RegisterBuilding(coordinates: SampleCoords);
-        var newAddress = Address.Create("Jiná 2", "Brno", "60200", "CZ");
+        var newAddress = OtherAddress();
 
         building.ChangeAddress(newAddress, T1, Creator);
 
@@ -177,12 +195,11 @@ public class BuildingTests
     {
         var building = RegisterBuilding(coordinates: SampleCoords);
 
-        building.ChangeLocation(null, AnonymizationLevel.Municipality, T1, Creator);
+        building.ChangeLocation(null, T1, Creator);
 
         Assert.Equal(2, building.LocationHistory.Count);
         var open = building.LocationHistory.Single(h => h.Validity.UpperBoundInfinite);
         Assert.Null(open.Coordinates);
-        Assert.Equal(AnonymizationLevel.Municipality, open.Anonymization);
     }
 
     [Fact]
@@ -217,7 +234,6 @@ public class BuildingTests
         Assert.Equal(SampleAddress, atT2.Address);
         Assert.Equal("office", atT2.BuildingTypeCode);
         Assert.Equal(SampleCoords, atT2.Coordinates);
-        Assert.Equal(AnonymizationLevel.Precise, atT2.Anonymization);
         Assert.Equal((short)1990, atT2.YearBuilt);
         Assert.Equal(T2, atT2.AsOf);
     }
@@ -280,7 +296,7 @@ public class BuildingTests
     public void ChangeAddress_SameValidFromDifferentValue_StillThrows()
     {
         var building = RegisterBuilding(coordinates: SampleCoords);
-        var other = Address.Create("Jiná 2", "Brno", "60200", "CZ");
+        var other = OtherAddress();
 
         Assert.Throws<DomainException>(() => building.ChangeAddress(other, T0, Creator));
     }
@@ -300,8 +316,8 @@ public class BuildingTests
     {
         var building = RegisterBuilding(coordinates: SampleCoords);
 
-        // Coordinates (record) + Anonymization (IEquatable) both match the open row.
-        building.ChangeLocation(SampleCoords, AnonymizationLevel.Precise, T0, Creator);
+        // Coordinates (record) match the open row at the same instant.
+        building.ChangeLocation(SampleCoords, T0, Creator);
 
         Assert.Single(building.LocationHistory);
     }
@@ -309,23 +325,11 @@ public class BuildingTests
     [Fact]
     public void ChangeLocation_ExactReplayWithNullCoordinates_IsNoOp()
     {
-        var building = RegisterBuilding(
-            coordinates: null,
-            anonymization: AnonymizationLevel.Municipality);
+        var building = RegisterBuilding(coordinates: null);
 
-        building.ChangeLocation(null, AnonymizationLevel.Municipality, T0, Creator);
+        building.ChangeLocation(null, T0, Creator);
 
         Assert.Single(building.LocationHistory);
-    }
-
-    [Fact]
-    public void ChangeLocation_SameValidFromDifferentAnonymization_StillThrows()
-    {
-        var building = RegisterBuilding(coordinates: SampleCoords);
-
-        // Same coordinates but a different anonymization level is NOT an exact replay.
-        Assert.Throws<DomainException>(() =>
-            building.ChangeLocation(SampleCoords, AnonymizationLevel.Street, T0, Creator));
     }
 
     [Fact]
@@ -335,7 +339,7 @@ public class BuildingTests
         var moved = Coordinates.Create(48.0, 16.0);
 
         Assert.Throws<DomainException>(() =>
-            building.ChangeLocation(moved, AnonymizationLevel.Precise, T0, Creator));
+            building.ChangeLocation(moved, T0, Creator));
     }
 
     [Fact]
@@ -367,4 +371,3 @@ public class BuildingTests
         Assert.Equal(2, building.YearsHistory.Count);
     }
 }
-

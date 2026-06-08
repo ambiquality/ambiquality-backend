@@ -2,18 +2,28 @@ using Ambiquality.Public.Api.Api;
 
 namespace Ambiquality.Public.Api.Infrastructure.Catalog;
 
-/// <summary>Raw current-state building row read from the evidence schema (pre-masking).</summary>
+/// <summary>
+/// Raw current-state building row read from the evidence schema. Address fields
+/// follow the Czech OFN "Adresy" (2020-07-01) standard, anchored on the RÚIAN
+/// address-point code; the optional components are null when not recorded.
+/// </summary>
 public sealed record BuildingRow(
     Guid Id,
     string? Name,
-    string? Street,
-    string? City,
-    string? Postcode,
-    string? Country,
+    long? AddressPointCode,
+    string? StreetName,
+    int? HouseNumber,
+    string? HouseNumberType,
+    int? OrientationNumber,
+    string? OrientationNumberLetter,
+    string? MunicipalityName,
+    string? MunicipalityPartName,
+    string? Psc,
+    string? DistrictName,
+    string? RegionName,
     string? BuildingTypeCode,
     double? Latitude,
     double? Longitude,
-    string? Anonymization,
     int? YearBuilt,
     int? YearRenovated);
 
@@ -55,7 +65,6 @@ public sealed record MapBuildingRow(
     string? Name,
     double? Latitude,
     double? Longitude,
-    string? Anonymization,
     IReadOnlyList<Guid> SensorIds);
 
 /// <summary>

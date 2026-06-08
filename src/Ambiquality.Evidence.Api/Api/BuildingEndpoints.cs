@@ -80,19 +80,29 @@ public static class BuildingEndpoints
         {
             var command = new RegisterBuildingCommand(
                 Name: request.Name,
-                Street: request.Street,
-                City: request.City,
-                Postcode: request.Postcode,
-                Country: request.Country,
+                AddressPointCode: request.AddressPointCode,
+                StreetName: request.StreetName,
+                HouseNumber: request.HouseNumber,
+                HouseNumberType: request.HouseNumberType,
+                OrientationNumber: request.OrientationNumber,
+                OrientationNumberLetter: request.OrientationNumberLetter,
+                MunicipalityName: request.MunicipalityName,
+                MunicipalityPartName: request.MunicipalityPartName,
+                Psc: request.Psc,
+                DistrictName: request.DistrictName,
+                RegionName: request.RegionName,
                 BuildingTypeCode: request.BuildingTypeCode,
                 Latitude: request.Latitude,
                 Longitude: request.Longitude,
-                AnonymizationLevel: request.AnonymizationLevel,
                 YearBuilt: request.YearBuilt,
                 YearRenovated: request.YearRenovated);
 
             var result = await handler.HandleAsync(command, cancellationToken);
             return TypedResults.Created($"/{Constants.ApiVersion}/buildings/{result.Id}", result);
+        }
+        catch (ArgumentException ex)
+        {
+            return Problems.InvalidAttributeValue(ex.Message);
         }
         catch (DomainException ex)
         {
@@ -114,10 +124,8 @@ public static class BuildingEndpoints
 
         try
         {
-            // Every returned building is the caller's own, so isOwner is true and
-            // coordinates are never masked.
             var responses = buildings
-                .Select(b => ToResponse(b.SnapshotAt(asOf), isOwner: true))
+                .Select(b => ToResponse(b.SnapshotAt(asOf)))
                 .ToList();
             return TypedResults.Ok((IReadOnlyList<BuildingSnapshotResponse>)responses);
         }
@@ -130,7 +138,6 @@ public static class BuildingEndpoints
     private static async Task<Results<Ok<BuildingSnapshotResponse>, NotFound, ProblemHttpResult>> GetBuildingById(
         Guid buildingId,
         IBuildingRepository repository,
-        ICurrentUser currentUser,
         HttpContext context,
         CancellationToken cancellationToken)
     {
@@ -142,11 +149,9 @@ public static class BuildingEndpoints
         if (building is null)
             return TypedResults.NotFound();
 
-        var isOwner = currentUser.IsAuthenticated && building.OwnerId == currentUser.ProjectionId;
-
         try
         {
-            return TypedResults.Ok(ToResponse(building.SnapshotAt(asOf), isOwner));
+            return TypedResults.Ok(ToResponse(building.SnapshotAt(asOf)));
         }
         catch (DomainException ex)
         {
@@ -157,7 +162,6 @@ public static class BuildingEndpoints
     private static async Task<Results<Ok<BuildingSnapshotResponse>, NotFound, ProblemHttpResult>> GetBuildingBySlug(
         string slug,
         IBuildingRepository repository,
-        ICurrentUser currentUser,
         HttpContext context,
         CancellationToken cancellationToken)
     {
@@ -169,11 +173,9 @@ public static class BuildingEndpoints
         if (building is null)
             return TypedResults.NotFound();
 
-        var isOwner = currentUser.IsAuthenticated && building.OwnerId == currentUser.ProjectionId;
-
         try
         {
-            return TypedResults.Ok(ToResponse(building.SnapshotAt(asOf), isOwner));
+            return TypedResults.Ok(ToResponse(building.SnapshotAt(asOf)));
         }
         catch (DomainException ex)
         {
@@ -181,27 +183,28 @@ public static class BuildingEndpoints
         }
     }
 
-    private static BuildingSnapshotResponse ToResponse(BuildingSnapshot snapshot, bool isOwner)
+    private static BuildingSnapshotResponse ToResponse(BuildingSnapshot snapshot)
     {
-        var (latitude, longitude) = CoordinateMasking.Apply(
-            snapshot.Coordinates?.Latitude,
-            snapshot.Coordinates?.Longitude,
-            snapshot.Anonymization.Code,
-            isOwner);
-
+        var address = snapshot.Address;
         return new(
             Id: snapshot.Id,
             UriSlug: snapshot.UriSlug,
             OwnerId: snapshot.OwnerId,
             Name: snapshot.Name,
-            Street: snapshot.Address.Street,
-            City: snapshot.Address.City,
-            Postcode: snapshot.Address.Postcode,
-            Country: snapshot.Address.Country,
+            AddressPointCode: address.AddressPointCode,
+            StreetName: address.StreetName,
+            HouseNumber: address.HouseNumber,
+            HouseNumberType: address.HouseNumberType,
+            OrientationNumber: address.OrientationNumber,
+            OrientationNumberLetter: address.OrientationNumberLetter,
+            MunicipalityName: address.MunicipalityName,
+            MunicipalityPartName: address.MunicipalityPartName,
+            Psc: address.Psc,
+            DistrictName: address.DistrictName,
+            RegionName: address.RegionName,
             BuildingTypeCode: snapshot.BuildingTypeCode,
-            Latitude: latitude,
-            Longitude: longitude,
-            AnonymizationLevel: snapshot.Anonymization.Code,
+            Latitude: snapshot.Coordinates?.Latitude,
+            Longitude: snapshot.Coordinates?.Longitude,
             YearBuilt: snapshot.YearBuilt,
             YearRenovated: snapshot.YearRenovated,
             AsOf: snapshot.AsOf);
@@ -239,14 +242,25 @@ public static class BuildingEndpoints
         {
             var command = new ChangeBuildingAddressCommand(
                 BuildingId: buildingId,
-                Street: request.Street,
-                City: request.City,
-                Postcode: request.Postcode,
-                Country: request.Country,
+                AddressPointCode: request.AddressPointCode,
+                StreetName: request.StreetName,
+                HouseNumber: request.HouseNumber,
+                HouseNumberType: request.HouseNumberType,
+                OrientationNumber: request.OrientationNumber,
+                OrientationNumberLetter: request.OrientationNumberLetter,
+                MunicipalityName: request.MunicipalityName,
+                MunicipalityPartName: request.MunicipalityPartName,
+                Psc: request.Psc,
+                DistrictName: request.DistrictName,
+                RegionName: request.RegionName,
                 ValidFrom: request.ValidFrom);
 
             await handler.HandleAsync(command, cancellationToken);
             return TypedResults.NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return Problems.InvalidAttributeValue(ex.Message);
         }
         catch (DomainException ex)
         {
@@ -288,11 +302,14 @@ public static class BuildingEndpoints
                 BuildingId: buildingId,
                 Latitude: request.Latitude,
                 Longitude: request.Longitude,
-                AnonymizationLevel: request.AnonymizationLevel,
                 ValidFrom: request.ValidFrom);
 
             await handler.HandleAsync(command, cancellationToken);
             return TypedResults.NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return Problems.InvalidAttributeValue(ex.Message);
         }
         catch (DomainException ex)
         {
@@ -325,19 +342,28 @@ public static class BuildingEndpoints
 }
 
 // Response DTOs
+// Address fields follow the Czech OFN "Adresy" (2020-07-01) standard, anchored on
+// the RÚIAN address-point code. Street name, orientation number, municipal part,
+// district (okres) and region (kraj) are optional per the standard.
 public sealed record BuildingSnapshotResponse(
     Guid Id,
     string UriSlug,
     Guid OwnerId,
     string Name,
-    string Street,
-    string City,
-    string Postcode,
-    string Country,
+    long AddressPointCode,
+    string? StreetName,
+    int HouseNumber,
+    string HouseNumberType,
+    int? OrientationNumber,
+    string? OrientationNumberLetter,
+    string MunicipalityName,
+    string? MunicipalityPartName,
+    string Psc,
+    string? DistrictName,
+    string? RegionName,
     string BuildingTypeCode,
     double? Latitude,
     double? Longitude,
-    string AnonymizationLevel,
     short? YearBuilt,
     short? YearRenovated,
     DateTime AsOf);
@@ -345,25 +371,42 @@ public sealed record BuildingSnapshotResponse(
 // Request DTOs
 public sealed record RegisterBuildingRequest(
     string Name,
-    string Street,
-    string City,
-    string Postcode,
-    string Country,
+    long AddressPointCode,
+    string? StreetName,
+    int HouseNumber,
+    string HouseNumberType,
+    int? OrientationNumber,
+    string? OrientationNumberLetter,
+    string MunicipalityName,
+    string? MunicipalityPartName,
+    string Psc,
+    string? DistrictName,
+    string? RegionName,
     string BuildingTypeCode,
     double? Latitude,
     double? Longitude,
-    string AnonymizationLevel,
     short? YearBuilt,
     short? YearRenovated);
 
 public sealed record ChangeBuildingNameRequest(string NewName, DateTime ValidFrom);
 
 public sealed record ChangeBuildingAddressRequest(
-    string Street, string City, string Postcode, string Country, DateTime ValidFrom);
+    long AddressPointCode,
+    string? StreetName,
+    int HouseNumber,
+    string HouseNumberType,
+    int? OrientationNumber,
+    string? OrientationNumberLetter,
+    string MunicipalityName,
+    string? MunicipalityPartName,
+    string Psc,
+    string? DistrictName,
+    string? RegionName,
+    DateTime ValidFrom);
 
 public sealed record ChangeBuildingTypeRequest(string NewTypeCode, DateTime ValidFrom);
 
 public sealed record ChangeBuildingLocationRequest(
-    double? Latitude, double? Longitude, string AnonymizationLevel, DateTime ValidFrom);
+    double? Latitude, double? Longitude, DateTime ValidFrom);
 
 public sealed record ChangeBuildingYearsRequest(short? YearBuilt, short? YearRenovated, DateTime ValidFrom);

@@ -72,7 +72,7 @@ Domain/
   Buildings/              Building aggregate + *History entities + Address/Coordinates value objects
   Rooms/                  Room aggregate + *History entities
   Sensors/                Sensor aggregate + *History entities
-  Common/                 Validity, UriSlug, FloorNumber, AnonymizationLevel, SensorStatus, MeasuredParameter
+  Common/                 Validity, UriSlug, FloorNumber, SensorStatus, MeasuredParameter
 Infrastructure/
   Persistence/            EvidenceDbContext, Building/Room/SensorRepository, EF migrations (evidence schema)
   SystemClock.cs
@@ -255,10 +255,14 @@ wired in `Program.cs`; `MapInboundClaims` is disabled so the raw `sub` claim sur
   with `403 forbidden`. Rooms and sensors have no owner of their own — ownership derives from the
   containing building, enforced by `RoomAuthorizer` / `SensorAuthorizer` (a sensor move checks
   both the source and destination building).
-- **Coordinate masking on read.** Owners see precise GPS; everyone else (including anonymous
-  readers) sees coordinates coarsened per the building's `anonymization_level` — `street` rounds
-  to 3 decimal places (~110 m), `municipality` to 2 (~1.1 km), `precise` is untouched. Coordinates
-  are never hidden outright (`CoordinateMasking`).
+- **Czech OFN addresses.** A building's address follows the Czech OFN *Adresy* (2020-07-01)
+  standard, anchored on the RÚIAN address-point code (`address_point_code`) with the structured
+  components stored alongside (`street_name`, `house_number` + `house_number_type` č.p./č.ev.,
+  `orientation_number`, `municipality_name`, `municipality_part_name`, `psc`, plus optional
+  `district_name`/`region_name`). The platform is Czech-only, so there is no country field.
+- **Coordinates are open data.** Latitude/longitude are stored and returned precisely to every
+  reader — there is no anonymization (publishing precise building coordinates is noted as a privacy
+  risk in the thesis, not implemented as a mitigation here).
 
 The interactive OpenAPI reference advertises the `Bearer` scheme; mutation operations carry the
 security requirement, reads do not.

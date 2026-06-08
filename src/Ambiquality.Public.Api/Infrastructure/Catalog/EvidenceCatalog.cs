@@ -15,16 +15,25 @@ namespace Ambiquality.Public.Api.Infrastructure.Catalog;
 /// </summary>
 public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCatalog
 {
-    // ---- Building projection (12 columns: ordinals 0..11) -------------------
+    // ---- Building projection (18 columns: ordinals 0..17) -------------------
 
     private const string BuildingColumns = """
         b."Id",
         nh.name,
-        ah.street, ah.city, ah.postcode, ah.country,
+        ah.address_point_code,
+        ah.street_name,
+        ah.house_number,
+        ah.house_number_type,
+        ah.orientation_number,
+        ah.orientation_number_letter,
+        ah.municipality_name,
+        ah.municipality_part_name,
+        ah.psc,
+        ah.district_name,
+        ah.region_name,
         th.building_type_code,
         lh.latitude::float8  AS latitude,
         lh.longitude::float8 AS longitude,
-        lh.anonymization,
         yh.year_built::int    AS year_built,
         yh.year_renovated::int AS year_renovated
         """;
@@ -108,7 +117,7 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
         while (await reader.ReadAsync(ct))
         {
             rows.Add(MapBuilding(reader));
-            total = reader.GetInt64(12);
+            total = reader.GetInt64(18);
         }
         return (rows, total);
     }
@@ -131,16 +140,22 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
     private static BuildingRow MapBuilding(NpgsqlDataReader r) => new(
         Id: r.GetGuid(0),
         Name: NullableString(r, 1),
-        Street: NullableString(r, 2),
-        City: NullableString(r, 3),
-        Postcode: NullableString(r, 4),
-        Country: NullableString(r, 5),
-        BuildingTypeCode: NullableString(r, 6),
-        Latitude: NullableDouble(r, 7),
-        Longitude: NullableDouble(r, 8),
-        Anonymization: NullableString(r, 9),
-        YearBuilt: NullableInt(r, 10),
-        YearRenovated: NullableInt(r, 11));
+        AddressPointCode: NullableLong(r, 2),
+        StreetName: NullableString(r, 3),
+        HouseNumber: NullableInt(r, 4),
+        HouseNumberType: NullableString(r, 5),
+        OrientationNumber: NullableInt(r, 6),
+        OrientationNumberLetter: NullableString(r, 7),
+        MunicipalityName: NullableString(r, 8),
+        MunicipalityPartName: NullableString(r, 9),
+        Psc: NullableString(r, 10),
+        DistrictName: NullableString(r, 11),
+        RegionName: NullableString(r, 12),
+        BuildingTypeCode: NullableString(r, 13),
+        Latitude: NullableDouble(r, 14),
+        Longitude: NullableDouble(r, 15),
+        YearBuilt: NullableInt(r, 16),
+        YearRenovated: NullableInt(r, 17));
 
     // ---- Rooms --------------------------------------------------------------
 
@@ -332,7 +347,6 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
             SELECT b."Id", b.uri_slug, nh.name,
                    lh.latitude::float8  AS latitude,
                    lh.longitude::float8 AS longitude,
-                   lh.anonymization,
                    array_agg(s."Id") AS sensor_ids
             FROM evidence.buildings b
             JOIN evidence.sensors s ON s.current_building_id = b."Id"
@@ -344,7 +358,7 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
             LEFT JOIN evidence.building_location_history lh ON lh.building_id = b."Id" AND upper_inf(lh.validity)
             WHERE (@hasBbox = FALSE OR (lh.longitude BETWEEN @minLon AND @maxLon
                                         AND lh.latitude BETWEEN @minLat AND @maxLat))
-            GROUP BY b."Id", b.uri_slug, nh.name, lh.latitude, lh.longitude, lh.anonymization
+            GROUP BY b."Id", b.uri_slug, nh.name, lh.latitude, lh.longitude
             ORDER BY b."Id"
             """;
 
@@ -363,8 +377,7 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
                 Name: NullableString(reader, 2),
                 Latitude: NullableDouble(reader, 3),
                 Longitude: NullableDouble(reader, 4),
-                Anonymization: NullableString(reader, 5),
-                SensorIds: reader.GetFieldValue<Guid[]>(6)));
+                SensorIds: reader.GetFieldValue<Guid[]>(5)));
         }
         return rows;
     }
@@ -431,4 +444,7 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
 
     private static int? NullableInt(NpgsqlDataReader r, int ordinal) =>
         r.IsDBNull(ordinal) ? null : r.GetInt32(ordinal);
+
+    private static long? NullableLong(NpgsqlDataReader r, int ordinal) =>
+        r.IsDBNull(ordinal) ? null : r.GetInt64(ordinal);
 }

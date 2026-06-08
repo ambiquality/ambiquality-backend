@@ -5,7 +5,8 @@ namespace Ambiquality.Public.Api.Api;
 /// <summary>
 /// Building catalog: list (filterable by type and bounding box), single building,
 /// and the building's rooms. All routes are GET+HEAD and negotiate JSON / JSON-LD.
-/// Coordinates are masked per the building's anonymization level.
+/// Addresses follow the Czech OFN "Adresy" standard; coordinates are the precise
+/// stored values (open data; no anonymization).
 /// </summary>
 public static class BuildingEndpoints
 {

@@ -26,14 +26,20 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         var buildingRequest = new
         {
             Name = "Test Building",
-            Street = "123 Main St",
-            City = "Prague",
-            Postcode = "12000",
-            Country = "CZ",
+            AddressPointCode = 21794547L,
+            StreetName = "Náměstí Winstona Churchilla",
+            HouseNumber = 1938,
+            HouseNumberType = "č.p.",
+            OrientationNumber = (int?)4,
+            OrientationNumberLetter = (string?)null,
+            MunicipalityName = "Praha",
+            MunicipalityPartName = "Žižkov",
+            Psc = "13067",
+            DistrictName = "Hlavní město Praha",
+            RegionName = "Hlavní město Praha",
             BuildingTypeCode = "family_house",
             Latitude = 50.0755,
             Longitude = 14.4378,
-            AnonymizationLevel = "precise",
             YearBuilt = 2000,
             YearRenovated = (int?)null
         };

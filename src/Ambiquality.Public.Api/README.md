@@ -145,8 +145,15 @@ is **not** an OVM; the national open-data coordinator confirmed by e-mail that n
 publisher identity can be assigned. The publisher is therefore a free-text
 `foaf:Agent`, and the catalogue is **DCAT-AP-CZ-aligned only in part**. This is a
 structural limitation of the thesis context, not an implementation gap. The catalog code
-attributes are now published as dereferenceable SKOS `číselníky` (see *Codelists* above);
-RÚIAN spatial IRIs remain out of scope.
+attributes are now published as dereferenceable SKOS `číselníky` (see *Codelists* above).
+
+**Building addresses follow the OFN _Adresy_ standard.** Each building's JSON-LD carries a nested
+`ambiq:address` node shaped as an OFN [`Adresa`](https://ofn.gov.cz/adresy/2020-07-01/)
+(`typ: "Adresa"`) anchored on the RÚIAN address-point IRI (`adresní_místo` →
+`linked.cuzk.cz/resource/ruian/adresni-misto/{code}`), with the structured Czech components
+(`název_ulice`, `číslo_domovní`, `název_obce`, `psč`, …) and a composed free-text `text`. The
+platform is Czech-only, so coordinates are precise open data (no anonymization). RÚIAN spatial
+*coverage* IRIs for the dataset as a whole remain out of scope.
 
 ## Linked-data vocabularies
 

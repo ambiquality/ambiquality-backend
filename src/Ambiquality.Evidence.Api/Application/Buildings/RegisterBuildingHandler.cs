@@ -24,8 +24,18 @@ public sealed class RegisterBuildingHandler(
             async (candidate, ct) => await repository.GetBySlugAsync(candidate, ct) is not null,
             cancellationToken);
 
-        var address = Address.Create(command.Street, command.City, command.Postcode, command.Country);
-        var anonymization = ParseAnonymization(command.AnonymizationLevel);
+        var address = Address.Create(
+            command.AddressPointCode,
+            command.StreetName,
+            command.HouseNumber,
+            command.HouseNumberType,
+            command.OrientationNumber,
+            command.OrientationNumberLetter,
+            command.MunicipalityName,
+            command.MunicipalityPartName,
+            command.Psc,
+            command.DistrictName,
+            command.RegionName);
         var coordinates = ParseCoordinates(command.Latitude, command.Longitude);
 
         var building = Building.Register(
@@ -36,7 +46,6 @@ public sealed class RegisterBuildingHandler(
             address: address,
             buildingTypeCode: command.BuildingTypeCode,
             coordinates: coordinates,
-            anonymization: anonymization,
             yearBuilt: command.YearBuilt,
             yearRenovated: command.YearRenovated,
             now: clock.UtcNow);
@@ -45,18 +54,6 @@ public sealed class RegisterBuildingHandler(
         await repository.SaveChangesAsync(cancellationToken);
 
         return new RegisterBuildingResult(building.Id, building.UriSlug);
-    }
-
-    internal static AnonymizationLevel ParseAnonymization(string code)
-    {
-        try
-        {
-            return AnonymizationLevel.FromCode(code);
-        }
-        catch (ArgumentException)
-        {
-            throw new UnknownCodelistCodeException("anonymization_level", code);
-        }
     }
 
     internal static Coordinates? ParseCoordinates(double? lat, double? lon)

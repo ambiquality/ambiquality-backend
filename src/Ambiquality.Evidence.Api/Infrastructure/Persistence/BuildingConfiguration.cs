@@ -1,5 +1,4 @@
 using Ambiquality.Evidence.Api.Domain.Buildings;
-using Ambiquality.Evidence.Api.Domain.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -68,27 +67,56 @@ public sealed class BuildingConfiguration : IEntityTypeConfiguration<Building>
             ah.WithOwner().HasForeignKey("building_id");
             ah.HasKey("building_id", "RecordedAt");
 
+            // OFN "Adresy" (2020-07-01) structured address, anchored on the RÚIAN
+            // address-point code. Street name, orientation number, municipal part,
+            // district (okres) and region (kraj) are optional per the standard.
             ah.OwnsOne(a => a.Address, aco =>
             {
-                aco.Property(a => a.Street)
-                    .HasColumnName("street")
-                    .HasMaxLength(255)
+                aco.Property(a => a.AddressPointCode)
+                    .HasColumnName("address_point_code")
                     .IsRequired();
 
-                aco.Property(a => a.City)
-                    .HasColumnName("city")
+                aco.Property(a => a.StreetName)
+                    .HasColumnName("street_name")
+                    .HasMaxLength(255);
+
+                aco.Property(a => a.HouseNumber)
+                    .HasColumnName("house_number")
+                    .IsRequired();
+
+                aco.Property(a => a.HouseNumberType)
+                    .HasColumnName("house_number_type")
+                    .HasMaxLength(8)
+                    .IsRequired();
+
+                aco.Property(a => a.OrientationNumber)
+                    .HasColumnName("orientation_number");
+
+                aco.Property(a => a.OrientationNumberLetter)
+                    .HasColumnName("orientation_number_letter")
+                    .HasMaxLength(2);
+
+                aco.Property(a => a.MunicipalityName)
+                    .HasColumnName("municipality_name")
                     .HasMaxLength(100)
                     .IsRequired();
 
-                aco.Property(a => a.Postcode)
-                    .HasColumnName("postcode")
-                    .HasMaxLength(20)
+                aco.Property(a => a.MunicipalityPartName)
+                    .HasColumnName("municipality_part_name")
+                    .HasMaxLength(100);
+
+                aco.Property(a => a.Psc)
+                    .HasColumnName("psc")
+                    .HasMaxLength(5)
                     .IsRequired();
 
-                aco.Property(a => a.Country)
-                    .HasColumnName("country")
-                    .HasMaxLength(2)
-                    .IsRequired();
+                aco.Property(a => a.DistrictName)
+                    .HasColumnName("district_name")
+                    .HasMaxLength(100);
+
+                aco.Property(a => a.RegionName)
+                    .HasColumnName("region_name")
+                    .HasMaxLength(100);
             });
 
             ah.Property(a => a.Validity)
@@ -148,14 +176,6 @@ public sealed class BuildingConfiguration : IEntityTypeConfiguration<Building>
                     .HasColumnName("longitude")
                     .HasPrecision(9, 6);
             });
-
-            lh.Property(l => l.Anonymization)
-                .HasColumnName("anonymization")
-                .HasConversion(
-                    a => a.Code,
-                    code => AnonymizationLevel.FromCode(code))
-                .HasMaxLength(50)
-                .IsRequired();
 
             lh.Property(l => l.Validity)
                 .HasColumnName("validity")

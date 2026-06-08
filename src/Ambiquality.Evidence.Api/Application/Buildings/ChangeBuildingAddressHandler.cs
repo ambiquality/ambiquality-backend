@@ -12,7 +12,18 @@ public sealed class ChangeBuildingAddressHandler(
     {
         var building = await BuildingAuthorizer.LoadOwnedAsync(
             repository, command.BuildingId, currentUser, cancellationToken);
-        var address = Address.Create(command.Street, command.City, command.Postcode, command.Country);
+        var address = Address.Create(
+            command.AddressPointCode,
+            command.StreetName,
+            command.HouseNumber,
+            command.HouseNumberType,
+            command.OrientationNumber,
+            command.OrientationNumberLetter,
+            command.MunicipalityName,
+            command.MunicipalityPartName,
+            command.Psc,
+            command.DistrictName,
+            command.RegionName);
         building.ChangeAddress(address, command.ValidFrom, currentUser.ProjectionId);
         await repository.SaveChangesAsync(cancellationToken);
     }

@@ -83,9 +83,9 @@ The Ingestion.Worker and Export.Worker are background services with no HTTP ingr
 
 ## Architecture & conventions
 
-See [`docs/adr/0001-monorepo-and-service-per-bounded-context.md`](docs/adr/0001-monorepo-and-service-per-bounded-context.md)
-for the architecture decision record, and [`docs/er/`](docs/er/README.md) for the entity-relationship
-diagrams of the three schemas.
+See the architecture decision records — [`0001 monorepo and service-per-bounded-context`](docs/adr/0001-monorepo-and-service-per-bounded-context.md)
+and [`0002 Czech OFN address model`](docs/adr/0002-ofn-czech-address-model.md) — and [`docs/er/`](docs/er/README.md)
+for the entity-relationship diagrams of the three schemas.
 
 - **Three databases, one Postgres instance** (see `init-databases.sql`):
   `auth` (owned by Auth.Api), `evidence` (owned by Evidence.Api), and `ieq` (the

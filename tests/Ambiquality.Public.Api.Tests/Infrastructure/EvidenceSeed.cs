@@ -42,14 +42,14 @@ public static class EvidenceSeed
         INSERT INTO evidence.building_name_history (building_id, name, validity, recorded_at, recorded_by)
         VALUES ('{BuildingId}', 'Test Tower', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
 
-        INSERT INTO evidence.building_address_history (building_id, street, city, postcode, country, validity, recorded_at, recorded_by)
-        VALUES ('{BuildingId}', 'Náměstí 1', 'Praha', '11000', 'CZ', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
+        INSERT INTO evidence.building_address_history (building_id, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name, validity, recorded_at, recorded_by)
+        VALUES ('{BuildingId}', 70010001, 'Karlovo náměstí', 1, 'č.p.', 1, NULL, 'Praha', 'Nové Město', '11000', 'Hlavní město Praha', 'Hlavní město Praha', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
 
         INSERT INTO evidence.building_type_history (building_id, building_type_code, validity, recorded_at, recorded_by)
         VALUES ('{BuildingId}', 'office', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
 
-        INSERT INTO evidence.building_location_history (building_id, latitude, longitude, anonymization, validity, recorded_at, recorded_by)
-        VALUES ('{BuildingId}', 50.087465, 14.421253, 'precise', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
+        INSERT INTO evidence.building_location_history (building_id, latitude, longitude, validity, recorded_at, recorded_by)
+        VALUES ('{BuildingId}', 50.087465, 14.421253, {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
 
         INSERT INTO evidence.building_years_history (building_id, year_built, year_renovated, validity, recorded_at, recorded_by)
         VALUES ('{BuildingId}', 2000, 2015, {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
@@ -96,21 +96,21 @@ public static class EvidenceSeed
         INSERT INTO evidence.sensor_placement_history (sensor_id, building_id, room_id, validity, recorded_at, recorded_by)
         VALUES ('{SensorId}', '{BuildingId}', '{RoomId}', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
 
-        -- Building: street anonymization
+        -- Building 2 (Praha — Václavské náměstí)
         INSERT INTO evidence.buildings ("Id", uri_slug, owner_id, created_by, created_at)
         VALUES ('{BuildingStreetId}', 'bld-street', '{RecordedBy}', '{RecordedBy}', '2026-01-01 00:00:00+00');
-        INSERT INTO evidence.building_address_history (building_id, street, city, postcode, country, validity, recorded_at, recorded_by)
-        VALUES ('{BuildingStreetId}', 'Wenceslas Square', 'Prague', '11000', 'CZ', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
-        INSERT INTO evidence.building_location_history (building_id, latitude, longitude, anonymization, validity, recorded_at, recorded_by)
-        VALUES ('{BuildingStreetId}', 50.081234, 14.427891, 'street', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
+        INSERT INTO evidence.building_address_history (building_id, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name, validity, recorded_at, recorded_by)
+        VALUES ('{BuildingStreetId}', 70010002, 'Václavské náměstí', 837, 'č.p.', 56, NULL, 'Praha', 'Nové Město', '11000', 'Hlavní město Praha', 'Hlavní město Praha', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
+        INSERT INTO evidence.building_location_history (building_id, latitude, longitude, validity, recorded_at, recorded_by)
+        VALUES ('{BuildingStreetId}', 50.081234, 14.427891, {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
 
-        -- Building: municipality anonymization
+        -- Building 3 (Praha — Malostranské náměstí)
         INSERT INTO evidence.buildings ("Id", uri_slug, owner_id, created_by, created_at)
         VALUES ('{BuildingMunicipalityId}', 'bld-municipality', '{RecordedBy}', '{RecordedBy}', '2026-01-01 00:00:00+00');
-        INSERT INTO evidence.building_address_history (building_id, street, city, postcode, country, validity, recorded_at, recorded_by)
-        VALUES ('{BuildingMunicipalityId}', 'Malostranské náměstí 1', 'Prague', '11800', 'CZ', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
-        INSERT INTO evidence.building_location_history (building_id, latitude, longitude, anonymization, validity, recorded_at, recorded_by)
-        VALUES ('{BuildingMunicipalityId}', 50.088765, 14.403210, 'municipality', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
+        INSERT INTO evidence.building_address_history (building_id, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name, validity, recorded_at, recorded_by)
+        VALUES ('{BuildingMunicipalityId}', 70010003, 'Malostranské náměstí', 1, 'č.p.', 1, NULL, 'Praha', 'Malá Strana', '11800', 'Hlavní město Praha', 'Hlavní město Praha', {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
+        INSERT INTO evidence.building_location_history (building_id, latitude, longitude, validity, recorded_at, recorded_by)
+        VALUES ('{BuildingMunicipalityId}', 50.088765, 14.403210, {Validity}, '2026-01-01 00:00:00+00', '{RecordedBy}');
 
         -- Measurements (M2 and M3 share received_at)
         INSERT INTO ieq.measurements (id, sensor_id, parameter_code, value, unit, observed_at, received_at, is_invalid)

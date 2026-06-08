@@ -8,16 +8,21 @@ body:
   type: json
   content: |-
     {
-        "uriSlug": "faculty-of-ie",
         "name": "Faculty of Informatics and Economics",
-        "street": "Zizkova 11",
-        "city": "Prague",
-        "postcode": "130 00",
-        "country": "CZ",
+        "addressPointCode": 21794547,
+        "streetName": "Žižkova",
+        "houseNumber": 11,
+        "houseNumberType": "č.p.",
+        "orientationNumber": null,
+        "orientationNumberLetter": null,
+        "municipalityName": "Praha",
+        "municipalityPartName": "Žižkov",
+        "psc": "13000",
+        "districtName": "Hlavní město Praha",
+        "regionName": "Hlavní město Praha",
         "buildingTypeCode": "office",
         "latitude": 50.0815,
         "longitude": 14.4391,
-        "anonymizationLevel": "precise",
         "yearBuilt": 1962,
         "yearRenovated": 2005
     }

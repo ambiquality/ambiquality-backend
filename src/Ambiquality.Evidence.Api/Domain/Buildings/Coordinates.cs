@@ -1,9 +1,8 @@
 namespace Ambiquality.Evidence.Api.Domain.Buildings;
 
 /// <summary>
-/// WGS-84 latitude / longitude pair. Stored as raw precise values; the
-/// <see cref="Common.AnonymizationLevel"/> on the same history row controls
-/// what is exposed publicly.
+/// WGS-84 latitude / longitude pair. Stored as raw precise values and exposed
+/// as-is on the public open-data API.
 /// </summary>
 public sealed record Coordinates(double Latitude, double Longitude)
 {

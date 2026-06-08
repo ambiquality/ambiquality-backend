@@ -15,9 +15,9 @@ public sealed class CatalogEndpointsTests(TimescaleFixture fixture) : PublicApiT
         var building = Assert.Single(items, b => b.GetProperty("id").GetString() == EvidenceSeed.BuildingId);
 
         Assert.Equal("Test Tower", building.GetProperty("name").GetString());
-        Assert.Equal("Praha", building.GetProperty("address").GetProperty("city").GetString());
+        Assert.Equal("Praha", building.GetProperty("address").GetProperty("municipalityName").GetString());
         Assert.Equal("office", building.GetProperty("buildingTypeCode").GetString());
-        // anonymization 'precise' → coordinates unmasked.
+        // Open data: coordinates are precise (no anonymization).
         Assert.Equal(50.087465, building.GetProperty("latitude").GetDouble(), 5);
     }
 
@@ -67,35 +67,45 @@ public sealed class CatalogEndpointsTests(TimescaleFixture fixture) : PublicApiT
     }
 
     [Fact]
-    public async Task GetBuilding_StreetAnon_ExposesStreetAndCityButNotPostcode()
+    public async Task GetBuilding_ExposesFullOfnAddressAndPreciseCoordinates()
     {
         var b = await Client.GetFromJsonAsync<JsonElement>($"/v1/buildings/{EvidenceSeed.BuildingStreetId}");
 
         var addr = b.GetProperty("address");
-        Assert.Equal("Wenceslas Square", addr.GetProperty("street").GetString());
-        Assert.Equal("Prague", addr.GetProperty("city").GetString());
-        Assert.Equal("CZ", addr.GetProperty("country").GetString());
-        Assert.Equal(JsonValueKind.Null, addr.GetProperty("postcode").ValueKind);
+        Assert.Equal(70010002, addr.GetProperty("addressPointCode").GetInt64());
+        Assert.Equal("Václavské náměstí", addr.GetProperty("streetName").GetString());
+        Assert.Equal(837, addr.GetProperty("houseNumber").GetInt32());
+        Assert.Equal("č.p.", addr.GetProperty("houseNumberType").GetString());
+        Assert.Equal(56, addr.GetProperty("orientationNumber").GetInt32());
+        Assert.Equal("Praha", addr.GetProperty("municipalityName").GetString());
+        Assert.Equal("11000", addr.GetProperty("psc").GetString());
 
-        // Coordinates coarsened to 3 dp (≈110 m).
-        Assert.Equal(50.081, b.GetProperty("latitude").GetDouble(), 3);
-        Assert.Equal(14.428, b.GetProperty("longitude").GetDouble(), 3);
+        // Open data: coordinates are precise (no anonymization).
+        Assert.Equal(50.081234, b.GetProperty("latitude").GetDouble(), 5);
+        Assert.Equal(14.427891, b.GetProperty("longitude").GetDouble(), 5);
     }
 
     [Fact]
-    public async Task GetBuilding_MunicipalityAnon_ExposesOnlyCityAndCountry()
+    public async Task GetBuilding_JsonLd_EmitsConformantOfnAdresaNode()
     {
-        var b = await Client.GetFromJsonAsync<JsonElement>($"/v1/buildings/{EvidenceSeed.BuildingMunicipalityId}");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/v1/buildings/{EvidenceSeed.BuildingId}");
+        request.Headers.Add("Accept", "application/ld+json");
+        var response = await Client.SendAsync(request);
 
-        var addr = b.GetProperty("address");
-        Assert.Equal(JsonValueKind.Null, addr.GetProperty("street").ValueKind);
-        Assert.Equal("Prague", addr.GetProperty("city").GetString());
-        Assert.Equal("CZ", addr.GetProperty("country").GetString());
-        Assert.Equal(JsonValueKind.Null, addr.GetProperty("postcode").ValueKind);
+        Assert.Equal("application/ld+json", response.Content.Headers.ContentType?.MediaType);
+        var doc = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync());
 
-        // Coordinates coarsened to 2 dp (≈1.1 km).
-        Assert.Equal(50.09, b.GetProperty("latitude").GetDouble(), 2);
-        Assert.Equal(14.40, b.GetProperty("longitude").GetDouble(), 2);
+        var addr = doc.GetProperty("ambiq:address");
+        Assert.Equal("Adresa", addr.GetProperty("typ").GetString());
+        Assert.Equal(
+            "https://linked.cuzk.cz/resource/ruian/adresni-misto/70010001",
+            addr.GetProperty("adresní_místo").GetString());
+        Assert.Equal("Karlovo náměstí", addr.GetProperty("název_ulice").GetString());
+        Assert.Equal(1, addr.GetProperty("číslo_domovní").GetInt32());
+        Assert.Equal("č.p.", addr.GetProperty("typ_čísla_domovního").GetString());
+        Assert.Equal("Praha", addr.GetProperty("název_obce").GetString());
+        Assert.Equal("11000", addr.GetProperty("psč").GetString());
+        Assert.Contains("Praha", addr.GetProperty("text").GetProperty("cs").GetString());
     }
 
     [Fact]
