@@ -100,12 +100,30 @@ public sealed class CatalogEndpointsTests(TimescaleFixture fixture) : PublicApiT
         Assert.Equal(
             "https://linked.cuzk.cz/resource/ruian/adresni-misto/70010001",
             addr.GetProperty("adresní_místo").GetString());
-        Assert.Equal("Karlovo náměstí", addr.GetProperty("název_ulice").GetString());
         Assert.Equal(1, addr.GetProperty("číslo_domovní").GetInt32());
         Assert.Equal("č.p.", addr.GetProperty("typ_čísla_domovního").GetString());
-        Assert.Equal("Praha", addr.GetProperty("název_obce").GetString());
         Assert.Equal("11000", addr.GetProperty("psč").GetString());
         Assert.Contains("Praha", addr.GetProperty("text").GetProperty("cs").GetString());
+
+        // OFN models the territorial elements as dereferenceable RÚIAN IRIs ("@type": "@id"),
+        // each alongside its název_* label carried as a language-tagged string ({"cs": …}).
+        Assert.Equal(
+            "https://linked.cuzk.cz/resource/ruian/ulice/650421",
+            addr.GetProperty("ulice").GetString());
+        Assert.Equal("Karlovo náměstí", addr.GetProperty("název_ulice").GetProperty("cs").GetString());
+        Assert.Equal(
+            "https://linked.cuzk.cz/resource/ruian/cast-obce/400581",
+            addr.GetProperty("část_obce").GetString());
+        Assert.Equal(
+            "https://linked.cuzk.cz/resource/ruian/obec/554782",
+            addr.GetProperty("obec").GetString());
+        Assert.Equal("Praha", addr.GetProperty("název_obce").GetProperty("cs").GetString());
+        Assert.Equal(
+            "https://linked.cuzk.cz/resource/ruian/okres/1100",
+            addr.GetProperty("okres").GetString());
+        Assert.Equal(
+            "https://linked.cuzk.cz/resource/ruian/vusc/19",
+            addr.GetProperty("vúsc").GetString());
     }
 
     [Fact]

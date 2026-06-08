@@ -23,7 +23,12 @@ public sealed class ChangeBuildingAddressHandler(
             command.MunicipalityPartName,
             command.Psc,
             command.DistrictName,
-            command.RegionName);
+            command.RegionName,
+            command.StreetCode,
+            command.MunicipalityCode,
+            command.MunicipalityPartCode,
+            command.DistrictCode,
+            command.RegionCode);
         building.ChangeAddress(address, command.ValidFrom, currentUser.ProjectionId);
         await repository.SaveChangesAsync(cancellationToken);
     }

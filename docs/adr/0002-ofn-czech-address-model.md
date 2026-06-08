@@ -38,6 +38,19 @@ The public JSON-LD emits a nested, scoped-context `ambiq:address` node shaped as
 (`linked.cuzk.cz/resource/ruian/adresni-misto/{code}`), the structured fields, and a composed
 free-text `text` — so the OFN preference order (IRI → structured → text) is all provided.
 
+### Reference the territorial elements by RÚIAN IRI, not just by name
+
+In the OFN `adresa.jsonld` context every territorial element — `ulice`, `obec`, `část_obce`,
+`okres`, `vúsc` (kraj) — is an **IRI** (`"@type": "@id"`), and each `název_*` label is a
+**language-tagged string** (`{"cs": …}`). The first iteration stored only the names and emitted
+only the `název_*` text as bare strings, so the dereferenceable territorial IRIs the standard's
+examples show were never produced. To close that gap, the address now also stores the optional
+**RÚIAN codes** for those elements (`street_code`, `municipality_code`, `municipality_part_code`,
+`district_code`, `region_code`; migration `0011_OfnRuianCodes`). When a code is present the JSON-LD
+node emits the matching IRI (e.g. `obec → linked.cuzk.cz/resource/ruian/obec/{code}`,
+`vúsc → …/ruian/vusc/{code}`) alongside the `název_*` label, which is now correctly carried as
+`{"cs": …}`. All codes are optional — a bare `adresní_místo` IRI already identifies the address.
+
 **No live RÚIAN resolution.** Addresses are registrar-supplied and validated structurally only
 (code positive, PSČ five digits, house-number type in the allowed set). Live lookup/validation
 against the CUZK linked-data endpoint is named as future work, keeping the service self-contained
@@ -64,7 +77,9 @@ Rationale:
 ## Consequences
 
 - A clean-slate migration drops the four old address columns + `anonymization` and adds the OFN
-  columns; only dev seed data existed, so no backfill was required.
+  columns; only dev seed data existed, so no backfill was required. A follow-up migration
+  (`0011_OfnRuianCodes`) adds the five nullable territorial RÚIAN code columns; existing rows keep
+  `NULL` codes (and so emit no territorial IRI) until a registrar supplies them.
 - Full **DCAT-AP-CZ** conformance is still out of reach for an individual (non-OVM) publisher — an
   unchanged, separately-documented limitation. RÚIAN *spatial-coverage* IRIs for the dataset as a
   whole remain out of scope; the address-point IRIs added here are per-building.

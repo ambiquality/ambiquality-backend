@@ -15,9 +15,15 @@ public class AddressTests
         string? municipalityPartName = "Žižkov",
         string psc = "13067",
         string? districtName = "Hlavní město Praha",
-        string? regionName = "Hlavní město Praha") =>
+        string? regionName = "Hlavní město Praha",
+        long? streetCode = 650421,
+        long? municipalityCode = 554782,
+        long? municipalityPartCode = 400581,
+        long? districtCode = 1100,
+        long? regionCode = 19) =>
         Address.Create(addressPointCode, streetName, houseNumber, houseNumberType, orientationNumber,
-            orientationNumberLetter, municipalityName, municipalityPartName, psc, districtName, regionName);
+            orientationNumberLetter, municipalityName, municipalityPartName, psc, districtName, regionName,
+            streetCode, municipalityCode, municipalityPartCode, districtCode, regionCode);
 
     [Fact]
     public void Create_WithValidFields_ReturnsAddress()
@@ -40,6 +46,37 @@ public class AddressTests
         Assert.Equal(
             "https://linked.cuzk.cz/resource/ruian/adresni-misto/21794547",
             Sample().AddressPointIri);
+    }
+
+    [Fact]
+    public void TerritorialIris_BuildRuianIrisFromCodes()
+    {
+        var address = Sample();
+        Assert.Equal("https://linked.cuzk.cz/resource/ruian/ulice/650421", address.StreetIri);
+        Assert.Equal("https://linked.cuzk.cz/resource/ruian/obec/554782", address.MunicipalityIri);
+        Assert.Equal("https://linked.cuzk.cz/resource/ruian/cast-obce/400581", address.MunicipalityPartIri);
+        Assert.Equal("https://linked.cuzk.cz/resource/ruian/okres/1100", address.DistrictIri);
+        Assert.Equal("https://linked.cuzk.cz/resource/ruian/vusc/19", address.RegionIri);
+    }
+
+    [Fact]
+    public void TerritorialIris_AreNullWhenCodesAbsent()
+    {
+        var address = Sample(streetCode: null, municipalityCode: null,
+            municipalityPartCode: null, districtCode: null, regionCode: null);
+        Assert.Null(address.StreetIri);
+        Assert.Null(address.MunicipalityIri);
+        Assert.Null(address.MunicipalityPartIri);
+        Assert.Null(address.DistrictIri);
+        Assert.Null(address.RegionIri);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-7)]
+    public void Create_WithNonPositiveMunicipalityCode_Throws(long code)
+    {
+        Assert.Throws<ArgumentException>(() => Sample(municipalityCode: code));
     }
 
     [Fact]

@@ -11,7 +11,7 @@
     "name": { "type": ["string", "null"] },
     "address": {
       "type": "object",
-      "description": "Czech OFN address. The RÚIAN address-point code is the canonical anchor; street name, orientation number, municipal part, district (okres) and region (kraj) are optional.",
+      "description": "Czech OFN address. The RÚIAN address-point code is the canonical anchor; street name, orientation number, municipal part, district (okres) and region (kraj) are optional. The *Code fields are the RÚIAN codes backing the OFN territorial IRIs (ulice, obec, část obce, okres, VÚSC/kraj); in the JSON-LD projection they are emitted as dereferenceable https://linked.cuzk.cz/resource/ruian/… IRIs.",
       "properties": {
         "addressPointCode": { "type": ["integer", "null"], "description": "RÚIAN kód adresního místa." },
         "streetName": { "type": ["string", "null"], "description": "název ulice (optional — small municipalities have no streets)." },
@@ -23,7 +23,12 @@
         "municipalityPartName": { "type": ["string", "null"], "description": "název části obce." },
         "psc": { "type": ["string", "null"], "description": "PSČ (five digits)." },
         "districtName": { "type": ["string", "null"], "description": "název okresu." },
-        "regionName": { "type": ["string", "null"], "description": "název kraje (VÚSC)." }
+        "regionName": { "type": ["string", "null"], "description": "název kraje (VÚSC)." },
+        "streetCode": { "type": ["integer", "null"], "description": "RÚIAN kód ulice → OFN ulice IRI." },
+        "municipalityCode": { "type": ["integer", "null"], "description": "RÚIAN kód obce → OFN obec IRI." },
+        "municipalityPartCode": { "type": ["integer", "null"], "description": "RÚIAN kód části obce → OFN část_obce IRI." },
+        "districtCode": { "type": ["integer", "null"], "description": "RÚIAN kód okresu → OFN okres IRI." },
+        "regionCode": { "type": ["integer", "null"], "description": "RÚIAN kód VÚSC (kraje) → OFN vúsc IRI." }
       }
     },
     "buildingTypeCode": { "type": ["string", "null"] },

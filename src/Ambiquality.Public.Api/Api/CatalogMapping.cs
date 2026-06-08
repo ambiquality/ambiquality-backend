@@ -20,7 +20,12 @@ internal static class CatalogMappers
             b.MunicipalityPartName,
             b.Psc,
             b.DistrictName,
-            b.RegionName);
+            b.RegionName,
+            b.StreetCode,
+            b.MunicipalityCode,
+            b.MunicipalityPartCode,
+            b.DistrictCode,
+            b.RegionCode);
         return new BuildingResponse(
             b.Id, iri.Building(b.Id), b.Name,
             address, b.BuildingTypeCode, b.Latitude, b.Longitude, b.YearBuilt, b.YearRenovated, Constants.LicenseIri);
@@ -90,9 +95,12 @@ internal static class CatalogJsonLd
 
     /// <summary>
     /// Builds an OFN <c>Adresa</c> node (with its own scoped <c>@context</c>) from the
-    /// address DTO. Prefers the RÚIAN <c>adresní_místo</c> IRI, then the structured Czech
-    /// components, and always carries the composed free-text <c>text</c>. Returns
-    /// <c>null</c> when the building has no recorded address.
+    /// address DTO. Each territorial element (ulice, obec, část obce, okres, VÚSC) is
+    /// emitted as its dereferenceable RÚIAN IRI — the form the OFN context models
+    /// (<c>"@type": "@id"</c>) — alongside its <c>název_*</c> label, which OFN carries
+    /// as a language-tagged string (<c>{"cs": …}</c>). The <c>adresní_místo</c> IRI alone
+    /// already identifies the address; the rest is supplementary. Always carries the
+    /// composed free-text <c>text</c>. Returns <c>null</c> when there is no recorded address.
     /// </summary>
     private static IReadOnlyDictionary<string, object?>? OfnAddress(AddressDto a)
     {
@@ -107,19 +115,32 @@ internal static class CatalogJsonLd
 
         if (a.AddressPointCode is { } code)
         {
-            node["adresní_místo"] = $"https://linked.cuzk.cz/resource/ruian/adresni-misto/{code.ToString(CultureInfo.InvariantCulture)}";
+            node["adresní_místo"] = RuianIri("adresni-misto", code);
             node["kód_adresního_místa"] = code.ToString(CultureInfo.InvariantCulture);
         }
 
-        AddText(node, "název_ulice", a.StreetName);
+        // ulice
+        AddIri(node, "ulice", "ulice", a.StreetCode);
+        AddLangText(node, "název_ulice", a.StreetName);
+
         if (a.HouseNumber is { } houseNumber) node["číslo_domovní"] = houseNumber;
         AddText(node, "typ_čísla_domovního", a.HouseNumberType);
         if (a.OrientationNumber is { } orientationNumber) node["číslo_orientační"] = orientationNumber;
         AddText(node, "znak_čísla_orientačního", a.OrientationNumberLetter);
-        AddText(node, "název_obce", a.MunicipalityName);
-        AddText(node, "název_části_obce", a.MunicipalityPartName);
-        AddText(node, "název_okresu", a.DistrictName);
-        AddText(node, "název_vúsc", a.RegionName);
+
+        // část obce
+        AddIri(node, "část_obce", "cast-obce", a.MunicipalityPartCode);
+        AddLangText(node, "název_části_obce", a.MunicipalityPartName);
+        // obec
+        AddIri(node, "obec", "obec", a.MunicipalityCode);
+        AddLangText(node, "název_obce", a.MunicipalityName);
+        // okres
+        AddIri(node, "okres", "okres", a.DistrictCode);
+        AddLangText(node, "název_okresu", a.DistrictName);
+        // VÚSC (kraj)
+        AddIri(node, "vúsc", "vusc", a.RegionCode);
+        AddLangText(node, "název_vúsc", a.RegionName);
+
         AddText(node, "psč", a.Psc);
 
         var text = ComposeAddressText(a);
@@ -129,9 +150,26 @@ internal static class CatalogJsonLd
         return node;
     }
 
+    private static string RuianIri(string segment, long code) =>
+        $"https://linked.cuzk.cz/resource/ruian/{segment}/{code.ToString(CultureInfo.InvariantCulture)}";
+
+    // OFN territorial element as its dereferenceable RÚIAN IRI ("@type": "@id" in the context).
+    private static void AddIri(IDictionary<string, object?> node, string key, string segment, long? code)
+    {
+        if (code is { } c) node[key] = RuianIri(segment, c);
+    }
+
+    // A plain literal property (typ_čísla_domovního, znak_čísla_orientačního, psč).
     private static void AddText(IDictionary<string, object?> node, string key, string? value)
     {
         if (!string.IsNullOrEmpty(value)) node[key] = value;
+    }
+
+    // A language-tagged string (název_*), which OFN models as {"cs": …}.
+    private static void AddLangText(IDictionary<string, object?> node, string key, string? value)
+    {
+        if (!string.IsNullOrEmpty(value))
+            node[key] = new Dictionary<string, object?> { ["cs"] = value };
     }
 
     /// <summary>Composes the OFN free-text address per Czech postal convention.</summary>

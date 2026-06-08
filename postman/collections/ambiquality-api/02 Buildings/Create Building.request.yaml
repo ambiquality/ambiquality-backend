@@ -20,6 +20,8 @@ body:
         "psc": "13000",
         "districtName": "Hlavní město Praha",
         "regionName": "Hlavní město Praha",
+        "municipalityCode": 554782,
+        "regionCode": 19,
         "buildingTypeCode": "office",
         "latitude": 50.0815,
         "longitude": 14.4391,

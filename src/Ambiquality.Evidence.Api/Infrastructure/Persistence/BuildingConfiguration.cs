@@ -117,6 +117,24 @@ public sealed class BuildingConfiguration : IEntityTypeConfiguration<Building>
                 aco.Property(a => a.RegionName)
                     .HasColumnName("region_name")
                     .HasMaxLength(100);
+
+                // RÚIAN codes backing the OFN territorial IRIs (ulice/obec/část obce/
+                // okres/VÚSC). All optional — a bare address-point code already
+                // identifies the address.
+                aco.Property(a => a.StreetCode)
+                    .HasColumnName("street_code");
+
+                aco.Property(a => a.MunicipalityCode)
+                    .HasColumnName("municipality_code");
+
+                aco.Property(a => a.MunicipalityPartCode)
+                    .HasColumnName("municipality_part_code");
+
+                aco.Property(a => a.DistrictCode)
+                    .HasColumnName("district_code");
+
+                aco.Property(a => a.RegionCode)
+                    .HasColumnName("region_code");
             });
 
             ah.Property(a => a.Validity)
