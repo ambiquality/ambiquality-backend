@@ -105,6 +105,10 @@ builder.Services.AddOpenApi(options =>
 
         return Task.CompletedTask;
     });
+
+    // Document the building address model (OFN Adresy / RÚIAN) field-by-field so the
+    // generated spec and Scalar UI are self-explanatory — see AddressSchemaDocumentation.
+    AddressSchemaDocumentation.Configure(options);
 });
 builder.Services.AddProblemDetails();
 

@@ -11,7 +11,10 @@ public static class SensorEndpoints
 
         group.MapMethods("/{id:guid}", ["GET", "HEAD"], GetSensorById)
             .WithName("GetSensorById")
-            .WithSummary("Get a sensor by id");
+            .WithSummary("Get a sensor by id")
+            .Produces<SensorResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
 
     private static async Task<IResult> GetSensorById(
