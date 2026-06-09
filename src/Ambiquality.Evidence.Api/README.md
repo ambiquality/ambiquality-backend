@@ -162,6 +162,30 @@ unknown code is a `400 unknown-codelist-code`.
 `HEAD` is handled by middleware in `Program.cs` that runs the matching `GET` handler and
 discards the body while preserving status and headers (RFC 9110 §9.3.2).
 
+### Address lookup (RÚIAN autocomplete)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/address-lookup/suggest?q=&limit=` | Autocomplete Czech addresses (`{ suggestions: [{ text, key }] }`) |
+| `GET` | `/address-lookup/resolve?key=` | Expand a suggestion `key` to the full OFN address (structured components + RÚIAN codes + WGS84 coordinates + composed `text`) |
+
+A convenience for the building-registration form so the registrar **picks** an address instead of
+hand-copying the ~18 OFN `Adresy` fields out of the registry. Both endpoints **require
+authorization** (it is not an open geocoding proxy), and the resolved address is still
+re-validated by `RegisterBuilding` — this never bypasses the domain rules.
+
+Backed by the **ČÚZK RÚIAN ArcGIS** service (`Ruian:BaseUrl`, default
+`https://ags.cuzk.gov.cz/arcgis/rest/services/RUIAN/MapServer/`). `suggest` calls the Esri
+`GeocodeSOE` locator (address points only); `resolve` reads the `AdresniMisto` layer for the
+suggestion's object id, then enriches it from the street and territorial layers
+(`Ulice` / `Obec` / `CastObce` / `Okres` / `VyssiUzemneSamospravnyCelek`) in parallel. The
+integration lives in `Infrastructure/Ruian/RuianGeocoderClient.cs` behind `IAddressGeocoder`.
+
+> **Attribution.** RÚIAN data and services are open data under **CC BY 4.0** — © ČÚZK. The
+> consuming UI must credit ČÚZK/RÚIAN. No API key or registration is required; the client uses a
+> 5 s timeout and the endpoints answer **502 `address-lookup-unavailable`** (not 500) when the
+> upstream service fails, so a caller can fall back to manual entry.
+
 ### HTTP verb & status convention
 
 The API follows one rule consistently across buildings and rooms:

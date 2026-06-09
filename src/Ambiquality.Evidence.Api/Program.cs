@@ -9,6 +9,7 @@ using Ambiquality.Evidence.Api.Domain.Rooms;
 using Ambiquality.Evidence.Api.Domain.Sensors;
 using Ambiquality.Evidence.Api.Infrastructure;
 using Ambiquality.Evidence.Api.Infrastructure.Persistence;
+using Ambiquality.Evidence.Api.Infrastructure.Ruian;
 using Ambiquality.Evidence.Api.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -38,6 +39,16 @@ builder.Services.AddScoped<IUserProjectionRepository, UserProjectionRepository>(
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddSingleton<ISlugGenerator, RandomSlugGenerator>();
 builder.Services.AddSingleton<ISensorApiKeyService, SensorApiKeyService>();
+
+// RÚIAN address autocomplete (ČÚZK ArcGIS, open data / CC BY 4.0). Base URL is configurable so
+// it can be pointed at a mirror; the 5 s timeout keeps a slow upstream from hanging the form.
+builder.Services.AddHttpClient<IAddressGeocoder, RuianGeocoderClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Ruian:BaseUrl"]
+        ?? "https://ags.cuzk.gov.cz/arcgis/rest/services/RUIAN/MapServer/");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
 
@@ -172,6 +183,7 @@ var v1 = app.MapGroup($"/{Constants.ApiVersion}");
 v1.MapBuildingEndpoints();
 v1.MapRoomEndpoints();
 v1.MapSensorEndpoints();
+v1.MapAddressLookupEndpoints();
 
 app.Run();
 
