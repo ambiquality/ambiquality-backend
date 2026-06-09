@@ -47,8 +47,8 @@ DO $$ BEGIN
   INSERT INTO evidence.building_name_history (building_id, recorded_at, recorded_by, validity, name) VALUES
     ('50100000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'VŠE Prague - Faculty of Informatics and Statistics');
 
-  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name) VALUES
-    ('50100000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 21794547, 'Náměstí Winstona Churchilla', 1938, 'č.p.', 4, NULL, 'Praha', 'Žižkov', '13067', 'Hlavní město Praha', 'Hlavní město Praha');
+  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name, street_code, municipality_part_code, municipality_code, district_code, region_code) VALUES
+    ('50100000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 21794547, 'Náměstí Winstona Churchilla', 1938, 'č.p.', 4, NULL, 'Praha', 'Žižkov', '13067', 'Hlavní město Praha', 'Hlavní město Praha', NULL, NULL, 554782, NULL, 19);
 
   INSERT INTO evidence.building_type_history (building_id, recorded_at, recorded_by, validity, building_type_code) VALUES
     ('50100000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'educational');
@@ -66,8 +66,8 @@ DO $$ BEGIN
   INSERT INTO evidence.building_name_history (building_id, recorded_at, recorded_by, validity, name) VALUES
     ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'Ostrava Office Complex');
 
-  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name) VALUES
-    ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 22730045, 'Nádražní', 545, 'č.p.', 3, NULL, 'Ostrava', 'Moravská Ostrava', '70200', 'Ostrava-město', 'Moravskoslezský kraj');
+  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name, street_code, municipality_part_code, municipality_code, district_code, region_code) VALUES
+    ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 22730045, 'Nádražní', 545, 'č.p.', 3, NULL, 'Ostrava', 'Moravská Ostrava', '70200', 'Ostrava-město', 'Moravskoslezský kraj', NULL, NULL, 554821, NULL, 140);
 
   INSERT INTO evidence.building_type_history (building_id, recorded_at, recorded_by, validity, building_type_code) VALUES
     ('50200000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '40000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'office');
@@ -85,8 +85,8 @@ DO $$ BEGIN
   INSERT INTO evidence.building_name_history (building_id, recorded_at, recorded_by, validity, name) VALUES
     ('50300000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'Brno Educational Center');
 
-  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name) VALUES
-    ('50300000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 25001234, 'Žerotínovo náměstí', 617, 'č.p.', 9, NULL, 'Brno', 'Veveří', '60200', 'Brno-město', 'Jihomoravský kraj');
+  INSERT INTO evidence.building_address_history (building_id, recorded_at, recorded_by, validity, address_point_code, street_name, house_number, house_number_type, orientation_number, orientation_number_letter, municipality_name, municipality_part_name, psc, district_name, region_name, street_code, municipality_part_code, municipality_code, district_code, region_code) VALUES
+    ('50300000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 25001234, 'Žerotínovo náměstí', 617, 'č.p.', 9, NULL, 'Brno', 'Veveří', '60200', 'Brno-město', 'Jihomoravský kraj', NULL, NULL, 582786, NULL, 116);
 
   INSERT INTO evidence.building_type_history (building_id, recorded_at, recorded_by, validity, building_type_code) VALUES
     ('50300000-0000-0000-0000-000000000001'::uuid, '2025-01-01'::timestamptz, '30000000-0000-0000-0000-000000000001'::uuid, tstzrange('2025-01-01'::timestamptz, NULL, '[)'), 'educational');

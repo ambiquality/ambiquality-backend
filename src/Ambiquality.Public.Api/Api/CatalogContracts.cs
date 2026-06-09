@@ -5,7 +5,9 @@ namespace Ambiquality.Public.Api.Api;
 /// <summary>
 /// Czech postal address of a building (current temporal state), following the OFN
 /// "Adresy" (2020-07-01) standard. <see cref="AddressPointCode"/> is the RÚIAN
-/// address-point anchor; the optional components are null when not recorded.
+/// address-point anchor; the optional components are null when not recorded. The
+/// <c>*Code</c> fields are the RÚIAN codes backing the OFN territorial IRIs (ulice,
+/// obec, část obce, okres, VÚSC/kraj).
 /// </summary>
 public sealed record AddressDto(
     long? AddressPointCode,
@@ -18,7 +20,12 @@ public sealed record AddressDto(
     string? MunicipalityPartName,
     string? Psc,
     string? DistrictName,
-    string? RegionName);
+    string? RegionName,
+    long? StreetCode,
+    long? MunicipalityCode,
+    long? MunicipalityPartCode,
+    long? DistrictCode,
+    long? RegionCode);
 
 /// <summary>
 /// Public projection of a building. Coordinates are the precise stored values

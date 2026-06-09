@@ -259,7 +259,11 @@ wired in `Program.cs`; `MapInboundClaims` is disabled so the raw `sub` claim sur
   standard, anchored on the RÚIAN address-point code (`address_point_code`) with the structured
   components stored alongside (`street_name`, `house_number` + `house_number_type` č.p./č.ev.,
   `orientation_number`, `municipality_name`, `municipality_part_name`, `psc`, plus optional
-  `district_name`/`region_name`). The platform is Czech-only, so there is no country field.
+  `district_name`/`region_name`). OFN models the territorial elements as dereferenceable RÚIAN
+  IRIs, so the optional RÚIAN codes that back them are stored too (`street_code`,
+  `municipality_code`, `municipality_part_code`, `district_code`, `region_code`) — Public.Api emits
+  the `ulice`/`obec`/`část_obce`/`okres`/`vúsc` IRIs from them. The platform is Czech-only, so there
+  is no country field.
 - **Coordinates are open data.** Latitude/longitude are stored and returned precisely to every
   reader — there is no anonymization (publishing precise building coordinates is noted as a privacy
   risk in the thesis, not implemented as a mitigation here).

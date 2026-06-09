@@ -95,7 +95,12 @@ public static class BuildingEndpoints
                 Latitude: request.Latitude,
                 Longitude: request.Longitude,
                 YearBuilt: request.YearBuilt,
-                YearRenovated: request.YearRenovated);
+                YearRenovated: request.YearRenovated,
+                StreetCode: request.StreetCode,
+                MunicipalityCode: request.MunicipalityCode,
+                MunicipalityPartCode: request.MunicipalityPartCode,
+                DistrictCode: request.DistrictCode,
+                RegionCode: request.RegionCode);
 
             var result = await handler.HandleAsync(command, cancellationToken);
             return TypedResults.Created($"/{Constants.ApiVersion}/buildings/{result.Id}", result);
@@ -202,6 +207,11 @@ public static class BuildingEndpoints
             Psc: address.Psc,
             DistrictName: address.DistrictName,
             RegionName: address.RegionName,
+            StreetCode: address.StreetCode,
+            MunicipalityCode: address.MunicipalityCode,
+            MunicipalityPartCode: address.MunicipalityPartCode,
+            DistrictCode: address.DistrictCode,
+            RegionCode: address.RegionCode,
             BuildingTypeCode: snapshot.BuildingTypeCode,
             Latitude: snapshot.Coordinates?.Latitude,
             Longitude: snapshot.Coordinates?.Longitude,
@@ -253,7 +263,12 @@ public static class BuildingEndpoints
                 Psc: request.Psc,
                 DistrictName: request.DistrictName,
                 RegionName: request.RegionName,
-                ValidFrom: request.ValidFrom);
+                ValidFrom: request.ValidFrom,
+                StreetCode: request.StreetCode,
+                MunicipalityCode: request.MunicipalityCode,
+                MunicipalityPartCode: request.MunicipalityPartCode,
+                DistrictCode: request.DistrictCode,
+                RegionCode: request.RegionCode);
 
             await handler.HandleAsync(command, cancellationToken);
             return TypedResults.NoContent();
@@ -361,6 +376,11 @@ public sealed record BuildingSnapshotResponse(
     string Psc,
     string? DistrictName,
     string? RegionName,
+    long? StreetCode,
+    long? MunicipalityCode,
+    long? MunicipalityPartCode,
+    long? DistrictCode,
+    long? RegionCode,
     string BuildingTypeCode,
     double? Latitude,
     double? Longitude,
@@ -369,6 +389,9 @@ public sealed record BuildingSnapshotResponse(
     DateTime AsOf);
 
 // Request DTOs
+// The optional *Code fields are the RÚIAN codes backing the OFN territorial IRIs
+// (StreetCode → ulice, MunicipalityCode → obec, MunicipalityPartCode → část obce,
+// DistrictCode → okres, RegionCode → VÚSC/kraj).
 public sealed record RegisterBuildingRequest(
     string Name,
     long AddressPointCode,
@@ -386,7 +409,12 @@ public sealed record RegisterBuildingRequest(
     double? Latitude,
     double? Longitude,
     short? YearBuilt,
-    short? YearRenovated);
+    short? YearRenovated,
+    long? StreetCode = null,
+    long? MunicipalityCode = null,
+    long? MunicipalityPartCode = null,
+    long? DistrictCode = null,
+    long? RegionCode = null);
 
 public sealed record ChangeBuildingNameRequest(string NewName, DateTime ValidFrom);
 
@@ -402,7 +430,12 @@ public sealed record ChangeBuildingAddressRequest(
     string Psc,
     string? DistrictName,
     string? RegionName,
-    DateTime ValidFrom);
+    DateTime ValidFrom,
+    long? StreetCode = null,
+    long? MunicipalityCode = null,
+    long? MunicipalityPartCode = null,
+    long? DistrictCode = null,
+    long? RegionCode = null);
 
 public sealed record ChangeBuildingTypeRequest(string NewTypeCode, DateTime ValidFrom);
 

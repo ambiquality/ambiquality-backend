@@ -18,7 +18,12 @@ public sealed record RegisterBuildingCommand(
     double? Latitude,
     double? Longitude,
     short? YearBuilt,
-    short? YearRenovated);
+    short? YearRenovated,
+    long? StreetCode = null,
+    long? MunicipalityCode = null,
+    long? MunicipalityPartCode = null,
+    long? DistrictCode = null,
+    long? RegionCode = null);
 
 public sealed record RegisterBuildingResult(Guid Id, string UriSlug);
 
@@ -37,7 +42,12 @@ public sealed record ChangeBuildingAddressCommand(
     string Psc,
     string? DistrictName,
     string? RegionName,
-    DateTime ValidFrom);
+    DateTime ValidFrom,
+    long? StreetCode = null,
+    long? MunicipalityCode = null,
+    long? MunicipalityPartCode = null,
+    long? DistrictCode = null,
+    long? RegionCode = null);
 
 public sealed record ChangeBuildingTypeCommand(Guid BuildingId, string NewTypeCode, DateTime ValidFrom);
 

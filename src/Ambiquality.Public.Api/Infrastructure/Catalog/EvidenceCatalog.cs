@@ -15,7 +15,7 @@ namespace Ambiquality.Public.Api.Infrastructure.Catalog;
 /// </summary>
 public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCatalog
 {
-    // ---- Building projection (18 columns: ordinals 0..17) -------------------
+    // ---- Building projection (23 columns: ordinals 0..22) -------------------
 
     private const string BuildingColumns = """
         b."Id",
@@ -31,6 +31,11 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
         ah.psc,
         ah.district_name,
         ah.region_name,
+        ah.street_code,
+        ah.municipality_code,
+        ah.municipality_part_code,
+        ah.district_code,
+        ah.region_code,
         th.building_type_code,
         lh.latitude::float8  AS latitude,
         lh.longitude::float8 AS longitude,
@@ -117,7 +122,7 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
         while (await reader.ReadAsync(ct))
         {
             rows.Add(MapBuilding(reader));
-            total = reader.GetInt64(18);
+            total = reader.GetInt64(23);
         }
         return (rows, total);
     }
@@ -151,11 +156,16 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
         Psc: NullableString(r, 10),
         DistrictName: NullableString(r, 11),
         RegionName: NullableString(r, 12),
-        BuildingTypeCode: NullableString(r, 13),
-        Latitude: NullableDouble(r, 14),
-        Longitude: NullableDouble(r, 15),
-        YearBuilt: NullableInt(r, 16),
-        YearRenovated: NullableInt(r, 17));
+        StreetCode: NullableLong(r, 13),
+        MunicipalityCode: NullableLong(r, 14),
+        MunicipalityPartCode: NullableLong(r, 15),
+        DistrictCode: NullableLong(r, 16),
+        RegionCode: NullableLong(r, 17),
+        BuildingTypeCode: NullableString(r, 18),
+        Latitude: NullableDouble(r, 19),
+        Longitude: NullableDouble(r, 20),
+        YearBuilt: NullableInt(r, 21),
+        YearRenovated: NullableInt(r, 22));
 
     // ---- Rooms --------------------------------------------------------------
 

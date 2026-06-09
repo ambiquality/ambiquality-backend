@@ -11,6 +11,13 @@ namespace Ambiquality.Evidence.Api.Domain.Buildings;
 /// lookup. The country is implicitly the Czech Republic (the platform is
 /// CZ-only). All parts co-vary inside <c>building_address_history</c>.
 /// </summary>
+/// <remarks>
+/// OFN models the territorial elements (ulice, obec, část obce, okres, kraj/VÚSC)
+/// as dereferenceable RÚIAN IRIs, not just labels. The <c>*Code</c> fields carry
+/// the RÚIAN codes that back those IRIs; the parallel <c>*Name</c> fields are the
+/// supplementary human-readable <c>název_*</c> labels. Every code is optional — a
+/// bare <c>adresní_místo</c> IRI already identifies the address completely.
+/// </remarks>
 public sealed record Address(
     long AddressPointCode,
     string? StreetName,
@@ -22,7 +29,12 @@ public sealed record Address(
     string? MunicipalityPartName,
     string Psc,
     string? DistrictName,
-    string? RegionName)
+    string? RegionName,
+    long? StreetCode = null,
+    long? MunicipalityCode = null,
+    long? MunicipalityPartCode = null,
+    long? DistrictCode = null,
+    long? RegionCode = null)
 {
     /// <summary>č.p. — číslo popisné (descriptive number).</summary>
     public const string HouseNumberTypeDescriptive = "č.p.";
@@ -47,7 +59,12 @@ public sealed record Address(
         string? municipalityPartName,
         string psc,
         string? districtName,
-        string? regionName)
+        string? regionName,
+        long? streetCode = null,
+        long? municipalityCode = null,
+        long? municipalityPartCode = null,
+        long? districtCode = null,
+        long? regionCode = null)
     {
         if (addressPointCode <= 0)
             throw new ArgumentException(
@@ -63,6 +80,11 @@ public sealed record Address(
         if (string.IsNullOrWhiteSpace(municipalityName))
             throw new ArgumentException(
                 "Municipality name (název obce) cannot be empty.", nameof(municipalityName));
+        EnsurePositiveCode(streetCode, "Street (ulice)", nameof(streetCode));
+        EnsurePositiveCode(municipalityCode, "Municipality (obec)", nameof(municipalityCode));
+        EnsurePositiveCode(municipalityPartCode, "Municipality part (část obce)", nameof(municipalityPartCode));
+        EnsurePositiveCode(districtCode, "District (okres)", nameof(districtCode));
+        EnsurePositiveCode(regionCode, "Region (VÚSC)", nameof(regionCode));
 
         return new Address(
             addressPointCode,
@@ -75,12 +97,42 @@ public sealed record Address(
             Trim(municipalityPartName),
             NormalizePsc(psc),
             Trim(districtName),
-            Trim(regionName));
+            Trim(regionName),
+            streetCode,
+            municipalityCode,
+            municipalityPartCode,
+            districtCode,
+            regionCode);
     }
 
     /// <summary>Dereferenceable RÚIAN address-point IRI (OFN <c>adresní_místo</c>).</summary>
     public string AddressPointIri =>
         $"https://linked.cuzk.cz/resource/ruian/adresni-misto/{AddressPointCode}";
+
+    /// <summary>RÚIAN street IRI (OFN <c>ulice</c>), or null when no street code is recorded.</summary>
+    public string? StreetIri => RuianIri("ulice", StreetCode);
+
+    /// <summary>RÚIAN municipality IRI (OFN <c>obec</c>), or null when no obec code is recorded.</summary>
+    public string? MunicipalityIri => RuianIri("obec", MunicipalityCode);
+
+    /// <summary>RÚIAN municipality-part IRI (OFN <c>část_obce</c>), or null when not recorded.</summary>
+    public string? MunicipalityPartIri => RuianIri("cast-obce", MunicipalityPartCode);
+
+    /// <summary>RÚIAN district IRI (OFN <c>okres</c>), or null when no okres code is recorded.</summary>
+    public string? DistrictIri => RuianIri("okres", DistrictCode);
+
+    /// <summary>RÚIAN region IRI (OFN <c>vúsc</c> — kraj), or null when no VÚSC code is recorded.</summary>
+    public string? RegionIri => RuianIri("vusc", RegionCode);
+
+    private static string? RuianIri(string segment, long? code) =>
+        code is { } c ? $"https://linked.cuzk.cz/resource/ruian/{segment}/{c.ToString(CultureInfo.InvariantCulture)}" : null;
+
+    private static void EnsurePositiveCode(long? code, string label, string paramName)
+    {
+        if (code is <= 0)
+            throw new ArgumentException(
+                $"{label} RÚIAN code must be a positive number when present.", paramName);
+    }
 
     /// <summary>The address-point code as the OFN <c>kód_adresního_místa</c> text value.</summary>
     public string AddressPointCodeText =>

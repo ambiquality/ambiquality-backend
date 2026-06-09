@@ -124,6 +124,11 @@ erDiagram
         text psc
         text district_name "nullable, okres"
         text region_name "nullable, kraj"
+        bigint street_code "nullable, RÚIAN ulice IRI"
+        bigint municipality_code "nullable, RÚIAN obec IRI"
+        bigint municipality_part_code "nullable, RÚIAN část obce IRI"
+        bigint district_code "nullable, RÚIAN okres IRI"
+        bigint region_code "nullable, RÚIAN vúsc IRI"
     }
     building_type_history {
         uuid building_id FK

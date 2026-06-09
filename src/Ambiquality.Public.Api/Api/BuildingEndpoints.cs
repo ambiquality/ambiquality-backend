@@ -20,16 +20,30 @@ public static class BuildingEndpoints
             .WithDescription(
                 "Filters: buildingType, bbox (minLon,minLat,maxLon,maxLat), page, pageSize. "
                 + "Offset/page paged with a total count: the catalog is small and bounded, so a page "
-                + "index is friendlier than the keyset cursor used by the unbounded observations feed.");
+                + "index is friendlier than the keyset cursor used by the unbounded observations feed. "
+                + "Each building carries a Czech OFN address (see the Address schema). Negotiable as "
+                + "JSON (default) or JSON-LD (Accept: application/ld+json).")
+            .Produces<CatalogPage<BuildingResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
 
         group.MapMethods("/{id:guid}", ["GET", "HEAD"], GetBuildingById)
             .WithName("GetBuildingById")
-            .WithSummary("Get a building by id");
+            .WithSummary("Get a building by id")
+            .WithDescription(
+                "Returns one building with its current OFN address (see the Address schema) and "
+                + "precise coordinates. Negotiable as JSON (default) or JSON-LD; the JSON-LD form "
+                + "emits a conformant OFN Adresa node with dereferenceable RÚIAN IRIs.")
+            .Produces<BuildingResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
 
         group.MapMethods("/{buildingId:guid}/rooms", ["GET", "HEAD"], ListBuildingRooms)
             .WithName("ListBuildingRooms")
             .WithSummary("List rooms of a building")
-            .WithDescription("Filters: roomFunction, minExposure (minutes), page, pageSize.");
+            .WithDescription("Filters: roomFunction, minExposure (minutes), page, pageSize.")
+            .Produces<CatalogPage<RoomResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
 
     private static async Task<IResult> ListBuildings(

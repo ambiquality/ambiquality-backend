@@ -151,9 +151,12 @@ attributes are now published as dereferenceable SKOS `číselníky` (see *Codeli
 `ambiq:address` node shaped as an OFN [`Adresa`](https://ofn.gov.cz/adresy/2020-07-01/)
 (`typ: "Adresa"`) anchored on the RÚIAN address-point IRI (`adresní_místo` →
 `linked.cuzk.cz/resource/ruian/adresni-misto/{code}`), with the structured Czech components
-(`název_ulice`, `číslo_domovní`, `název_obce`, `psč`, …) and a composed free-text `text`. The
-platform is Czech-only, so coordinates are precise open data (no anonymization). RÚIAN spatial
-*coverage* IRIs for the dataset as a whole remain out of scope.
+(`číslo_domovní`, `psč`, …) and a composed free-text `text`. Each territorial element is emitted as
+its **dereferenceable RÚIAN IRI** the way the OFN context models it (`"@type": "@id"`) when its code
+is recorded — `ulice`, `obec` (`…/ruian/obec/{code}`), `část_obce`, `okres`, `vúsc`
+(`…/ruian/vusc/{code}`) — each alongside its `název_*` label carried as a language-tagged string
+(`{"cs": …}`). The platform is Czech-only, so coordinates are precise open data (no anonymization).
+RÚIAN spatial *coverage* IRIs for the dataset as a whole remain out of scope.
 
 ## Linked-data vocabularies
 

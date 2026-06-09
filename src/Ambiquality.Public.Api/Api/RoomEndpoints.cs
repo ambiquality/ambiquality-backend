@@ -11,12 +11,17 @@ public static class RoomEndpoints
 
         group.MapMethods("/{id:guid}", ["GET", "HEAD"], GetRoomById)
             .WithName("GetRoomById")
-            .WithSummary("Get a room by id");
+            .WithSummary("Get a room by id")
+            .Produces<RoomResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
 
         group.MapMethods("/{roomId:guid}/sensors", ["GET", "HEAD"], ListRoomSensors)
             .WithName("ListRoomSensors")
             .WithSummary("List sensors in a room")
-            .WithDescription("Filters: parameterCode, status, page, pageSize.");
+            .WithDescription("Filters: parameterCode, status, page, pageSize.")
+            .Produces<CatalogPage<SensorResponse>>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
 
     private static async Task<IResult> GetRoomById(

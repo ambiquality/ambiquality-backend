@@ -35,7 +35,12 @@ public sealed class RegisterBuildingHandler(
             command.MunicipalityPartName,
             command.Psc,
             command.DistrictName,
-            command.RegionName);
+            command.RegionName,
+            command.StreetCode,
+            command.MunicipalityCode,
+            command.MunicipalityPartCode,
+            command.DistrictCode,
+            command.RegionCode);
         var coordinates = ParseCoordinates(command.Latitude, command.Longitude);
 
         var building = Building.Register(
