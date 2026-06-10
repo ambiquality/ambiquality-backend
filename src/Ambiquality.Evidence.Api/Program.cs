@@ -1,5 +1,7 @@
 using System.Text;
+using Ambiquality.Core.Domain.Vocabulary;
 using Ambiquality.Evidence.Api.Api;
+using Ambiquality.Evidence.Api.Domain.Common;
 using Ambiquality.Evidence.Api.Application.Buildings;
 using Ambiquality.Evidence.Api.Application.Rooms;
 using Ambiquality.Evidence.Api.Application.Sensors;
@@ -23,6 +25,14 @@ var builder = WebApplication.CreateBuilder(args);
 // --- Configuration / options -------------------------------------------------
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
 builder.Services.AddSingleton(jwtOptions);
+
+// POD-04: operator-extensible codelists and quantities — apply the extensions file
+// (if configured) before anything validates against the vocabularies, and register
+// each extension property so sensors can declare it.
+var vocabularyExtensions = VocabularyExtensionsLoader.LoadAndApply(
+    builder.Configuration[VocabularyExtensionsLoader.PathConfigKey]);
+foreach (var property in vocabularyExtensions?.Properties ?? [])
+    MeasuredParameter.Register(property.Code);
 
 // --- Persistence ---------------------------------------------------------------
 builder.Services.AddDbContext<EvidenceDbContext>(options =>

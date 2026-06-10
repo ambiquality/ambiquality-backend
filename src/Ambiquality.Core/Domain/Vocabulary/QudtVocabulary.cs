@@ -39,8 +39,8 @@ public static class QudtVocabulary
     /// <summary>A-weighted sound pressure level (dB(A)).</summary>
     public static readonly string UnitDeciBA      = UnitBase + "DeciB_A";
 
-    private static readonly IReadOnlyDictionary<string, (string QuantityKind, string Unit)> Map =
-        new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, (string QuantityKind, string Unit)> Map =
+        new(StringComparer.OrdinalIgnoreCase)
         {
             // Gases
             ["co2"]         = (QuantityKindAmountOfSubstanceFraction,  UnitPpm),
@@ -81,4 +81,12 @@ public static class QudtVocabulary
             return entry;
         return null;
     }
+
+    /// <summary>
+    /// Registers an operator-defined parameter's QUDT URIs; returns false (and changes
+    /// nothing) when the code is already mapped, so a built-in can never be redefined.
+    /// Called only during single-threaded startup by <see cref="VocabularyExtensionsLoader"/>.
+    /// </summary>
+    internal static bool Add(string parameterCode, string quantityKindUri, string unitUri) =>
+        Map.TryAdd(parameterCode, (quantityKindUri, unitUri));
 }

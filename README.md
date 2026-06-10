@@ -111,6 +111,14 @@ for the entity-relationship diagrams of the three schemas.
   the [Public.Api README](src/Ambiquality.Public.Api/README.md#catalog-conformance-dcat-ap-30--dcat-ap-cz).
 - **EF Core migrations** are code-first and applied automatically at startup by per-service
   `migrate` / `evidence-migrate` / `ingestion-migrate` containers. Do not scaffold from an existing database.
+- **Operator-extensible vocabularies (POD-04).** The codelists (building type, room
+  function, …) and the supported quantities/units can be extended without touching source
+  code: edit [`conf/vocabulary-extensions.json`](conf/vocabulary-extensions.json) (mounted
+  read-only into Evidence, Ingestion, Public and the Export worker) and restart the stack.
+  Extensions are strictly additive — a code colliding with a built-in is ignored, so
+  already-published data stays valid. New quantities automatically get an
+  `ieq.parameter_ranges` row (seeded by Ingestion.Api at startup), become declarable on
+  sensors, validatable at ingestion, and published by the codelist/property endpoints.
 
 ## Running tests
 
