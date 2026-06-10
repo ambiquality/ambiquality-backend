@@ -24,9 +24,18 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
         await _factory.DisposeAsync();
     }
 
+    /// <summary>Canonical units from the real `parameter_ranges` seed the fixture migrates.</summary>
+    private static string UnitFor(string parameterCode) => parameterCode switch
+    {
+        "co2" => "ppm",
+        "temperature" => "°C",
+        "humidity" => "%",
+        _ => throw new ArgumentOutOfRangeException(nameof(parameterCode)),
+    };
+
     private Task<HttpResponseMessage> PostAsync(
         Guid sensorId, string parameterCode, double value, string? apiKey) =>
-        PostReadingsAsync(sensorId, apiKey, new { parameterCode, value });
+        PostReadingsAsync(sensorId, apiKey, new { parameterCode, value, unit = UnitFor(parameterCode) });
 
     private async Task<HttpResponseMessage> PostReadingsAsync(
         Guid sensorId, string? apiKey, params object[] readings)
@@ -74,9 +83,9 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
 
         var response = await PostReadingsAsync(
             sensorId, apiKey,
-            new { parameterCode = "co2", value = 812.0 },
-            new { parameterCode = "temperature", value = 21.5 },
-            new { parameterCode = "humidity", value = 45.0 });
+            new { parameterCode = "co2", value = 812.0, unit = "ppm" },
+            new { parameterCode = "temperature", value = 21.5, unit = "°C" },
+            new { parameterCode = "humidity", value = 45.0, unit = "%" });
 
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<MeasurementsAcceptedResponse>();
@@ -98,8 +107,8 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
         // temperature is valid, co2 is out of range — atomic batch must reject the whole request.
         var response = await PostReadingsAsync(
             sensorId, apiKey,
-            new { parameterCode = "temperature", value = 21.5 },
-            new { parameterCode = "co2", value = 999_999.0 });
+            new { parameterCode = "temperature", value = 21.5, unit = "°C" },
+            new { parameterCode = "co2", value = 999_999.0, unit = "ppm" });
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
         Assert.Empty(_factory.Queue.Published);
@@ -127,7 +136,7 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
         var before = DateTime.UtcNow;
         var response = await PostReadingsAsync(
             sensorId, apiKey,
-            new { parameterCode = "co2", value = 800.0, observedAt = skewed });
+            new { parameterCode = "co2", value = 800.0, unit = "ppm", observedAt = skewed });
         var after = DateTime.UtcNow;
 
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
@@ -198,6 +207,46 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
         Assert.Empty(_factory.Queue.Published);
+    }
+
+    [Fact]
+    public async Task WrongUnit_Returns422WithUnitMismatchType_AndEnqueuesNothing()
+    {
+        var (sensorId, apiKey) = await _factory.SeedSensorAsync(["co2"]);
+
+        var response = await PostReadingsAsync(
+            sensorId, apiKey, new { parameterCode = "co2", value = 812.0, unit = "mg/m³" });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Empty(_factory.Queue.Published);
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(
+            "urn:ambiquality:ingestion:unit-mismatch",
+            problem.RootElement.GetProperty("type").GetString());
+    }
+
+    [Fact]
+    public async Task MissingUnit_Returns422_AndEnqueuesNothing()
+    {
+        var (sensorId, apiKey) = await _factory.SeedSensorAsync(["co2"]);
+
+        var response = await PostReadingsAsync(
+            sensorId, apiKey, new { parameterCode = "co2", value = 812.0 });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Empty(_factory.Queue.Published);
+    }
+
+    [Fact]
+    public async Task AcceptedReading_CarriesCanonicalUnitOntoTheQueue()
+    {
+        var (sensorId, apiKey) = await _factory.SeedSensorAsync(["co2"]);
+
+        var response = await PostAsync(sensorId, "co2", 812, apiKey);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var message = Assert.Single(_factory.Queue.Published);
+        Assert.Equal("ppm", message.Unit);
     }
 
     [Fact]

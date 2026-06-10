@@ -8,7 +8,8 @@ namespace Ambiquality.Ingestion.Api.Application;
 /// <summary>
 /// Validates a batch of readings per UC10 (authenticate the sensor and confirm it is
 /// active once for the batch, then for every reading check the sensor declares the
-/// parameter and the value is in range) then hands the whole batch to the durable
+/// parameter, the unit matches the parameter's canonical unit and the value is in
+/// range) then hands the whole batch to the durable
 /// ingestion queue. The batch is <strong>all-or-nothing</strong>: validation runs
 /// before anything is enqueued, so a single bad reading rejects the request and nothing
 /// is published. Both timestamps — the observation time (<c>ObservedAt</c>) and the
@@ -45,6 +46,7 @@ public sealed class IngestMeasurementHandler(
 
         // Validate every reading before publishing anything — the batch is all-or-nothing.
         var seen = new HashSet<string>(command.Readings.Count);
+        var canonicalUnits = new Dictionary<string, string?>(command.Readings.Count);
         for (var i = 0; i < command.Readings.Count; i++)
         {
             var reading = command.Readings[i];
@@ -65,6 +67,23 @@ public sealed class IngestMeasurementHandler(
                     IngestRejectionReason.ParameterNotDeclared,
                     $"Reading {i}: no permitted range is configured for parameter '{reading.ParameterCode}'.");
 
+            // F10's "quantity AND unit" half: each parameter has exactly one canonical unit
+            // (ieq.parameter_ranges.unit, mirroring the QUDT vocabulary), so declaring the
+            // parameter in Evidence fixes the unit the sensor must report in.
+            if (range.Unit is not null)
+            {
+                if (string.IsNullOrWhiteSpace(reading.Unit))
+                    return IngestMeasurementsResult.Reject(
+                        IngestRejectionReason.UnitMismatch,
+                        $"Reading {i} ({reading.ParameterCode}): no unit declared; expected '{range.Unit}'.");
+
+                if (!UnitsMatch(reading.Unit, range.Unit))
+                    return IngestMeasurementsResult.Reject(
+                        IngestRejectionReason.UnitMismatch,
+                        $"Reading {i} ({reading.ParameterCode}): unit '{reading.Unit}' does not match the declared unit '{range.Unit}'.");
+            }
+            canonicalUnits[reading.ParameterCode] = range.Unit ?? Normalize(reading.Unit);
+
             if (!range.Contains(reading.Value))
                 return IngestMeasurementsResult.Reject(
                     IngestRejectionReason.ValueOutOfRange,
@@ -81,7 +100,9 @@ public sealed class IngestMeasurementHandler(
                 SensorId: command.SensorId,
                 ParameterCode: reading.ParameterCode,
                 Value: reading.Value,
-                Unit: null,
+                // The canonical unit, not the sensor's raw string — validation proved they
+                // agree, and storing the canonical form keeps the hypertable uniform.
+                Unit: canonicalUnits[reading.ParameterCode],
                 ObservedAt: now,
                 ReceivedAt: now))
             .ToList();
@@ -102,4 +123,15 @@ public sealed class IngestMeasurementHandler(
             .ToList();
         return IngestMeasurementsResult.Accept(accepted, now);
     }
+
+    /// <summary>
+    /// Units compare ordinally after trimming, except that the Greek small mu (U+03BC) is
+    /// folded into the micro sign (U+00B5) — keyboards and SDKs produce both for "µg/m³".
+    /// Case stays significant: unit symbols are case-sensitive (e.g. K vs k).
+    /// </summary>
+    private static bool UnitsMatch(string presented, string canonical) =>
+        string.Equals(Normalize(presented), Normalize(canonical), StringComparison.Ordinal);
+
+    private static string? Normalize(string? unit) =>
+        unit?.Trim().Replace('μ', 'µ');
 }

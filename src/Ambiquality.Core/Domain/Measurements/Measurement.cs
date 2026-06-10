@@ -18,7 +18,11 @@ public sealed class Measurement
     public string ParameterCode { get; private set; }
     public double Value { get; private set; }
 
-    /// <summary>Nullable until F08 (measured-parameter units) lands in Evidence.</summary>
+    /// <summary>
+    /// Canonical unit stamped at ingestion (validated against <see cref="ParameterRange.Unit"/>).
+    /// Nullable only for rows ingested before unit validation, or parameters without a
+    /// configured canonical unit.
+    /// </summary>
     public string? Unit { get; private set; }
 
     /// <summary>Instant the sensor recorded the observation (sensor clock).</summary>

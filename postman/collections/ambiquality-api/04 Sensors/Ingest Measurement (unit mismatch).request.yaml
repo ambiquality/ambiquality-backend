@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}/ingestion/v1/measurements"
+method: POST
+headers:
+  Content-Type: application/json
+  X-Sensor-Key: "{{sensorApiKey}}"
+body:
+  type: json
+  content: '{"sensorId": "{{sensorId}}","readings": [{"parameterCode": "co2","value": 800,"unit": "mg/m³"}]}'
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 422 unit mismatch', () => pm.response.to.have.status(422));
+      pm.test('Problem type is unit-mismatch', () => {
+        pm.expect(pm.response.json().type).to.eql('urn:ambiquality:ingestion:unit-mismatch');
+      });
+    language: text/javascript
+order: 1250
