@@ -1,0 +1,35 @@
+// Operator-extensible vocabularies (POD-04). Mounted read-only into Evidence.Api,
+// Ingestion.Api, Public.Api and Export.Worker; applied additively at startup.
+// Edit + restart the stack — no source-code change or image rebuild needed.
+// Extensions can only ADD codes: a code colliding with a built-in is ignored, so
+// already-published data always stays valid (backward compatible by construction).
+//
+// "codelists" keys are scheme slugs: building-type, room-function, ventilation-type,
+// pollution-source, exposure, sensor-status.
+//
+// "properties" adds measurable quantities: code, label (en), canonical unit string
+// (what sensors must report in), permitted [minValue, maxValue], and optionally the
+// QUDT quantityKindUri + unitUri pair for linked-data publication. Example:
+//
+// {
+//   "codelists": {
+//     "building-type": [
+//       { "code": "sports_facility", "labelEn": "Sports facility", "labelCs": "Sportovní zařízení" }
+//     ]
+//   },
+//   "properties": [
+//     {
+//       "code": "radon",
+//       "label": "Radon activity concentration",
+//       "unit": "Bq/m³",
+//       "minValue": 0,
+//       "maxValue": 100000,
+//       "quantityKindUri": "http://qudt.org/vocab/quantitykind/ActivityConcentration",
+//       "unitUri": "http://qudt.org/vocab/unit/BQ-PER-M3"
+//     }
+//   ]
+// }
+{
+  "codelists": {},
+  "properties": []
+}

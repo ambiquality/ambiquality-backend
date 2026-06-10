@@ -1,3 +1,4 @@
+using Ambiquality.Core.Domain.Vocabulary;
 using Ambiquality.Core.Infrastructure.Persistence;
 using Ambiquality.Public.Api.Api;
 using Ambiquality.Public.Api.Infrastructure.Catalog;
@@ -8,6 +9,11 @@ using Npgsql;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// POD-04: operator-extensible codelists and quantities — applied before any
+// endpoint publishes the vocabularies (codelist/property endpoints, SKOS labels).
+VocabularyExtensionsLoader.LoadAndApply(
+    builder.Configuration[VocabularyExtensionsLoader.PathConfigKey]);
 
 // --- Persistence (read-only; Public.Api never migrates) ----------------------
 // IeqDbContext is owned by Ingestion.Api (which holds the MigrationsAssembly).

@@ -1,3 +1,4 @@
+using Ambiquality.Core.Domain.Vocabulary;
 using Ambiquality.Export.Worker;
 using Ambiquality.Export.Worker.Exporting;
 using Ambiquality.Export.Worker.Persistence;
@@ -5,6 +6,11 @@ using Ambiquality.Export.Worker.Storage;
 using Npgsql;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// POD-04: operator-extensible quantities — so archives serialize extension
+// parameters with their labels/QUDT URIs the same way the live API does.
+VocabularyExtensionsLoader.LoadAndApply(
+    builder.Configuration[VocabularyExtensionsLoader.PathConfigKey]);
 
 builder.Services.Configure<ExportOptions>(builder.Configuration.GetSection(ExportOptions.SectionName));
 

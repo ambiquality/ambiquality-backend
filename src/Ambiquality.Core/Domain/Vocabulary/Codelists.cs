@@ -11,24 +11,40 @@ public sealed record CodelistConcept(string Code, string LabelEn, string LabelCs
 
 /// <summary>
 /// A controlled vocabulary (a SKOS <c>skos:ConceptScheme</c> / Czech <em>číselník</em>):
-/// a named, closed set of <see cref="CodelistConcept"/>s. Membership is case-insensitive.
+/// a named set of <see cref="CodelistConcept"/>s. Membership is case-insensitive.
+/// Built-in concepts can be <em>extended</em> (never replaced) from the operator's
+/// vocabulary-extensions file at startup — see <see cref="VocabularyExtensionsLoader"/>.
 /// </summary>
 public sealed class Codelist
 {
-    private readonly IReadOnlyDictionary<string, CodelistConcept> _byCode;
+    private readonly Dictionary<string, CodelistConcept> _byCode;
+    private readonly List<CodelistConcept> _concepts;
 
     public Codelist(string scheme, params CodelistConcept[] concepts)
     {
         Scheme = scheme;
-        Concepts = concepts;
+        _concepts = [.. concepts];
         _byCode = concepts.ToDictionary(c => c.Code, StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>The scheme slug, e.g. <c>building-type</c> — used in the concept IRIs.</summary>
     public string Scheme { get; }
 
-    /// <summary>The concepts, in definition order.</summary>
-    public IReadOnlyList<CodelistConcept> Concepts { get; }
+    /// <summary>The concepts, in definition order (built-ins first, then extensions).</summary>
+    public IReadOnlyList<CodelistConcept> Concepts => _concepts;
+
+    /// <summary>
+    /// Adds an operator-defined concept; returns false (and changes nothing) when the
+    /// code already exists, so a built-in can never be redefined. Called only during
+    /// single-threaded startup by <see cref="VocabularyExtensionsLoader"/>.
+    /// </summary>
+    internal bool Add(CodelistConcept concept)
+    {
+        if (!_byCode.TryAdd(concept.Code, concept))
+            return false;
+        _concepts.Add(concept);
+        return true;
+    }
 
     /// <summary>True when the code is part of this codelist (case-insensitive).</summary>
     public bool IsValid(string code) => _byCode.ContainsKey(code);

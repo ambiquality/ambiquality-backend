@@ -44,8 +44,8 @@ public static class ObservablePropertyVocabulary
     private static ExternalMatch EeaExact(string id) => new(EeaPollutantBase + id, IsExact: true);
 
     // Ordered to mirror MeasuredParameter / the parameter_ranges seed grouping.
-    private static readonly IReadOnlyList<Entry> Entries = new[]
-    {
+    private static readonly List<Entry> Entries =
+    [
         // Gases — concentration
         new Entry("co2",          "Carbon dioxide",                                      null),
         new Entry("eco2",         "Equivalent carbon dioxide (eCO₂)",                    null),
@@ -73,15 +73,28 @@ public static class ObservablePropertyVocabulary
 
         // Acoustics
         new Entry("laeq",         "A-weighted equivalent continuous sound level (LAeq)", null),
-    };
+    ];
 
-    private static readonly IReadOnlyDictionary<string, Entry> ByCode =
+    private static readonly Dictionary<string, Entry> ByCode =
         Entries.ToDictionary(e => e.Code, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>All observable properties, in catalogue order.</summary>
+    /// <summary>All observable properties, in catalogue order (built-ins first, then extensions).</summary>
     public static IReadOnlyList<Entry> All => Entries;
 
     /// <summary>The observable property for a parameter code, or <c>null</c> if unknown.</summary>
     public static Entry? TryGet(string code) =>
         code is not null && ByCode.TryGetValue(code, out var entry) ? entry : null;
+
+    /// <summary>
+    /// Registers an operator-defined observable property; returns false (and changes
+    /// nothing) when the code already exists, so a built-in can never be redefined.
+    /// Called only during single-threaded startup by <see cref="VocabularyExtensionsLoader"/>.
+    /// </summary>
+    internal static bool Add(Entry entry)
+    {
+        if (!ByCode.TryAdd(entry.Code, entry))
+            return false;
+        Entries.Add(entry);
+        return true;
+    }
 }

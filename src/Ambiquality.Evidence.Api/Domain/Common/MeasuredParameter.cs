@@ -35,7 +35,7 @@ public sealed class MeasuredParameter : IEquatable<MeasuredParameter>
     // Acoustics
     public static readonly MeasuredParameter Laeq         = new("laeq");
 
-    private static readonly IReadOnlyDictionary<string, MeasuredParameter> ByCode =
+    private static readonly Dictionary<string, MeasuredParameter> ByCode =
         new[]
         {
             Co2, ECo2, Co, O3, No2, So2, Voc,
@@ -57,6 +57,17 @@ public sealed class MeasuredParameter : IEquatable<MeasuredParameter>
             return value;
 
         throw new ArgumentException($"Unknown measured parameter code '{code}'.", nameof(code));
+    }
+
+    /// <summary>
+    /// Registers an operator-defined parameter from the vocabulary-extensions file
+    /// (POD-04) so sensors can declare it. Skips codes that already exist — a built-in
+    /// can never be redefined. Called only during single-threaded startup.
+    /// </summary>
+    internal static void Register(string code)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        ByCode.TryAdd(code, new MeasuredParameter(code));
     }
 
     public bool Equals(MeasuredParameter? other) => other is not null && Code == other.Code;

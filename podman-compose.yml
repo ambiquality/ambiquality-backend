@@ -139,6 +139,7 @@ services:
       evidence-migrate:
         condition: service_completed_successfully
     environment:
+      Vocabulary__ExtensionsPath: /etc/ambiquality/vocabulary-extensions.json
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:6200
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=evidence_api;Password=${EVIDENCE_API_DB_PASSWORD:?error}"
@@ -147,6 +148,8 @@ services:
       Jwt__Secret: ${JWT_SECRET:?error}
     ports:
       - "6200:6200"
+    volumes:
+      - ./conf/vocabulary-extensions.json:/etc/ambiquality/vocabulary-extensions.json:ro
     networks:
       - db
       - public
@@ -202,6 +205,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      Vocabulary__ExtensionsPath: /etc/ambiquality/vocabulary-extensions.json
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:6300
       # ingestion_api: read-write on ieq, read-only on the evidence catalog.
@@ -211,6 +215,8 @@ services:
       ConnectionStrings__Redis: "redis:6379"
     ports:
       - "6300:6300"
+    volumes:
+      - ./conf/vocabulary-extensions.json:/etc/ambiquality/vocabulary-extensions.json:ro
     networks:
       - db
       - public
@@ -242,6 +248,7 @@ services:
       evidence-migrate:
         condition: service_completed_successfully
     environment:
+      Vocabulary__ExtensionsPath: /etc/ambiquality/vocabulary-extensions.json
       ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=export_worker;Password=${EXPORT_WORKER_DB_PASSWORD:?error}"
       # Read-only: resolve each observation's feature of interest (room at observation time).
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=export_worker;Password=${EXPORT_WORKER_DB_PASSWORD:?error}"
@@ -253,6 +260,7 @@ services:
       Export__S3__SecretKey: ${EXPORT_S3_SECRET_KEY:-}
       Export__S3__PublicBaseUrl: ${EXPORT_S3_PUBLIC_BASE_URL:-}
     volumes:
+      - ./conf/vocabulary-extensions.json:/etc/ambiquality/vocabulary-extensions.json:ro
       - export-data:/exports
     networks:
       - db
@@ -298,6 +306,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      Vocabulary__ExtensionsPath: /etc/ambiquality/vocabulary-extensions.json
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:6400
       # public_api role: read-only on both ieq (measurements) and evidence (catalog).
@@ -311,6 +320,8 @@ services:
       PublicApi__BaseIri: ${PUBLIC_API_BASE_IRI:-}
     ports:
       - "6400:6400"
+    volumes:
+      - ./conf/vocabulary-extensions.json:/etc/ambiquality/vocabulary-extensions.json:ro
     networks:
       - db
       - public

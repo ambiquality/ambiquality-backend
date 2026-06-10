@@ -1,3 +1,4 @@
+using Ambiquality.Core.Domain.Vocabulary;
 using Ambiquality.Core.Infrastructure.Persistence;
 using Ambiquality.Core.Messaging;
 using Ambiquality.Ingestion.Api.Api;
@@ -12,6 +13,12 @@ using Scalar.AspNetCore;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// POD-04: operator-extensible quantities — extension parameters become resolvable
+// (QUDT URIs) before any validation runs; their ranges are seeded into
+// ieq.parameter_ranges after the app is built (below).
+var vocabularyExtensions = VocabularyExtensionsLoader.LoadAndApply(
+    builder.Configuration[VocabularyExtensionsLoader.PathConfigKey]);
 
 // --- Persistence: ieq (read-write, owns migrations) --------------------------
 builder.Services.AddDbContext<IeqDbContext>(options =>
@@ -51,6 +58,22 @@ builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
+
+// Seed a permitted-value range per extension property (additive, idempotent —
+// ON CONFLICT DO NOTHING so built-in and previously-seeded rows are never altered;
+// concurrent replicas booting at once are safe).
+if (vocabularyExtensions?.Properties is { Count: > 0 } extensionProperties)
+{
+    using var scope = app.Services.CreateScope();
+    var ieq = scope.ServiceProvider.GetRequiredService<IeqDbContext>();
+    foreach (var property in extensionProperties)
+        await ieq.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+             INSERT INTO ieq.parameter_ranges (parameter_code, min_value, max_value, unit)
+             VALUES ({property.Code}, {property.MinValue}, {property.MaxValue}, {property.Unit})
+             ON CONFLICT (parameter_code) DO NOTHING
+             """);
+}
 
 if (app.Environment.IsDevelopment())
 {
