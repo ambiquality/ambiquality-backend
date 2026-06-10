@@ -62,8 +62,9 @@ public class IngestMeasurementHandlerTests
         return catalog;
     }
 
-    private static IngestMeasurementsCommand Command(double value = 800, string parameterCode = "co2") =>
-        new(SensorId, PlainKey, [new MeasurementReadingInput(parameterCode, value)]);
+    private static IngestMeasurementsCommand Command(
+        double value = 800, string parameterCode = "co2", string? unit = "ppm") =>
+        new(SensorId, PlainKey, [new MeasurementReadingInput(parameterCode, value, unit)]);
 
     private static IngestMeasurementsCommand Batch(params MeasurementReadingInput[] readings) =>
         new(SensorId, PlainKey, readings);
@@ -124,6 +125,53 @@ public class IngestMeasurementHandlerTests
     }
 
     [Fact]
+    public async Task MissingUnit_IsRejectedAsUnitMismatch_AndNotEnqueued()
+    {
+        var queue = new FakeQueue();
+        var view = new SensorValidationView(KeyHash, "active", ["co2"]);
+        var handler = Handler(view, queue);
+
+        var result = await handler.Handle(Command(unit: null), CancellationToken.None);
+
+        Assert.Equal(IngestRejectionReason.UnitMismatch, result.Rejection);
+        Assert.Empty(queue.Published);
+    }
+
+    [Fact]
+    public async Task WrongUnit_IsRejectedAsUnitMismatch_AndNotEnqueued()
+    {
+        var queue = new FakeQueue();
+        var view = new SensorValidationView(KeyHash, "active", ["co2"]);
+        var handler = Handler(view, queue);
+
+        var result = await handler.Handle(Command(unit: "mg/m³"), CancellationToken.None);
+
+        Assert.Equal(IngestRejectionReason.UnitMismatch, result.Rejection);
+        Assert.Empty(queue.Published);
+    }
+
+    [Fact]
+    public async Task UnitWithGreekMuAndPadding_MatchesCanonicalMicroSign()
+    {
+        // Range configured with the micro sign (U+00B5); sensor sends the Greek small
+        // letter mu (U+03BC) with stray whitespace — both must be accepted as "µg/m³".
+        var queue = new FakeQueue();
+        var view = new SensorValidationView(KeyHash, "active", ["pm2_5"]);
+        var ieq = NewIeq();
+        ieq.ParameterRanges.Add(new ParameterRange("pm2_5", 0, 1_000, "µg/m³"));
+        ieq.SaveChanges();
+        var handler = new IngestMeasurementHandler(
+            new FixedClock(DateTime.UtcNow), CatalogReturning(view), ieq, queue);
+
+        var result = await handler.Handle(
+            Batch(new MeasurementReadingInput("pm2_5", 12.5, " μg/m³ ")), CancellationToken.None);
+
+        Assert.True(result.IsAccepted);
+        var message = Assert.Single(queue.Published);
+        Assert.Equal("µg/m³", message.Unit);
+    }
+
+    [Fact]
     public async Task ValueOutOfRange_IsRejected_AndNotEnqueued()
     {
         var queue = new FakeQueue();
@@ -156,6 +204,7 @@ public class IngestMeasurementHandlerTests
         Assert.Equal(SensorId, message.SensorId);
         Assert.Equal("co2", message.ParameterCode);
         Assert.Equal(800, message.Value);
+        Assert.Equal("ppm", message.Unit);
         Assert.Equal(now, message.ReceivedAt);
         // ObservedAt is server-stamped (sensor clock untrusted), so it equals ReceivedAt.
         Assert.Equal(now, message.ObservedAt);
@@ -171,9 +220,9 @@ public class IngestMeasurementHandlerTests
 
         var result = await handler.Handle(
             Batch(
-                new MeasurementReadingInput("co2", 800),
-                new MeasurementReadingInput("temperature", 21.5),
-                new MeasurementReadingInput("humidity", 45)),
+                new MeasurementReadingInput("co2", 800, "ppm"),
+                new MeasurementReadingInput("temperature", 21.5, "Cel"),
+                new MeasurementReadingInput("humidity", 45, "%")),
             CancellationToken.None);
 
         Assert.True(result.IsAccepted);
@@ -211,8 +260,8 @@ public class IngestMeasurementHandlerTests
 
         var result = await handler.Handle(
             Batch(
-                new MeasurementReadingInput("co2", 800),
-                new MeasurementReadingInput("co2", 810)),
+                new MeasurementReadingInput("co2", 800, "ppm"),
+                new MeasurementReadingInput("co2", 810, "ppm")),
             CancellationToken.None);
 
         Assert.Equal(IngestRejectionReason.DuplicateParameter, result.Rejection);
@@ -229,8 +278,8 @@ public class IngestMeasurementHandlerTests
         // temperature is valid, co2 is out of range — the whole batch must be rejected.
         var result = await handler.Handle(
             Batch(
-                new MeasurementReadingInput("temperature", 21.5),
-                new MeasurementReadingInput("co2", 999_999)),
+                new MeasurementReadingInput("temperature", 21.5, "Cel"),
+                new MeasurementReadingInput("co2", 999_999, "ppm")),
             CancellationToken.None);
 
         Assert.Equal(IngestRejectionReason.ValueOutOfRange, result.Rejection);

@@ -30,6 +30,9 @@ internal static class Problems
         IngestRejectionReason.ValueOutOfRange => TypedResults.Problem(
             detail, statusCode: StatusCodes.Status422UnprocessableEntity,
             title: "Value out of range", type: TypePrefix + "value-out-of-range"),
+        IngestRejectionReason.UnitMismatch => TypedResults.Problem(
+            detail, statusCode: StatusCodes.Status422UnprocessableEntity,
+            title: "Unit mismatch", type: TypePrefix + "unit-mismatch"),
         IngestRejectionReason.QueueUnavailable => TypedResults.Problem(
             detail, statusCode: StatusCodes.Status503ServiceUnavailable,
             title: "Ingestion queue unavailable", type: TypePrefix + "queue-unavailable"),

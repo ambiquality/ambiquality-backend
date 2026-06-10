@@ -17,7 +17,10 @@ public sealed class ParameterRange
     public double MinValue { get; private set; }
     public double MaxValue { get; private set; }
 
-    /// <summary>Canonical unit for the quantity; informational until F08 unit matching lands.</summary>
+    /// <summary>
+    /// Canonical unit for the quantity. Authoritative for F10 unit validation: a reading's
+    /// declared unit must match this value or ingestion rejects the batch (422 unit-mismatch).
+    /// </summary>
     public string? Unit { get; private set; }
 
     public ParameterRange(string parameterCode, double minValue, double maxValue, string? unit)

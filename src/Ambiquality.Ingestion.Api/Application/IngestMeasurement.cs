@@ -9,8 +9,8 @@ public sealed record IngestMeasurementsCommand(
     string PresentedApiKey,
     IReadOnlyList<MeasurementReadingInput> Readings);
 
-/// <summary>A single quantity-value pair within a batch.</summary>
-public sealed record MeasurementReadingInput(string ParameterCode, double Value);
+/// <summary>A single quantity-value-unit triple within a batch.</summary>
+public sealed record MeasurementReadingInput(string ParameterCode, double Value, string? Unit);
 
 /// <summary>One reading that was accepted: the assigned measurement id and its parameter.</summary>
 public sealed record AcceptedReading(Guid Id, string ParameterCode);
@@ -35,6 +35,12 @@ public enum IngestRejectionReason
 
     /// <summary>A reading's value lies outside the permitted range (UC10 alt. B) → 422.</summary>
     ValueOutOfRange,
+
+    /// <summary>
+    /// A reading omitted its unit or declared one that differs from the canonical unit
+    /// configured for the parameter (UC10 alt. A — quantity and unit must match) → 422.
+    /// </summary>
+    UnitMismatch,
 
     /// <summary>The durable queue could not accept the batch → 503; nothing is acked.</summary>
     QueueUnavailable,

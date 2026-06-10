@@ -18,10 +18,16 @@ public sealed record IngestMeasurementsRequest(
     Guid SensorId,
     IReadOnlyList<MeasurementReading> Readings);
 
-/// <summary>A single quantity-value pair within a batch (e.g. <c>co2</c> = 812).</summary>
+/// <summary>
+/// A single quantity-value-unit triple within a batch (e.g. <c>co2</c> = 812 <c>ppm</c>).
+/// <see cref="Unit"/> must match the canonical unit configured for the parameter
+/// (see <c>ieq.parameter_ranges</c>); a missing or different unit rejects the batch (F10 —
+/// the value must match the declared quantity <em>and unit</em>).
+/// </summary>
 public sealed record MeasurementReading(
     string ParameterCode,
-    double Value);
+    double Value,
+    string? Unit);
 
 /// <summary>
 /// Acknowledges a durably-enqueued batch. <see cref="ReceivedAt"/> is shared by every

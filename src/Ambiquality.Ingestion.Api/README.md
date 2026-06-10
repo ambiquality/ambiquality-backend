@@ -33,9 +33,9 @@ Request body:
 {
   "sensorId": "<guid>",
   "readings": [
-    { "parameterCode": "co2", "value": 812 },
-    { "parameterCode": "temperature", "value": 21.5 },
-    { "parameterCode": "humidity", "value": 45 }
+    { "parameterCode": "co2", "value": 812, "unit": "ppm" },
+    { "parameterCode": "temperature", "value": 21.5, "unit": "°C" },
+    { "parameterCode": "humidity", "value": 45, "unit": "%" }
   ]
 }
 ```
@@ -73,13 +73,18 @@ failure short-circuits with a Problem Details response and nothing is enqueued:
 | 2 | Sensor's current status is `active` | not active | `403` |
 | 3 | Each parameter appears at most once in the batch | duplicate parameter | `422` |
 | 4 | Sensor declares each reading's `parameterCode` (open row) | parameter not declared | `422` |
-| 5 | Each value lies within `ieq.parameter_ranges` for its parameter | value out of range | `422` |
-| 6 | Atomically enqueue the batch, then ack | — | `202` |
+| 5 | Each reading's `unit` matches the parameter's canonical unit (`ieq.parameter_ranges.unit`) | unit mismatch | `422` |
+| 6 | Each value lies within `ieq.parameter_ranges` for its parameter | value out of range | `422` |
+| 7 | Atomically enqueue the batch, then ack | — | `202` |
 
 Every problem carries a stable `urn:ambiquality:ingestion:<reason>` `type`.
 
-Unit matching (UC10 step 3's unit half) is **deferred** until F08 (measured-parameter units) lands
-in Evidence; only quantity declaration and value range are checked today.
+Unit matching (UC10 step 3's unit half) compares the reading's declared `unit` against the
+parameter's **canonical unit** in `ieq.parameter_ranges` — each supported quantity has exactly
+one unit in the platform vocabulary (mirroring `QudtVocabulary`), so declaring the parameter in
+Evidence fixes the unit a sensor must report in. Comparison trims whitespace and folds the Greek
+mu into the micro sign; case stays significant. The accepted measurement is stored with the
+canonical unit string.
 
 ## Data access
 

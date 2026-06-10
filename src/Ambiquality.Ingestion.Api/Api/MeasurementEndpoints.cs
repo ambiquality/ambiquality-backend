@@ -15,8 +15,9 @@ public static class MeasurementEndpoints
             .WithDescription(
                 "Validate and enqueue a batch of sensor observations (F10/UC10). A sensor reports "
                 + "one or more parameter readings in a single request — only the quantities it "
-                + "actually measures. The batch is all-or-nothing: if any reading fails validation "
-                + "the whole request is rejected and nothing is enqueued.");
+                + "actually measures. Every reading must declare its unit, which has to match the "
+                + "canonical unit configured for the parameter. The batch is all-or-nothing: if any "
+                + "reading fails validation the whole request is rejected and nothing is enqueued.");
     }
 
     private static async Task<Results<Accepted<MeasurementsAcceptedResponse>, ProblemHttpResult>> IngestMeasurements(
@@ -28,7 +29,7 @@ public static class MeasurementEndpoints
         var apiKey = context.Request.Headers[SensorKeyHeader].ToString();
 
         var readings = (request.Readings ?? [])
-            .Select(r => new MeasurementReadingInput(r.ParameterCode, r.Value))
+            .Select(r => new MeasurementReadingInput(r.ParameterCode, r.Value, r.Unit))
             .ToList();
 
         var result = await handler.Handle(

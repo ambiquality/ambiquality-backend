@@ -34,9 +34,10 @@ and the queue message contract. See each project's `README.md` for detail.
 Per-project READMEs and the root `README.md` are the human-facing docs; this file is the agent guide.
 
 **Ingestion is a queue + worker write path.** Ingestion.Api accepts a *batch* of readings from one
-sensor (`{ sensorId, readings: [{ parameterCode, value }, …] }` — a sensor reports only the
+sensor (`{ sensorId, readings: [{ parameterCode, value, unit }, …] }` — a sensor reports only the
 quantities it measures) and validates them synchronously (authenticate sensor + active once, then per
-reading: declared, in range; the batch is all-or-nothing — one bad reading rejects the whole
+reading: declared, unit matches the parameter's canonical unit in `ieq.parameter_ranges`, value in
+range; the batch is all-or-nothing — one bad reading rejects the whole
 request). It stamps `received_at` at acceptance (one clock read shared by the batch), then atomically
 appends the readings to a durable Redis stream (`MULTI`/`EXEC` for multi-reading batches) and returns
 **202 Accepted** — it never touches the `measurements` table. Ingestion.Worker drains the stream's
