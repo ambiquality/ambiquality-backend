@@ -1,6 +1,6 @@
 name: Release images to GHCR
 
-# Tag-release-only: pushing a semver tag (v1.2.0) builds and pushes all nine
+# Tag-release-only: pushing a semver tag (v1.2.0) builds and pushes all ten
 # container images to GHCR, each stamped with the same unified version. Ordinary
 # pushes to main publish nothing.
 on:
@@ -28,6 +28,7 @@ jobs:
           - { name: ingestion-worker,  dockerfile: Dockerfile.worker,     target: final }
           - { name: public-api,        dockerfile: Dockerfile.public,     target: final }
           - { name: export-worker,     dockerfile: Dockerfile.export,     target: final }
+          - { name: postgres-backup,   dockerfile: backup/Dockerfile,     target: final }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,6 +65,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Per-image cache scope so the nine parallel builds do not collide.
+          # Per-image cache scope so the ten parallel builds do not collide.
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
