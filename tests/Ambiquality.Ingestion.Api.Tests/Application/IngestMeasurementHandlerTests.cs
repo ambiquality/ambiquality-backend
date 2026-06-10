@@ -33,11 +33,11 @@ public class IngestMeasurementHandlerTests
         public FakeQueue(bool throws = false) => _throws = throws;
         public List<MeasurementMessage> Published { get; } = [];
 
-        public Task PublishAsync(MeasurementMessage message, CancellationToken cancellationToken)
+        public Task PublishAsync(IReadOnlyList<MeasurementMessage> messages, CancellationToken cancellationToken)
         {
             if (_throws)
                 throw new InvalidOperationException("queue down");
-            Published.Add(message);
+            Published.AddRange(messages);
             return Task.CompletedTask;
         }
     }
@@ -49,6 +49,8 @@ public class IngestMeasurementHandlerTests
             .Options;
         var ctx = new IeqDbContext(options);
         ctx.ParameterRanges.Add(new ParameterRange("co2", 0, 50_000, "ppm"));
+        ctx.ParameterRanges.Add(new ParameterRange("temperature", -40, 60, "Cel"));
+        ctx.ParameterRanges.Add(new ParameterRange("humidity", 0, 100, "%"));
         ctx.SaveChanges();
         return ctx;
     }
@@ -60,8 +62,11 @@ public class IngestMeasurementHandlerTests
         return catalog;
     }
 
-    private static IngestMeasurementCommand Command(double value = 800, string parameterCode = "co2") =>
-        new(SensorId, PlainKey, parameterCode, value);
+    private static IngestMeasurementsCommand Command(double value = 800, string parameterCode = "co2") =>
+        new(SensorId, PlainKey, [new MeasurementReadingInput(parameterCode, value)]);
+
+    private static IngestMeasurementsCommand Batch(params MeasurementReadingInput[] readings) =>
+        new(SensorId, PlainKey, readings);
 
     private static IngestMeasurementHandler Handler(
         SensorValidationView? view, FakeQueue queue, DateTime? now = null) =>
@@ -144,14 +149,92 @@ public class IngestMeasurementHandlerTests
         Assert.True(result.IsAccepted);
         Assert.Equal(now, result.ReceivedAt);
 
+        var accepted = Assert.Single(result.Accepted!);
         var message = Assert.Single(queue.Published);
-        Assert.Equal(result.MeasurementId, message.Id);
+        Assert.Equal(accepted.Id, message.Id);
+        Assert.Equal("co2", accepted.ParameterCode);
         Assert.Equal(SensorId, message.SensorId);
         Assert.Equal("co2", message.ParameterCode);
         Assert.Equal(800, message.Value);
         Assert.Equal(now, message.ReceivedAt);
         // ObservedAt is server-stamped (sensor clock untrusted), so it equals ReceivedAt.
         Assert.Equal(now, message.ObservedAt);
+    }
+
+    [Fact]
+    public async Task MultiReadingBatch_EnqueuesEveryReading_WithDistinctIdsAndOneReceivedAt()
+    {
+        var queue = new FakeQueue();
+        var view = new SensorValidationView(KeyHash, "active", ["co2", "temperature", "humidity"]);
+        var now = new DateTime(2026, 5, 27, 10, 0, 0, DateTimeKind.Utc);
+        var handler = Handler(view, queue, now);
+
+        var result = await handler.Handle(
+            Batch(
+                new MeasurementReadingInput("co2", 800),
+                new MeasurementReadingInput("temperature", 21.5),
+                new MeasurementReadingInput("humidity", 45)),
+            CancellationToken.None);
+
+        Assert.True(result.IsAccepted);
+        Assert.Equal(3, queue.Published.Count);
+        Assert.Equal(3, result.Accepted!.Count);
+        // Every reading shares the single acceptance timestamp...
+        Assert.All(queue.Published, m => Assert.Equal(now, m.ReceivedAt));
+        // ...but each carries its own measurement identity.
+        Assert.Equal(3, queue.Published.Select(m => m.Id).Distinct().Count());
+        Assert.Equal(
+            ["co2", "temperature", "humidity"],
+            queue.Published.Select(m => m.ParameterCode));
+    }
+
+    [Fact]
+    public async Task EmptyBatch_IsRejected_AndNotEnqueued()
+    {
+        var queue = new FakeQueue();
+        var view = new SensorValidationView(KeyHash, "active", ["co2"]);
+        var handler = Handler(view, queue);
+
+        var result = await handler.Handle(
+            new IngestMeasurementsCommand(SensorId, PlainKey, []), CancellationToken.None);
+
+        Assert.Equal(IngestRejectionReason.EmptyBatch, result.Rejection);
+        Assert.Empty(queue.Published);
+    }
+
+    [Fact]
+    public async Task DuplicateParameterInBatch_IsRejected_AndNotEnqueued()
+    {
+        var queue = new FakeQueue();
+        var view = new SensorValidationView(KeyHash, "active", ["co2"]);
+        var handler = Handler(view, queue);
+
+        var result = await handler.Handle(
+            Batch(
+                new MeasurementReadingInput("co2", 800),
+                new MeasurementReadingInput("co2", 810)),
+            CancellationToken.None);
+
+        Assert.Equal(IngestRejectionReason.DuplicateParameter, result.Rejection);
+        Assert.Empty(queue.Published);
+    }
+
+    [Fact]
+    public async Task OneBadReadingInBatch_RejectsWholeBatch_AndEnqueuesNothing()
+    {
+        var queue = new FakeQueue();
+        var view = new SensorValidationView(KeyHash, "active", ["co2", "temperature"]);
+        var handler = Handler(view, queue);
+
+        // temperature is valid, co2 is out of range — the whole batch must be rejected.
+        var result = await handler.Handle(
+            Batch(
+                new MeasurementReadingInput("temperature", 21.5),
+                new MeasurementReadingInput("co2", 999_999)),
+            CancellationToken.None);
+
+        Assert.Equal(IngestRejectionReason.ValueOutOfRange, result.Rejection);
+        Assert.Empty(queue.Published);
     }
 
     [Fact]

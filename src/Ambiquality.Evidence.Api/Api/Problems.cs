@@ -112,6 +112,28 @@ public static class Problems
             statusCode: StatusCodes.Status400BadRequest);
 
     /// <summary>
+    /// 404 problem+json for an address-lookup key that matched no RÚIAN address point.
+    /// </summary>
+    public static ProblemHttpResult AddressNotFound() =>
+        TypedResults.Problem(
+            detail: "No RÚIAN address matched the supplied key.",
+            title: "Address not found",
+            type: TypePrefix + "address-not-found",
+            statusCode: StatusCodes.Status404NotFound);
+
+    /// <summary>
+    /// 502 problem+json when the external RÚIAN (ČÚZK) service is unreachable, times out or
+    /// returns an unusable response. Distinct from a 500 so the client knows the fault is the
+    /// upstream geocoder and can fall back to manual address entry.
+    /// </summary>
+    public static ProblemHttpResult AddressLookupUnavailable(string detail) =>
+        TypedResults.Problem(
+            detail: detail,
+            title: "Address lookup unavailable",
+            type: TypePrefix + "address-lookup-unavailable",
+            statusCode: StatusCodes.Status502BadGateway);
+
+    /// <summary>
     /// Parses the optional <c>asOf</c> query parameter as a UTC instant,
     /// defaulting to "now". Returns <c>null</c> on success (with
     /// <paramref name="asOf"/> set), or a 400 problem result when the supplied

@@ -24,16 +24,19 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
         await _factory.DisposeAsync();
     }
 
-    private async Task<HttpResponseMessage> PostAsync(
-        Guid sensorId, string parameterCode, double value, string? apiKey)
+    private Task<HttpResponseMessage> PostAsync(
+        Guid sensorId, string parameterCode, double value, string? apiKey) =>
+        PostReadingsAsync(sensorId, apiKey, new { parameterCode, value });
+
+    private async Task<HttpResponseMessage> PostReadingsAsync(
+        Guid sensorId, string? apiKey, params object[] readings)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "/v1/measurements")
         {
             Content = JsonContent.Create(new
             {
                 sensorId,
-                parameterCode,
-                value,
+                readings,
             }),
         };
         if (apiKey is not null)
@@ -50,16 +53,67 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
         var response = await PostAsync(sensorId, "co2", 812, apiKey);
 
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<MeasurementAcceptedResponse>();
-        Assert.NotEqual(Guid.Empty, body!.Id);
+        var body = await response.Content.ReadFromJsonAsync<MeasurementsAcceptedResponse>();
+        var accepted = Assert.Single(body!.Measurements);
+        Assert.NotEqual(Guid.Empty, accepted.Id);
+        Assert.Equal("co2", accepted.ParameterCode);
 
         var message = Assert.Single(_factory.Queue.Published);
-        Assert.Equal(body.Id, message.Id);
+        Assert.Equal(accepted.Id, message.Id);
         Assert.Equal(sensorId, message.SensorId);
         Assert.Equal("co2", message.ParameterCode);
         Assert.Equal(body.ReceivedAt, message.ReceivedAt);
         // ObservedAt is server-stamped, not taken from the sensor.
         Assert.Equal(body.ReceivedAt, message.ObservedAt);
+    }
+
+    [Fact]
+    public async Task BatchOfReadings_Returns202AndEnqueuesEach()
+    {
+        var (sensorId, apiKey) = await _factory.SeedSensorAsync(["co2", "temperature", "humidity"]);
+
+        var response = await PostReadingsAsync(
+            sensorId, apiKey,
+            new { parameterCode = "co2", value = 812.0 },
+            new { parameterCode = "temperature", value = 21.5 },
+            new { parameterCode = "humidity", value = 45.0 });
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<MeasurementsAcceptedResponse>();
+        Assert.Equal(3, body!.Measurements.Count);
+        Assert.Equal(3, _factory.Queue.Published.Count);
+        // One acceptance timestamp shared by the batch; one distinct id per reading.
+        Assert.All(_factory.Queue.Published, m => Assert.Equal(body.ReceivedAt, m.ReceivedAt));
+        Assert.Equal(3, _factory.Queue.Published.Select(m => m.Id).Distinct().Count());
+        Assert.Equal(
+            ["co2", "temperature", "humidity"],
+            _factory.Queue.Published.Select(m => m.ParameterCode));
+    }
+
+    [Fact]
+    public async Task BatchWithOneBadReading_Returns422_AndEnqueuesNothing()
+    {
+        var (sensorId, apiKey) = await _factory.SeedSensorAsync(["co2", "temperature"]);
+
+        // temperature is valid, co2 is out of range — atomic batch must reject the whole request.
+        var response = await PostReadingsAsync(
+            sensorId, apiKey,
+            new { parameterCode = "temperature", value = 21.5 },
+            new { parameterCode = "co2", value = 999_999.0 });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Empty(_factory.Queue.Published);
+    }
+
+    [Fact]
+    public async Task EmptyBatch_Returns422_AndEnqueuesNothing()
+    {
+        var (sensorId, apiKey) = await _factory.SeedSensorAsync(["co2"]);
+
+        var response = await PostReadingsAsync(sensorId, apiKey);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Empty(_factory.Queue.Published);
     }
 
     [Fact]
@@ -70,20 +124,10 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
         // A sensor with a badly skewed clock (or a malicious client) tries to dictate
         // observedAt. The API must ignore the body field and stamp the time itself.
         var skewed = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var request = new HttpRequestMessage(HttpMethod.Post, "/v1/measurements")
-        {
-            Content = JsonContent.Create(new
-            {
-                sensorId,
-                parameterCode = "co2",
-                value = 800,
-                observedAt = skewed,
-            }),
-        };
-        request.Headers.Add(MeasurementEndpoints.SensorKeyHeader, apiKey);
-
         var before = DateTime.UtcNow;
-        var response = await _client.SendAsync(request);
+        var response = await PostReadingsAsync(
+            sensorId, apiKey,
+            new { parameterCode = "co2", value = 800.0, observedAt = skewed });
         var after = DateTime.UtcNow;
 
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);

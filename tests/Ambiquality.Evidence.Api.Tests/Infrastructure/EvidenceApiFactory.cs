@@ -1,4 +1,5 @@
 using Ambiquality.Evidence.Api;
+using Ambiquality.Evidence.Api.Application.Abstractions;
 using Ambiquality.Evidence.Api.Infrastructure.Persistence;
 using Ambiquality.Evidence.Api.Tests.TestSupport;
 using Microsoft.AspNetCore.Authentication;
@@ -6,12 +7,19 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Ambiquality.Evidence.Api.Tests.Infrastructure;
 
 public sealed class EvidenceApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgresFixture _postgres = new();
+
+    /// <summary>
+    /// Optional fake <see cref="IAddressGeocoder"/> swapped in for the real ČÚZK HTTP client, so
+    /// address-lookup endpoint tests run without reaching the external RÚIAN service.
+    /// </summary>
+    public IAddressGeocoder? Geocoder { get; init; }
 
     public async Task InitializeAsync()
     {
@@ -47,6 +55,13 @@ public sealed class EvidenceApiFactory : WebApplicationFactory<Program>, IAsyncL
             services.AddAuthentication(TestAuthHandler.SchemeName)
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
                     TestAuthHandler.SchemeName, _ => { });
+
+            // Replace the real RÚIAN HTTP client with a fake when a test supplies one.
+            if (Geocoder is not null)
+            {
+                services.RemoveAll<IAddressGeocoder>();
+                services.AddSingleton(Geocoder);
+            }
         });
     }
 }

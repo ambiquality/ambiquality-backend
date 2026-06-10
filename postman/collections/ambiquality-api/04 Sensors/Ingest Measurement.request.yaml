@@ -6,7 +6,7 @@ headers:
   X-Sensor-Key: "{{sensorApiKey}}"
 body:
   type: json
-  content: '{"sensorId": "{{sensorId}}","parameterCode": "co2","value": 800}'
+  content: '{"sensorId": "{{sensorId}}","readings": [{"parameterCode": "co2","value": 800},{"parameterCode": "temperature","value": 21.5}]}'
 auth:
   type: noauth
 scripts:
@@ -14,9 +14,13 @@ scripts:
     code: |-
       pm.test('Status 202 accepted', () => pm.response.to.have.status(202));
       const j = pm.response.json();
-      pm.test('Has id and receivedAt', () => {
-        pm.expect(j.id).to.be.a('string').and.not.empty;
+      pm.test('Has receivedAt and one measurement per reading', () => {
         pm.expect(j).to.have.property('receivedAt');
+        pm.expect(j.measurements).to.be.an('array').with.lengthOf(2);
+        j.measurements.forEach(m => {
+          pm.expect(m.id).to.be.a('string').and.not.empty;
+          pm.expect(m).to.have.property('parameterCode');
+        });
       });
     language: text/javascript
 order: 1100

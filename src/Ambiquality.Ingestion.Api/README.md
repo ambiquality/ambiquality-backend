@@ -6,45 +6,77 @@ by use case **UC10**.
 
 ## Responsibility
 
-Accept a single observation, validate it against the sensor catalog and configured ranges, and
-persist it durably before acknowledging — then it is immutable (soft-invalidation only). Built to
-the thesis non-functional constraints:
+Accept a **batch of observations** from one sensor, validate every reading against the sensor
+catalog and configured ranges, and durably enqueue the batch before acknowledging — once
+materialized the measurements are immutable (soft-invalidation only). A sensor that measures
+several quantities reports them together; it lists only the parameters it actually measures and is
+never forced to fill in the rest. The batch is **all-or-nothing**: one bad reading rejects the whole
+request and nothing is enqueued. Built to the thesis non-functional constraints:
 
-- **Durability before acknowledgement** — the measurement is written inside the request, before any
-  2xx; no ack-before-write.
-- **Throughput** — designed to sustain ≥ 100 measurements/second (cheap SHA-256 key check, a single
-  catalog read, one insert).
+- **Durability before acknowledgement** — the batch is durably enqueued (Redis stream, AOF
+  `appendfsync always`) before any 2xx; no ack-before-write. A multi-reading batch is appended inside
+  one `MULTI`/`EXEC` transaction so it lands atomically.
+- **Throughput** — designed to sustain ≥ 100 measurements/second (cheap SHA-256 key check, one
+  catalog read per batch, an atomic append). Batching several quantities per request raises the
+  effective rate further.
 - **Immutability** — measurements are never updated or deleted; invalidation is a soft flag.
 
 ## Endpoint
 
 | Method | Path | Auth | Success |
 |--------|------|------|---------|
-| `POST` | `/measurements` | `X-Sensor-Key` header | `201 Created` |
+| `POST` | `/measurements` | `X-Sensor-Key` header | `202 Accepted` |
 
 Request body:
 
 ```json
-{ "sensorId": "<guid>", "parameterCode": "co2", "value": 812 }
+{
+  "sensorId": "<guid>",
+  "readings": [
+    { "parameterCode": "co2", "value": 812 },
+    { "parameterCode": "temperature", "value": 21.5 },
+    { "parameterCode": "humidity", "value": 45 }
+  ]
+}
 ```
 
 The sensor's secret key travels in the **`X-Sensor-Key`** header, never the body. The
 observation time is **not** taken from the request: the sensor's clock is untrusted, so the
 API stamps both `observedAt` and the acceptance `receivedAt` from the server clock at
-acceptance (a single read, so they are equal). Any `observedAt` sent in the body is ignored.
-On success the response carries the new measurement id and its server-side `receivedAt`.
+acceptance — a single read shared by every reading in the batch, so they are all equal. Any
+`observedAt` sent in the body is ignored. On success the response carries the shared
+`receivedAt` and, for each reading, the measurement id it was assigned:
+
+```json
+{
+  "receivedAt": "2026-05-27T10:00:00Z",
+  "measurements": [
+    { "id": "<guid>", "parameterCode": "co2" },
+    { "id": "<guid>", "parameterCode": "temperature" },
+    { "id": "<guid>", "parameterCode": "humidity" }
+  ]
+}
+```
+
+`202 Accepted`, not `201`: the batch is durably enqueued but not yet materialized into the
+hypertable — Ingestion.Worker performs the write asynchronously.
 
 ## Validation pipeline (UC10)
 
-In order, each failure short-circuits with a Problem Details response:
+The sensor is authenticated once for the batch, then every reading is validated; the **first**
+failure short-circuits with a Problem Details response and nothing is enqueued:
 
 | Step | Rule | Rejection | Status |
 |------|------|-----------|--------|
+| 0 | The batch carries at least one reading | empty batch | `422` |
 | 1 | Sensor exists **and** `SHA-256(X-Sensor-Key)` matches `evidence.sensors.api_key_hash` | unknown sensor / bad key | `401` |
 | 2 | Sensor's current status is `active` | not active | `403` |
-| 3 | Sensor declares the observation's `parameterCode` (open row) | parameter not declared | `422` |
-| 4 | Value lies within `ieq.parameter_ranges` for that parameter | value out of range | `422` |
-| 5 | Persist to the `ieq.measurements` hypertable, then ack | — | `201` |
+| 3 | Each parameter appears at most once in the batch | duplicate parameter | `422` |
+| 4 | Sensor declares each reading's `parameterCode` (open row) | parameter not declared | `422` |
+| 5 | Each value lies within `ieq.parameter_ranges` for its parameter | value out of range | `422` |
+| 6 | Atomically enqueue the batch, then ack | — | `202` |
+
+Every problem carries a stable `urn:ambiquality:ingestion:<reason>` `type`.
 
 Unit matching (UC10 step 3's unit half) is **deferred** until F08 (measured-parameter units) lands
 in Evidence; only quantity declaration and value range are checked today.

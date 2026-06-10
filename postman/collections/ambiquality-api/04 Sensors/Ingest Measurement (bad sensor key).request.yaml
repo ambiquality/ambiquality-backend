@@ -6,7 +6,7 @@ headers:
   X-Sensor-Key: not-a-real-key
 body:
   type: json
-  content: '{"sensorId": "{{sensorId}}","parameterCode": "co2","value": 800}'
+  content: '{"sensorId": "{{sensorId}}","readings": [{"parameterCode": "co2","value": 800}]}'
 auth:
   type: noauth
 scripts:

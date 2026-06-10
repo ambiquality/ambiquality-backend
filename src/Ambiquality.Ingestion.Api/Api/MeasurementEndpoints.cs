@@ -9,34 +9,46 @@ public static class MeasurementEndpoints
 
     public static void MapMeasurementEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/measurements", IngestMeasurement)
-            .WithName("IngestMeasurement")
+        app.MapPost("/measurements", IngestMeasurements)
+            .WithName("IngestMeasurements")
             .WithTags("Measurements")
-            .WithDescription("Validate and store a single sensor observation (F10/UC10).");
+            .WithDescription(
+                "Validate and enqueue a batch of sensor observations (F10/UC10). A sensor reports "
+                + "one or more parameter readings in a single request — only the quantities it "
+                + "actually measures. The batch is all-or-nothing: if any reading fails validation "
+                + "the whole request is rejected and nothing is enqueued.");
     }
 
-    private static async Task<Results<Accepted<MeasurementAcceptedResponse>, ProblemHttpResult>> IngestMeasurement(
-        IngestMeasurementRequest request,
+    private static async Task<Results<Accepted<MeasurementsAcceptedResponse>, ProblemHttpResult>> IngestMeasurements(
+        IngestMeasurementsRequest request,
         HttpContext context,
         IngestMeasurementHandler handler,
         CancellationToken cancellationToken)
     {
-        var apiKey = context.Request.Headers[MeasurementEndpoints.SensorKeyHeader].ToString();
+        var apiKey = context.Request.Headers[SensorKeyHeader].ToString();
+
+        var readings = (request.Readings ?? [])
+            .Select(r => new MeasurementReadingInput(r.ParameterCode, r.Value))
+            .ToList();
 
         var result = await handler.Handle(
-            new IngestMeasurementCommand(
+            new IngestMeasurementsCommand(
                 SensorId: request.SensorId,
                 PresentedApiKey: apiKey,
-                ParameterCode: request.ParameterCode,
-                Value: request.Value),
+                Readings: readings),
             cancellationToken);
 
-        // 202, not 201: the measurement is durably enqueued but not yet materialized
-        // into the hypertable — the worker performs the write asynchronously.
+        // 202, not 201: the batch is durably enqueued but not yet materialized into the
+        // hypertable — the worker performs the write asynchronously.
         if (result.IsAccepted)
+        {
+            var measurements = result.Accepted!
+                .Select(a => new AcceptedMeasurement(a.Id, a.ParameterCode))
+                .ToList();
             return TypedResults.Accepted(
                 (string?)null,
-                new MeasurementAcceptedResponse(result.MeasurementId!.Value, result.ReceivedAt!.Value));
+                new MeasurementsAcceptedResponse(result.ReceivedAt!.Value, measurements));
+        }
 
         return Problems.ToProblem(result.Rejection!.Value, result.Detail!);
     }
