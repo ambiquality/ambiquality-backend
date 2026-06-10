@@ -58,6 +58,11 @@ public static class SensorEndpoints
             .WithOpenApi()
             .WithDescription("Record a new sensor lifecycle status effective from validFrom (appends history, does not overwrite)");
 
+        group.MapPut("/{sensorId:guid}/installation", ChangeSensorInstallation)
+            .WithName("ChangeSensorInstallation")
+            .WithOpenApi()
+            .WithDescription("Record new sensor installation details (F08) effective from validFrom (appends history, does not overwrite)");
+
         group.MapPost("/{sensorId:guid}/measured-parameters", AddMeasuredParameter)
             .WithName("AddMeasuredParameter")
             .WithOpenApi()
@@ -89,7 +94,8 @@ public static class SensorEndpoints
                 Model: request.Model,
                 SerialNumber: request.SerialNumber,
                 StatusCode: request.StatusCode,
-                MeasuredParameters: request.MeasuredParameters);
+                MeasuredParameters: request.MeasuredParameters,
+                Installation: ToInput(request.Installation));
 
             var result = await handler.Handle(command, cancellationToken);
             var response = new SensorRegisteredResponse(
@@ -104,6 +110,7 @@ public static class SensorEndpoints
                 MeasuredParameters: request.MeasuredParameters
                     .Select(MeasuredParameterResponse.FromCode)
                     .ToList(),
+                Installation: ToResponse(request.Installation),
                 AsOf: DateTime.UtcNow,
                 ApiKey: result.ApiKey);
 
@@ -260,6 +267,36 @@ public static class SensorEndpoints
         }
     }
 
+    private static async Task<Results<NoContent, ProblemHttpResult>> ChangeSensorInstallation(
+        Guid buildingId,
+        Guid roomId,
+        Guid sensorId,
+        ChangeSensorInstallationRequest request,
+        ChangeSensorInstallationHandler handler,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var command = new ChangeSensorInstallationCommand(
+                sensorId,
+                new SensorInstallationInput(
+                    request.PositionNote,
+                    request.DistanceWindowM,
+                    request.DistanceDoorM,
+                    request.DistanceSourceM,
+                    request.MeasurementFrequencySeconds,
+                    request.InstalledOn,
+                    request.LastCalibratedOn),
+                request.ValidFrom);
+            await handler.Handle(command, cancellationToken);
+            return TypedResults.NoContent();
+        }
+        catch (DomainException ex)
+        {
+            return Problems.ToProblemResult(ex);
+        }
+    }
+
     private static async Task<Results<NoContent, ProblemHttpResult>> AddMeasuredParameter(
         Guid buildingId,
         Guid roomId,
@@ -333,5 +370,60 @@ public static class SensorEndpoints
             MeasuredParameters: snapshot.MeasuredParameters
                 .Select(MeasuredParameterResponse.FromCode)
                 .ToList(),
+            Installation: ToResponse(snapshot.Installation),
             AsOf: snapshot.AsOf);
+
+    // Carries the optional installation block from the edge into the application
+    // layer; null in stays null through to a no-op.
+    private static SensorInstallationInput? ToInput(SensorInstallationRequest? request) =>
+        request is null
+            ? null
+            : new SensorInstallationInput(
+                request.PositionNote,
+                request.DistanceWindowM,
+                request.DistanceDoorM,
+                request.DistanceSourceM,
+                request.MeasurementFrequencySeconds,
+                request.InstalledOn,
+                request.LastCalibratedOn);
+
+    // Register response: echo the installation only when it carried at least one
+    // value, mirroring the GET projection (an all-null block records no row).
+    private static SensorInstallationResponse? ToResponse(SensorInstallationRequest? request)
+    {
+        if (request is null)
+            return null;
+
+        var hasValue =
+            request.PositionNote is not null
+            || request.DistanceWindowM is not null
+            || request.DistanceDoorM is not null
+            || request.DistanceSourceM is not null
+            || request.MeasurementFrequencySeconds is not null
+            || request.InstalledOn is not null
+            || request.LastCalibratedOn is not null;
+
+        return hasValue
+            ? new SensorInstallationResponse(
+                request.PositionNote,
+                request.DistanceWindowM,
+                request.DistanceDoorM,
+                request.DistanceSourceM,
+                request.MeasurementFrequencySeconds,
+                request.InstalledOn,
+                request.LastCalibratedOn)
+            : null;
+    }
+
+    private static SensorInstallationResponse? ToResponse(SensorInstallationSnapshot? snapshot) =>
+        snapshot is null
+            ? null
+            : new SensorInstallationResponse(
+                snapshot.PositionNote,
+                snapshot.DistanceWindowM,
+                snapshot.DistanceDoorM,
+                snapshot.DistanceSourceM,
+                snapshot.MeasurementFrequencySeconds,
+                snapshot.InstalledOn,
+                snapshot.LastCalibratedOn);
 }

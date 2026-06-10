@@ -411,6 +411,179 @@ public sealed class SensorEndpointsTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // ---- installation details (F08) ----------------------------------------
+
+    [Fact]
+    public async Task RegisterSensor_WithInstallation_PersistsAndProjectsIt()
+    {
+        var request = new RegisterSensorRequest(
+            Manufacturer: "Aranet",
+            Model: "Aranet4",
+            SerialNumber: "SN-0001",
+            StatusCode: "active",
+            MeasuredParameters: new[] { "co2" },
+            Installation: new SensorInstallationRequest(
+                PositionNote: "By the north window",
+                DistanceWindowM: 1.5,
+                DistanceDoorM: 3.0,
+                DistanceSourceM: 2.0,
+                MeasurementFrequencySeconds: 60,
+                InstalledOn: new DateOnly(2026, 5, 1),
+                LastCalibratedOn: new DateOnly(2026, 5, 15)));
+
+        var response = await _client.PostAsJsonAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors", request);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var registered = (await response.Content.ReadFromJsonAsync<SensorSnapshotResponse>())!;
+
+        var get = await _client.GetAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
+        var sensor = (await get.Content.ReadFromJsonAsync<SensorSnapshotResponse>())!;
+
+        Assert.NotNull(sensor.Installation);
+        Assert.Equal("By the north window", sensor.Installation!.PositionNote);
+        Assert.Equal(1.5, sensor.Installation.DistanceWindowM);
+        Assert.Equal(60, sensor.Installation.MeasurementFrequencySeconds);
+        Assert.Equal(new DateOnly(2026, 5, 1), sensor.Installation.InstalledOn);
+        Assert.Equal(new DateOnly(2026, 5, 15), sensor.Installation.LastCalibratedOn);
+    }
+
+    [Fact]
+    public async Task RegisterSensor_WithoutInstallation_ProjectsNullInstallation()
+    {
+        var registered = await RegisterSensorAsync();
+
+        var get = await _client.GetAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
+        var sensor = (await get.Content.ReadFromJsonAsync<SensorSnapshotResponse>())!;
+
+        Assert.Null(sensor.Installation);
+    }
+
+    [Fact]
+    public async Task ChangeSensorInstallation_OpensRowOnSensorRegisteredWithout()
+    {
+        var registered = await RegisterSensorAsync();
+
+        var request = new ChangeSensorInstallationRequest(
+            PositionNote: "Centre of ceiling",
+            DistanceWindowM: 2.0,
+            DistanceDoorM: null,
+            DistanceSourceM: null,
+            MeasurementFrequencySeconds: 30,
+            InstalledOn: null,
+            LastCalibratedOn: null,
+            ValidFrom: DateTime.UtcNow);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/installation", request);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        var get = await _client.GetAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}");
+        var sensor = (await get.Content.ReadFromJsonAsync<SensorSnapshotResponse>())!;
+        Assert.Equal("Centre of ceiling", sensor.Installation!.PositionNote);
+        Assert.Equal(30, sensor.Installation.MeasurementFrequencySeconds);
+    }
+
+    [Fact]
+    public async Task ChangeSensorInstallation_ClosesPreviousRowHalfOpen()
+    {
+        var registerRequest = new RegisterSensorRequest(
+            Manufacturer: "Aranet",
+            Model: "Aranet4",
+            SerialNumber: "SN-0001",
+            StatusCode: "active",
+            MeasuredParameters: new[] { "co2" },
+            Installation: new SensorInstallationRequest(
+                PositionNote: "Original", DistanceWindowM: 1.0, DistanceDoorM: null,
+                DistanceSourceM: null, MeasurementFrequencySeconds: null,
+                InstalledOn: null, LastCalibratedOn: null));
+
+        var registerResponse = await _client.PostAsJsonAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors", registerRequest);
+        var registered = (await registerResponse.Content.ReadFromJsonAsync<SensorSnapshotResponse>())!;
+        var t0 = registered.AsOf;
+
+        // Move the installation forward in time.
+        var validFrom = t0.AddHours(1);
+        var changeRequest = new ChangeSensorInstallationRequest(
+            PositionNote: "Updated", DistanceWindowM: 2.0, DistanceDoorM: null,
+            DistanceSourceM: null, MeasurementFrequencySeconds: null,
+            InstalledOn: null, LastCalibratedOn: null, ValidFrom: validFrom);
+
+        var changeResponse = await _client.PutAsJsonAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/installation", changeRequest);
+        Assert.Equal(HttpStatusCode.NoContent, changeResponse.StatusCode);
+
+        // asOf before the change still sees the original (half-open close).
+        var asOfBefore = Uri.EscapeDataString(validFrom.AddSeconds(-1).ToString("o"));
+        var before = await _client.GetAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}?asOf={asOfBefore}");
+        var beforeSensor = (await before.Content.ReadFromJsonAsync<SensorSnapshotResponse>())!;
+        Assert.Equal("Original", beforeSensor.Installation!.PositionNote);
+
+        // asOf after the change sees the new value.
+        var asOfAfter = Uri.EscapeDataString(validFrom.AddSeconds(1).ToString("o"));
+        var after = await _client.GetAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}?asOf={asOfAfter}");
+        var afterSensor = (await after.Content.ReadFromJsonAsync<SensorSnapshotResponse>())!;
+        Assert.Equal("Updated", afterSensor.Installation!.PositionNote);
+        Assert.Equal(2.0, afterSensor.Installation.DistanceWindowM);
+    }
+
+    [Fact]
+    public async Task RegisterSensor_WithNonPositiveDistance_Returns400BadRequest()
+    {
+        var request = new RegisterSensorRequest(
+            Manufacturer: "Aranet",
+            Model: "Aranet4",
+            SerialNumber: "SN-1",
+            StatusCode: "active",
+            MeasuredParameters: new[] { "co2" },
+            Installation: new SensorInstallationRequest(
+                PositionNote: null, DistanceWindowM: -1.0, DistanceDoorM: null,
+                DistanceSourceM: null, MeasurementFrequencySeconds: null,
+                InstalledOn: null, LastCalibratedOn: null));
+
+        var response = await _client.PostAsJsonAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors", request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangeSensorInstallation_WithCalibrationBeforeInstall_Returns400BadRequest()
+    {
+        var registered = await RegisterSensorAsync();
+
+        var request = new ChangeSensorInstallationRequest(
+            PositionNote: null, DistanceWindowM: null, DistanceDoorM: null,
+            DistanceSourceM: null, MeasurementFrequencySeconds: null,
+            InstalledOn: new DateOnly(2026, 5, 10),
+            LastCalibratedOn: new DateOnly(2026, 5, 1),
+            ValidFrom: DateTime.UtcNow);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{registered.Id}/installation", request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangeSensorInstallation_OnNonexistentSensor_Returns404NotFound()
+    {
+        var request = new ChangeSensorInstallationRequest(
+            PositionNote: "Anywhere", DistanceWindowM: null, DistanceDoorM: null,
+            DistanceSourceM: null, MeasurementFrequencySeconds: null,
+            InstalledOn: null, LastCalibratedOn: null, ValidFrom: DateTime.UtcNow);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{_roomId}/sensors/{Guid.NewGuid()}/installation", request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Fact]
     public async Task AddMeasuredParameter_OverlappingSameParameter_Returns409Conflict()
     {

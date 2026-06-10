@@ -20,8 +20,10 @@ separate devices table).
 
 A building's name, address, type, GPS location and construction years; a room's name, floor,
 function, exposure, geometry, ventilation and pollution sources; and a sensor's identity
-(manufacturer/model/serial), room placement, lifecycle status and measured-parameter
-capabilities — all **change over time**, and the catalog must answer "what was true *as of* date
+(manufacturer/model/serial), room placement, lifecycle status, measured-parameter
+capabilities and optional installation details (F08: in-room position, distances to the nearest
+window/door/pollution source, declared reporting interval, installation and last-calibration
+dates) — all **change over time**, and the catalog must answer "what was true *as of* date
 X", not just "what is true now".
 
 So each mutable attribute is stored not as a column but as a stream of **history rows**, each
@@ -131,6 +133,7 @@ per-building) — same as sensors.
 | `PUT` | `…/sensors/{sensorId}/identity` | Change manufacturer / model / serial |
 | `PUT` | `…/sensors/{sensorId}/placement` | Relocate the sensor (body: `newRoomId`) |
 | `PUT` | `…/sensors/{sensorId}/status` | Change lifecycle status (codelist) |
+| `PUT` | `…/sensors/{sensorId}/installation` | Record installation details (F08; all fields optional) |
 | `POST` | `…/sensors/{sensorId}/measured-parameters` | Add a measured-parameter capability |
 | `DELETE` | `…/sensors/{sensorId}/measured-parameters/{parameterCode}` | Remove a measured-parameter capability |
 
@@ -158,6 +161,18 @@ so one fast hash is safe and keeps ingestion verification cheap under the ≥100
 Status codes (`sensor_status`): `active`, `maintenance`, `decommissioned`. Measured parameters
 (`measured_parameter`): `co2`, `temperature`, `humidity`, `pm`, `voc`, `acoustics`, `light`. An
 unknown code is a `400 unknown-codelist-code`.
+
+**Optional installation details (F08).** A sensor may carry an `installation` object — its
+in-room `positionNote`, the distances to the nearest window/door/pollution source
+(`distanceWindowM`/`distanceDoorM`/`distanceSourceM`, metres), the declared reporting interval
+(`measurementFrequencySeconds`), and the `installedOn`/`lastCalibratedOn` dates. Every field is
+optional and the attribute as a whole is optional: a sensor may have no installation row at all,
+in which case reads project `installation: null`. The block can be supplied at registration
+(nested in the `POST` body) and changed later (`PUT …/sensors/{id}/installation` with the same
+fields plus `validFrom`), which closes the open row half-open and opens a new one — the same
+temporal versioning as every other sensor attribute. Validation: distances and frequency must be
+positive when provided, and `lastCalibratedOn` must not precede `installedOn`; violations are a
+`400 domain-rule-violation`.
 
 `HEAD` is handled by middleware in `Program.cs` that runs the matching `GET` handler and
 discards the body while preserving status and headers (RFC 9110 §9.3.2).

@@ -28,6 +28,11 @@ public sealed class RegisterSensorHandler(
 
         var (apiKey, apiKeyHash) = apiKeyService.Generate();
 
+        // Validate the optional installation block up front (positive distances /
+        // frequency, calibration not before installation) so a bad payload is a
+        // 400 before any slug or key is minted.
+        var installation = command.Installation?.ToDetails();
+
         var sensor = Sensor.Register(
             slug: slug,
             buildingId: command.BuildingId,
@@ -39,7 +44,8 @@ public sealed class RegisterSensorHandler(
             status: status,
             measuredParameters: parameters,
             apiKeyHash: apiKeyHash,
-            now: clock.UtcNow);
+            now: clock.UtcNow,
+            installation: installation);
 
         repository.Add(sensor);
         await repository.SaveChangesAsync(ct);

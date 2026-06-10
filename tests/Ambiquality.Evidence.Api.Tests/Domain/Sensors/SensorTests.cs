@@ -348,6 +348,228 @@ public class SensorTests
         Assert.Throws<ArgumentException>(() => row.Close(NonUtc));
     }
 
+    // ---- installation details (F08) ----------------------------------------
+
+    private static SensorInstallationDetails Installation(
+        string? positionNote = "By the north window",
+        double? distanceWindowM = 1.5,
+        double? distanceDoorM = 3.0,
+        double? distanceSourceM = 2.0,
+        int? measurementFrequencySeconds = 60,
+        DateOnly? installedOn = null,
+        DateOnly? lastCalibratedOn = null) =>
+        SensorInstallationDetails.Create(
+            positionNote,
+            distanceWindowM,
+            distanceDoorM,
+            distanceSourceM,
+            measurementFrequencySeconds,
+            installedOn ?? new DateOnly(2026, 5, 1),
+            lastCalibratedOn ?? new DateOnly(2026, 5, 1));
+
+    [Fact]
+    public void Register_WithInstallation_OpensInstallationHistoryRow()
+    {
+        var sensor = Sensor.Register(
+            slug: UriSlug.Create("aranet4-0001"),
+            buildingId: BuildingId,
+            roomId: RoomId,
+            createdBy: Creator,
+            manufacturer: "Aranet",
+            model: "Aranet4",
+            serialNumber: "SN-0001",
+            status: SensorStatus.Active,
+            measuredParameters: [MeasuredParameter.Co2],
+            apiKeyHash: "test-hash",
+            now: T0,
+            installation: Installation());
+
+        var row = Assert.Single(sensor.InstallationHistory);
+        Assert.Equal("By the north window", row.PositionNote);
+        Assert.Equal(1.5, row.DistanceWindowM);
+        Assert.Equal(60, row.MeasurementFrequencySeconds);
+        Assert.True(row.Validity.UpperBoundInfinite);
+        Assert.Equal(T0, row.Validity.LowerBound);
+    }
+
+    [Fact]
+    public void Register_WithoutInstallation_LeavesInstallationHistoryEmpty()
+    {
+        var sensor = RegisterSensor();
+
+        Assert.Empty(sensor.InstallationHistory);
+        Assert.Null(sensor.SnapshotAt(T0).Installation);
+    }
+
+    [Fact]
+    public void ChangeInstallation_OnSensorWithNoRow_OpensFirstRow()
+    {
+        var sensor = RegisterSensor();
+
+        sensor.ChangeInstallation(Installation(positionNote: "Centre of ceiling"), T1, Creator);
+
+        var row = Assert.Single(sensor.InstallationHistory);
+        Assert.Equal("Centre of ceiling", row.PositionNote);
+        Assert.Equal(T1, row.Validity.LowerBound);
+        Assert.True(row.Validity.UpperBoundInfinite);
+    }
+
+    [Fact]
+    public void ChangeInstallation_ClosesPreviousHalfOpenAndOpensNew()
+    {
+        var sensor = Sensor.Register(
+            slug: UriSlug.Create("aranet4-0001"),
+            buildingId: BuildingId,
+            roomId: RoomId,
+            createdBy: Creator,
+            manufacturer: "Aranet",
+            model: "Aranet4",
+            serialNumber: "SN-0001",
+            status: SensorStatus.Active,
+            measuredParameters: [MeasuredParameter.Co2],
+            apiKeyHash: "test-hash",
+            now: T0,
+            installation: Installation(distanceWindowM: 1.5));
+
+        sensor.ChangeInstallation(Installation(distanceWindowM: 2.5), T1, Creator);
+
+        Assert.Equal(2, sensor.InstallationHistory.Count);
+        var closed = sensor.InstallationHistory.Single(h => !h.Validity.UpperBoundInfinite);
+        var open = sensor.InstallationHistory.Single(h => h.Validity.UpperBoundInfinite);
+
+        Assert.Equal(1.5, closed.DistanceWindowM);
+        Assert.Equal(T1, closed.Validity.UpperBound);
+        Assert.False(closed.Validity.UpperBoundIsInclusive);
+        Assert.Equal(2.5, open.DistanceWindowM);
+        Assert.Equal(T1, open.Validity.LowerBound);
+    }
+
+    [Fact]
+    public void ChangeInstallation_ExactReplay_IsNoOp()
+    {
+        var sensor = Sensor.Register(
+            slug: UriSlug.Create("aranet4-0001"),
+            buildingId: BuildingId,
+            roomId: RoomId,
+            createdBy: Creator,
+            manufacturer: "Aranet",
+            model: "Aranet4",
+            serialNumber: "SN-0001",
+            status: SensorStatus.Active,
+            measuredParameters: [MeasuredParameter.Co2],
+            apiKeyHash: "test-hash",
+            now: T0,
+            installation: Installation(distanceWindowM: 1.5));
+
+        // Same value at the same validFrom as the open row.
+        sensor.ChangeInstallation(Installation(distanceWindowM: 1.5), T0, Creator);
+
+        var open = Assert.Single(sensor.InstallationHistory);
+        Assert.True(open.Validity.UpperBoundInfinite);
+        Assert.Equal(1.5, open.DistanceWindowM);
+    }
+
+    [Fact]
+    public void ChangeInstallation_WithValidFromBeforeCurrentOpen_Throws()
+    {
+        var sensor = Sensor.Register(
+            slug: UriSlug.Create("aranet4-0001"),
+            buildingId: BuildingId,
+            roomId: RoomId,
+            createdBy: Creator,
+            manufacturer: "Aranet",
+            model: "Aranet4",
+            serialNumber: "SN-0001",
+            status: SensorStatus.Active,
+            measuredParameters: [MeasuredParameter.Co2],
+            apiKeyHash: "test-hash",
+            now: T0,
+            installation: Installation());
+
+        Assert.Throws<DomainException>(() =>
+            sensor.ChangeInstallation(Installation(positionNote: "Elsewhere"), T0.AddSeconds(-1), Creator));
+    }
+
+    [Fact]
+    public void SnapshotAt_ProjectsInstallationAtSpecifiedTime()
+    {
+        var sensor = Sensor.Register(
+            slug: UriSlug.Create("aranet4-0001"),
+            buildingId: BuildingId,
+            roomId: RoomId,
+            createdBy: Creator,
+            manufacturer: "Aranet",
+            model: "Aranet4",
+            serialNumber: "SN-0001",
+            status: SensorStatus.Active,
+            measuredParameters: [MeasuredParameter.Co2],
+            apiKeyHash: "test-hash",
+            now: T0,
+            installation: Installation(distanceWindowM: 1.5));
+
+        sensor.ChangeInstallation(Installation(distanceWindowM: 2.5), T1, Creator);
+
+        Assert.Equal(1.5, sensor.SnapshotAt(T0).Installation!.DistanceWindowM);
+        Assert.Equal(1.5, sensor.SnapshotAt(T1.AddSeconds(-1)).Installation!.DistanceWindowM);
+        Assert.Equal(2.5, sensor.SnapshotAt(T2).Installation!.DistanceWindowM);
+    }
+
+    [Fact]
+    public void InstallationDetails_HasAnyValue_FalseWhenAllNull()
+    {
+        var details = SensorInstallationDetails.Create(null, null, null, null, null, null, null);
+
+        Assert.False(details.HasAnyValue);
+    }
+
+    [Fact]
+    public void InstallationDetails_BlankPositionNote_NormalisesToNull()
+    {
+        var details = SensorInstallationDetails.Create("   ", null, null, null, null, null, null);
+
+        Assert.Null(details.PositionNote);
+        Assert.False(details.HasAnyValue);
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(-1.0)]
+    public void InstallationDetails_NonPositiveDistance_Throws(double distance)
+    {
+        Assert.Throws<DomainException>(() =>
+            SensorInstallationDetails.Create(null, distance, null, null, null, null, null));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-30)]
+    public void InstallationDetails_NonPositiveFrequency_Throws(int frequency)
+    {
+        Assert.Throws<DomainException>(() =>
+            SensorInstallationDetails.Create(null, null, null, null, frequency, null, null));
+    }
+
+    [Fact]
+    public void InstallationDetails_LastCalibratedBeforeInstalled_Throws()
+    {
+        Assert.Throws<DomainException>(() =>
+            SensorInstallationDetails.Create(
+                null, null, null, null, null,
+                installedOn: new DateOnly(2026, 5, 10),
+                lastCalibratedOn: new DateOnly(2026, 5, 1)));
+    }
+
+    [Fact]
+    public void InstallationDetails_LastCalibratedEqualsInstalled_Allowed()
+    {
+        var details = SensorInstallationDetails.Create(
+            null, null, null, null, null,
+            installedOn: new DateOnly(2026, 5, 1),
+            lastCalibratedOn: new DateOnly(2026, 5, 1));
+
+        Assert.True(details.HasAnyValue);
+    }
+
     [Fact]
     public void SensorIdentityHistory_Close_WithValidUtcValidFrom_ClosesHalfOpen()
     {

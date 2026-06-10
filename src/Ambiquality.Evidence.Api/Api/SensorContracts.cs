@@ -7,7 +7,39 @@ public sealed record RegisterSensorRequest(
     string Model,
     string SerialNumber,
     string StatusCode,
-    IReadOnlyCollection<string> MeasuredParameters);
+    IReadOnlyCollection<string> MeasuredParameters,
+    SensorInstallationRequest? Installation = null);
+
+/// <summary>
+/// The optional supplementary installation details for a sensor (F08): its
+/// position within the room, the distances to the nearest window / door /
+/// pollution source (metres), the declared reporting interval (seconds) and the
+/// installation / last-calibration dates. Every field is optional; supplying the
+/// block with all fields null records nothing. Carried both at registration
+/// (nested in <see cref="RegisterSensorRequest"/>) and on the change endpoint
+/// (alongside <c>ValidFrom</c>).
+/// </summary>
+public sealed record SensorInstallationRequest(
+    string? PositionNote,
+    double? DistanceWindowM,
+    double? DistanceDoorM,
+    double? DistanceSourceM,
+    int? MeasurementFrequencySeconds,
+    DateOnly? InstalledOn,
+    DateOnly? LastCalibratedOn);
+
+/// <summary>
+/// The installation details projected on a sensor read at the requested instant,
+/// or <c>null</c> when the sensor had no installation row as of that time.
+/// </summary>
+public sealed record SensorInstallationResponse(
+    string? PositionNote,
+    double? DistanceWindowM,
+    double? DistanceDoorM,
+    double? DistanceSourceM,
+    int? MeasurementFrequencySeconds,
+    DateOnly? InstalledOn,
+    DateOnly? LastCalibratedOn);
 
 /// <summary>
 /// A measured parameter with its QUDT quantity kind and unit URIs, enabling
@@ -43,6 +75,7 @@ public sealed record SensorRegisteredResponse(
     string SerialNumber,
     string StatusCode,
     IReadOnlyCollection<MeasuredParameterResponse> MeasuredParameters,
+    SensorInstallationResponse? Installation,
     DateTime AsOf,
     string ApiKey);
 
@@ -56,6 +89,7 @@ public sealed record SensorSnapshotResponse(
     string SerialNumber,
     string StatusCode,
     IReadOnlyCollection<MeasuredParameterResponse> MeasuredParameters,
+    SensorInstallationResponse? Installation,
     DateTime AsOf);
 
 public sealed record ChangeSensorIdentityRequest(
@@ -70,6 +104,22 @@ public sealed record ChangeSensorPlacementRequest(
 
 public sealed record ChangeSensorStatusRequest(
     string NewStatusCode,
+    DateTime ValidFrom);
+
+/// <summary>
+/// Records new installation details (F08) effective from <c>ValidFrom</c>. The
+/// body carries the complete new value of the installation attribute (every
+/// field optional) plus the effective instant — the open history row is closed
+/// half-open and a new one opens.
+/// </summary>
+public sealed record ChangeSensorInstallationRequest(
+    string? PositionNote,
+    double? DistanceWindowM,
+    double? DistanceDoorM,
+    double? DistanceSourceM,
+    int? MeasurementFrequencySeconds,
+    DateOnly? InstalledOn,
+    DateOnly? LastCalibratedOn,
     DateTime ValidFrom);
 
 public sealed record AddMeasuredParameterRequest(

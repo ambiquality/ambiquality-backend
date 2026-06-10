@@ -177,5 +177,50 @@ public sealed class SensorConfiguration : IEntityTypeConfiguration<Sensor>
                 .HasColumnName("recorded_by")
                 .IsRequired();
         });
+
+        // Installation history (F08: optional supplementary details over time).
+        // Every value column is nullable — the row records whatever the registrar
+        // supplied — and the collection may be empty (a sensor can have no row).
+        builder.OwnsMany(s => s.InstallationHistory, inh =>
+        {
+            inh.ToTable("sensor_installation_history");
+            inh.WithOwner().HasForeignKey(o => o.SensorId);
+            inh.Property(o => o.SensorId).HasColumnName("sensor_id");
+            inh.HasKey(o => new { o.SensorId, o.RecordedAt });
+
+            inh.Property(i => i.PositionNote)
+                .HasColumnName("position_note");
+
+            inh.Property(i => i.DistanceWindowM)
+                .HasColumnName("distance_window_m");
+
+            inh.Property(i => i.DistanceDoorM)
+                .HasColumnName("distance_door_m");
+
+            inh.Property(i => i.DistanceSourceM)
+                .HasColumnName("distance_source_m");
+
+            inh.Property(i => i.MeasurementFrequencySeconds)
+                .HasColumnName("measurement_frequency_seconds");
+
+            inh.Property(i => i.InstalledOn)
+                .HasColumnName("installed_on");
+
+            inh.Property(i => i.LastCalibratedOn)
+                .HasColumnName("last_calibrated_on");
+
+            inh.Property(i => i.Validity)
+                .HasColumnName("validity")
+                .HasColumnType("tstzrange")
+                .IsRequired();
+
+            inh.Property(i => i.RecordedAt)
+                .HasColumnName("recorded_at")
+                .IsRequired();
+
+            inh.Property(i => i.RecordedBy)
+                .HasColumnName("recorded_by")
+                .IsRequired();
+        });
     }
 }
