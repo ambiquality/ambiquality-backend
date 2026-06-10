@@ -103,7 +103,8 @@ for each database (create the empty databases first, e.g. by running
 
 See the architecture decision records — [`0001 monorepo and service-per-bounded-context`](docs/adr/0001-monorepo-and-service-per-bounded-context.md)
 and [`0002 Czech OFN address model`](docs/adr/0002-ofn-czech-address-model.md) — and [`docs/er/`](docs/er/README.md)
-for the entity-relationship diagrams of the three schemas.
+for the entity-relationship diagrams of the three schemas. [`docs/conformance/`](docs/conformance/)
+tracks the thesis-requirements conformance review and its gap-closure addendum.
 
 - **Three databases, one Postgres instance** (see `init-databases.sql`):
   `auth` (owned by Auth.Api), `evidence` (owned by Evidence.Api), and `ieq` (the
