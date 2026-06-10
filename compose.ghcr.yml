@@ -46,6 +46,33 @@ services:
       timeout: 5s
       retries: 5
 
+  # SPO-04: daily logical dump of auth/evidence/ieq (+ cluster globals) with local
+  # retention; set the BACKUP_S3_* vars so each run is copied off-site (storage
+  # independent from the postgres-data volume) — RPO ≤ 24 h.
+  postgres-backup:
+    image: ghcr.io/ambiquality/postgres-backup:${TAG:-latest}
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:?error}
+      BACKUP_DATABASES: "auth evidence ieq"
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-postgres}
+      AWS_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY:-}
+      AWS_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_KEY:-}
+      AWS_DEFAULT_REGION: ${BACKUP_S3_REGION:-us-east-1}
+    volumes:
+      - backup-data:/backups
+    networks:
+      - db
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   migrate:
     image: ghcr.io/ambiquality/auth-migrate:${TAG:-latest}
     depends_on:
@@ -222,6 +249,7 @@ services:
 
 volumes:
   postgres-data:
+  backup-data:
   redis-data:
   caddy_data:
   caddy_config:

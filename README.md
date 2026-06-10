@@ -64,7 +64,10 @@ cp .env.example .env
 ## Topology
 
 [Caddy](https://caddyserver.com/) is the public ingress; the API services are not published
-directly except where noted. Routing is defined in `conf/Caddyfile`.
+directly except where noted. Routing is defined in `conf/Caddyfile` (plain HTTP for local
+development). For production use `conf/Caddyfile.production` — a domain-addressed site block
+that turns on automatic TLS and the HTTP→HTTPS redirect (SYS-01); see the comments in that
+file for the two-line deploy procedure.
 
 Caddy's `handle_path` strips the matched prefix, so each service sees paths without it
 (e.g. `/public/v1/observations` reaches Public.Api as `/v1/observations`).
@@ -80,6 +83,21 @@ Caddy's `handle_path` strips the matched prefix, so each service sees paths with
 | Redis | internal | **Durable ingestion queue** — Redis Streams + consumer groups, AOF `appendfsync always` |
 
 The Ingestion.Worker and Export.Worker are background services with no HTTP ingress.
+
+## Backups
+
+The `postgres-backup` sidecar (built from `backup/Dockerfile`, same base image as the
+database so client tools match the server version) dumps every platform database —
+`auth`, `evidence`, `ieq` — plus the cluster globals once per `BACKUP_INTERVAL_SECONDS`
+(default 24 h, the RPO ceiling) into the `backup-data` volume, pruning runs older than
+`BACKUP_RETENTION_DAYS`. When the `BACKUP_S3_*` variables are set, each run is also
+copied to an S3-compatible bucket; **production must configure this** — the off-site
+copy on storage independent from `postgres-data` is what satisfies the thesis backup
+requirement (SPO-04). Bucket retention is governed by the bucket's lifecycle policy.
+
+Restore: replay `globals.sql` with `psql`, then `pg_restore --dbname=<db> <db>.dump`
+for each database (create the empty databases first, e.g. by running
+`init-databases.sh` on a fresh volume).
 
 ## Architecture & conventions
 
@@ -133,7 +151,7 @@ git push origin v1.2.0
 ```
 
 The [`Release images to GHCR`](.github/workflows/release.yml) workflow then builds and
-pushes all nine images in parallel, each tagged `1.2.0`, `1.2`, and `latest`:
+pushes all ten images in parallel, each tagged `1.2.0`, `1.2`, and `latest`:
 
 | Image | Role |
 |-------|------|
@@ -151,7 +169,7 @@ TAG=1.2.0 podman compose -f compose.ghcr.yml up -d
 ```
 
 > **One-time setup:** GHCR packages are created **private**. To serve the open-data
-> backend, make each of the nine packages **public** (GitHub → *Packages* → package →
+> backend, make each of the ten packages **public** (GitHub → *Packages* → package →
 > *Package settings* → *Change visibility*), or link them to this repository so its
 > visibility applies. The workflow only needs the repo's built-in `GITHUB_TOKEN` — no
 > extra secrets.
