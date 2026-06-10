@@ -45,6 +45,11 @@ public sealed class Sensor
     private readonly List<SensorMeasuredParameterHistory> _measuredParameterHistory = [];
     public IReadOnlyCollection<SensorMeasuredParameterHistory> MeasuredParameterHistory => _measuredParameterHistory.AsReadOnly();
 
+    // Optional installation details (F08). Unlike the other attributes, a sensor
+    // may have no installation row at all, so this history can be empty.
+    private readonly List<SensorInstallationHistory> _installationHistory = [];
+    public IReadOnlyCollection<SensorInstallationHistory> InstallationHistory => _installationHistory.AsReadOnly();
+
     public static Sensor Register(
         UriSlug slug,
         Guid buildingId,
@@ -56,7 +61,8 @@ public sealed class Sensor
         SensorStatus status,
         IReadOnlyCollection<MeasuredParameter> measuredParameters,
         string apiKeyHash,
-        DateTime now)
+        DateTime now,
+        SensorInstallationDetails? installation = null)
     {
         var id = Guid.NewGuid();
         var validity = Validity.OpenFrom(now);
@@ -79,6 +85,24 @@ public sealed class Sensor
         foreach (var parameter in measuredParameters)
         {
             sensor._measuredParameterHistory.Add(new SensorMeasuredParameterHistory(id, parameter.Code, validity, createdBy, now));
+        }
+
+        // Open an installation row only when the registrar supplied at least one
+        // field; an all-null payload (or none) leaves the sensor with no row.
+        if (installation is { HasAnyValue: true })
+        {
+            sensor._installationHistory.Add(new SensorInstallationHistory(
+                id,
+                validity,
+                installation.PositionNote,
+                installation.DistanceWindowM,
+                installation.DistanceDoorM,
+                installation.DistanceSourceM,
+                installation.MeasurementFrequencySeconds,
+                installation.InstalledOn,
+                installation.LastCalibratedOn,
+                createdBy,
+                now));
         }
 
         return sensor;
@@ -156,11 +180,64 @@ public sealed class Sensor
         current.Close(validTo);
     }
 
+    /// <summary>
+    /// Records new installation details (F08) effective from <paramref name="validFrom"/>.
+    /// "Doplňující údaje lze zadávat při registraci i následně" — so a sensor with
+    /// no installation row simply opens its first one here; otherwise the open row
+    /// is closed half-open and a new one opens, exactly like the other sensor
+    /// attributes (idempotent exact replay is a no-op).
+    /// </summary>
+    public void ChangeInstallation(SensorInstallationDetails details, DateTime validFrom, Guid recordedBy)
+    {
+        var current = _installationHistory.SingleOrDefault(h => h.Validity.UpperBoundInfinite);
+
+        if (current is null)
+        {
+            // No installation history yet: open the first row at validFrom.
+            AppendInstallation(details, validFrom, recordedBy);
+            return;
+        }
+
+        // Idempotent replay: re-applying the same value at the same instant is a no-op.
+        if (validFrom == current.Validity.LowerBound && SameAs(current, details))
+            return;
+
+        if (validFrom <= current.Validity.LowerBound)
+            throw new DomainException("ValidFrom must be after the current open range's start");
+
+        current.Close(validFrom);
+        AppendInstallation(details, validFrom, recordedBy);
+    }
+
+    private void AppendInstallation(SensorInstallationDetails details, DateTime validFrom, Guid recordedBy) =>
+        _installationHistory.Add(new SensorInstallationHistory(
+            Id,
+            Validity.OpenFrom(validFrom),
+            details.PositionNote,
+            details.DistanceWindowM,
+            details.DistanceDoorM,
+            details.DistanceSourceM,
+            details.MeasurementFrequencySeconds,
+            details.InstalledOn,
+            details.LastCalibratedOn,
+            recordedBy,
+            validFrom));
+
+    private static bool SameAs(SensorInstallationHistory row, SensorInstallationDetails details) =>
+        row.PositionNote == details.PositionNote
+        && row.DistanceWindowM == details.DistanceWindowM
+        && row.DistanceDoorM == details.DistanceDoorM
+        && row.DistanceSourceM == details.DistanceSourceM
+        && row.MeasurementFrequencySeconds == details.MeasurementFrequencySeconds
+        && row.InstalledOn == details.InstalledOn
+        && row.LastCalibratedOn == details.LastCalibratedOn;
+
     public SensorSnapshot SnapshotAt(DateTime asOf)
     {
         var identity = _identityHistory.Single(h => Validity.Covers(h.Validity, asOf));
         var placement = _placementHistory.Single(h => Validity.Covers(h.Validity, asOf));
         var status = _statusHistory.Single(h => Validity.Covers(h.Validity, asOf));
+        var installation = _installationHistory.SingleOrDefault(h => Validity.Covers(h.Validity, asOf));
 
         return new SensorSnapshot(
             Id: Id,
@@ -177,6 +254,16 @@ public sealed class Sensor
                 .Where(h => Validity.Covers(h.Validity, asOf))
                 .Select(h => h.ParameterCode)
                 .ToList(),
+            Installation: installation is null
+                ? null
+                : new SensorInstallationSnapshot(
+                    installation.PositionNote,
+                    installation.DistanceWindowM,
+                    installation.DistanceDoorM,
+                    installation.DistanceSourceM,
+                    installation.MeasurementFrequencySeconds,
+                    installation.InstalledOn,
+                    installation.LastCalibratedOn),
             AsOf: asOf);
     }
 }
@@ -193,4 +280,19 @@ public sealed record SensorSnapshot(
     string SerialNumber,
     string StatusCode,
     IReadOnlyCollection<string> MeasuredParameters,
+    SensorInstallationSnapshot? Installation,
     DateTime AsOf);
+
+/// <summary>
+/// Projection of a sensor's installation details (F08) at a point in time, or
+/// <c>null</c> in <see cref="SensorSnapshot.Installation"/> when the sensor had
+/// no installation row as of the requested instant.
+/// </summary>
+public sealed record SensorInstallationSnapshot(
+    string? PositionNote,
+    double? DistanceWindowM,
+    double? DistanceDoorM,
+    double? DistanceSourceM,
+    int? MeasurementFrequencySeconds,
+    DateOnly? InstalledOn,
+    DateOnly? LastCalibratedOn);

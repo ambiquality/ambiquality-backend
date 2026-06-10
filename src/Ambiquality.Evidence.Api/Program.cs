@@ -109,6 +109,7 @@ builder.Services.AddScoped<ChangeSensorPlacementHandler>();
 builder.Services.AddScoped<ChangeSensorStatusHandler>();
 builder.Services.AddScoped<AddSensorMeasuredParameterHandler>();
 builder.Services.AddScoped<RemoveSensorMeasuredParameterHandler>();
+builder.Services.AddScoped<ChangeSensorInstallationHandler>();
 
 // --- OpenAPI / Swagger -------------------------------------------------------
 builder.Services.AddOpenApi(options =>
