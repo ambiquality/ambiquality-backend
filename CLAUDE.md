@@ -33,11 +33,15 @@ tests/
 and the queue message contract. See each project's `README.md` for detail.
 Per-project READMEs and the root `README.md` are the human-facing docs; this file is the agent guide.
 
-**Ingestion is a queue + worker write path.** Ingestion.Api validates an observation synchronously
-(authenticate sensor, active, parameter declared, value in range), stamps `received_at` at
-acceptance, then appends it to a durable Redis stream and returns **202 Accepted** — it never
-touches the `measurements` table. Ingestion.Worker drains the stream's consumer group in batches and
-bulk-inserts into the `ieq` hypertable. See *Architecture Decisions → Ingestion queue + worker*.
+**Ingestion is a queue + worker write path.** Ingestion.Api accepts a *batch* of readings from one
+sensor (`{ sensorId, readings: [{ parameterCode, value }, …] }` — a sensor reports only the
+quantities it measures) and validates them synchronously (authenticate sensor + active once, then per
+reading: declared, in range; the batch is all-or-nothing — one bad reading rejects the whole
+request). It stamps `received_at` at acceptance (one clock read shared by the batch), then atomically
+appends the readings to a durable Redis stream (`MULTI`/`EXEC` for multi-reading batches) and returns
+**202 Accepted** — it never touches the `measurements` table. Ingestion.Worker drains the stream's
+consumer group in batches and bulk-inserts into the `ieq` hypertable. See *Architecture Decisions →
+Ingestion queue + worker*.
 
 ## Tech Stack
 

@@ -16,11 +16,12 @@ public sealed class CapturingQueuePublisher : IMeasurementQueuePublisher
 
     public IReadOnlyCollection<MeasurementMessage> Published => _published;
 
-    public Task PublishAsync(MeasurementMessage message, CancellationToken cancellationToken)
+    public Task PublishAsync(IReadOnlyList<MeasurementMessage> messages, CancellationToken cancellationToken)
     {
         if (Fail)
             throw new InvalidOperationException("Simulated queue outage.");
-        _published.Enqueue(message);
+        foreach (var message in messages)
+            _published.Enqueue(message);
         return Task.CompletedTask;
     }
 }

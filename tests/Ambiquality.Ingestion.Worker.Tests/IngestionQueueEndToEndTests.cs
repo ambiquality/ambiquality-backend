@@ -61,10 +61,10 @@ public sealed class IngestionQueueEndToEndTests : IAsyncLifetime
         var first = Measurement(700);
         var second = Measurement(800);
 
-        await publisher.PublishAsync(first, CancellationToken.None);
-        await publisher.PublishAsync(second, CancellationToken.None);
+        await publisher.PublishAsync([first], CancellationToken.None);
+        await publisher.PublishAsync([second], CancellationToken.None);
         // Same measurement id appended again (e.g. a producer retry): must not duplicate.
-        await publisher.PublishAsync(first, CancellationToken.None);
+        await publisher.PublishAsync([first], CancellationToken.None);
 
         await drain.StartAsync(CancellationToken.None);
         try
@@ -79,6 +79,35 @@ public sealed class IngestionQueueEndToEndTests : IAsyncLifetime
         await using var db = _postgres.NewContext();
         Assert.Equal(1, await db.Measurements.CountAsync(m => m.Id == first.Id));
         Assert.Equal(1, await db.Measurements.CountAsync(m => m.Id == second.Id));
+    }
+
+    [Fact]
+    public async Task PublishedBatch_LandsAtomically_AndIsDrainedInFull()
+    {
+        var publisher = new RedisMeasurementQueuePublisher(_redisMux, Options.Create(_options));
+        var writer = new MeasurementBatchWriter(_dataSource);
+        var drain = new MeasurementDrainService(
+            _redisMux, writer, Options.Create(_options),
+            NullLogger<MeasurementDrainService>.Instance);
+
+        // A multi-reading batch is appended inside one MULTI/EXEC transaction.
+        var batch = new[] { Measurement(700), Measurement(800), Measurement(900) };
+
+        await publisher.PublishAsync(batch, CancellationToken.None);
+
+        await drain.StartAsync(CancellationToken.None);
+        try
+        {
+            await WaitForCountAsync(expected: 3, timeout: TimeSpan.FromSeconds(20));
+        }
+        finally
+        {
+            await drain.StopAsync(CancellationToken.None);
+        }
+
+        await using var db = _postgres.NewContext();
+        foreach (var message in batch)
+            Assert.Equal(1, await db.Measurements.CountAsync(m => m.Id == message.Id));
     }
 
     private async Task WaitForCountAsync(int expected, TimeSpan timeout)

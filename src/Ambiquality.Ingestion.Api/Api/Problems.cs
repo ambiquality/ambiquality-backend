@@ -12,6 +12,12 @@ internal static class Problems
 
     public static ProblemHttpResult ToProblem(IngestRejectionReason reason, string detail) => reason switch
     {
+        IngestRejectionReason.EmptyBatch => TypedResults.Problem(
+            detail, statusCode: StatusCodes.Status422UnprocessableEntity,
+            title: "Empty batch", type: TypePrefix + "empty-batch"),
+        IngestRejectionReason.DuplicateParameter => TypedResults.Problem(
+            detail, statusCode: StatusCodes.Status422UnprocessableEntity,
+            title: "Duplicate parameter", type: TypePrefix + "duplicate-parameter"),
         IngestRejectionReason.Unauthorized => TypedResults.Problem(
             detail, statusCode: StatusCodes.Status401Unauthorized,
             title: "Unauthorized sensor", type: TypePrefix + "unauthorized"),
