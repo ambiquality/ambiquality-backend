@@ -1,0 +1,35 @@
+# Production ingress template (SYS-01: HTTPS-only with HTTP→HTTPS redirect).
+#
+# The committed `Caddyfile` binds plain :80 for local development. In production,
+# use THIS file as /etc/caddy/Caddyfile instead (e.g. copy it over conf/Caddyfile
+# on the deploy host) and:
+#
+#   1. set DOMAIN (e.g. api.ambiquality.cz) and ACME_EMAIL in the environment,
+#   2. publish ports 80 and 443 on the caddy service (edit the `ports:` mapping
+#      from "8080:80"/"8443:443" to "80:80"/"443:443") so the ACME challenges
+#      and the redirect are reachable.
+#
+# A domain-addressed site block makes Caddy provision and renew certificates
+# automatically (Let's Encrypt) and answer plain HTTP on :80 only with a 308
+# redirect to HTTPS — no cleartext API traffic is served.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	handle_path /evidence/* {
+		reverse_proxy evidence-api:6200
+	}
+
+	handle_path /ingestion/* {
+		reverse_proxy ingestion-api:6300
+	}
+
+	handle_path /public/* {
+		reverse_proxy public-api:6400
+	}
+
+	handle_path /auth/* {
+		reverse_proxy auth-api:6100
+	}
+}
