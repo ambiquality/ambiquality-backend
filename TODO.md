@@ -34,10 +34,8 @@ are already baked into the repo YAML and the newman build order.
 ## Testing & thesis chapter (plan: thoughts/shared/plans/PLAN-testing-and-thesis-chapter.md)
 
 All four phases done 2026-06-12 (backend branch `test/newman-suite-refresh`;
-chapter committed in MrLogEN/BP main as 3fb69a1, unpushed). PR #51 open,
+chapter committed in MrLogEN/BP main as 3fb69a1 and pushed). PR #51 open,
 tests.yml CI green (run 27420832241). Remaining:
-- **Push MrLogEN/BP main** (3 commits ahead) via HTTPS + gh creds (SSH auth
-  unavailable in sessions).
 - Optional: bump actions/setup-dotnet@v4 (Node 20 deprecation warning,
   forced Node 24 on 2026-06-16) and address WithOpenApi obsoletion warnings
   in Evidence.Api SensorEndpoints (aka.ms/aspnet/deprecate/002).
