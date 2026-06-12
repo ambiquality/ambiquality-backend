@@ -1,0 +1,10 @@
+$kind: http-request
+url: "{{baseUrl}}/evidence/v1/buildings/00000000-0000-0000-0000-000000000000"
+method: GET
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 404', () => pm.response.to.have.status(404));
+    language: text/javascript
+order: 2100

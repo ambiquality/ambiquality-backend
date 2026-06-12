@@ -13,7 +13,7 @@ small and cheap to load into context.
 ## API testing using Podman & Newman
 
 The `postman/collections/ambiquality-api` suite has a request for every endpoint
-of Auth, Evidence, Ingestion and Public (60 requests / 86 assertions, runs green
+of Auth, Evidence, Ingestion and Public (75 requests / 113 assertions, runs green
 via `cd postman && npm install && npm test` against a fresh `./dev.sh up-d`
 stack). It covers the F10 `POST /ingestion/measurements` (happy + 401 bad-key +
 422 out-of-range) and a real register → confirm → login → change-email E2E that
@@ -30,9 +30,18 @@ are already baked into the repo YAML and the newman build order.
 - **Push repo → cloud (optional).** If the cloud collection is kept around, sync
   it FROM the repo so it stops drifting. Not required for `npm test`, which runs
   entirely off the repo YAML via `build-collection.mjs`.
-- **Broaden unhappy paths.** Only ingestion and the confirm flow exercise
-  failures today; the rest are happy-path only. Add 401 on protected
-  Evidence/Account routes, 404 / 422 on bad payloads, etc.
+
+## Testing & thesis chapter (plan: thoughts/shared/plans/PLAN-testing-and-thesis-chapter.md)
+
+All four phases done 2026-06-12 (backend branch `test/newman-suite-refresh`;
+chapter committed in MrLogEN/BP main as 3fb69a1 and pushed). PR #51 open,
+tests.yml CI green (run 27420832241). Remaining:
+- Optional: bump actions/setup-dotnet@v4 (Node 20 deprecation warning,
+  forced Node 24 on 2026-06-16) and address WithOpenApi obsoletion warnings
+  in Evidence.Api SensorEndpoints (aka.ms/aspnet/deprecate/002).
+- **Phase 4 — thesis** chapter `testovani.tex` in /home/vilem/FIS/BP (Czech,
+  ≤ 5 pages); structure already in the plan file. Current numbers: xUnit 577/577,
+  newman 75 req / 113 assertions.
 
 
 ## Docs — hosted documentation site (optional)

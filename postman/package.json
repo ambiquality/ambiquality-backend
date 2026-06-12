@@ -10,5 +10,8 @@
   },
   "dependencies": {
     "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "newman": "^6.2.2"
   }
 }
