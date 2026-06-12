@@ -498,3 +498,5 @@ thoughts/*
 
 #
 
+k6/seed.json
+k6/results/

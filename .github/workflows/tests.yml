@@ -1,0 +1,81 @@
+name: Tests
+
+# Quality gate on every push/PR to main: xUnit unit+integration tests, the
+# newman E2E API suite against the composed stack, and a low-rate k6 smoke.
+# k6 numbers from shared runners are NOT performance results — authoritative
+# NFR measurements come from documented local runs (see k6/README.md).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit:
+    name: xUnit (unit + integration)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Integration tests spin up Postgres/Redis via Testcontainers on the
+      # runner's Docker daemon; no compose stack is needed for this job.
+      - name: Run tests
+        run: dotnet test --nologo
+
+  api:
+    name: E2E API suite (newman) + k6 smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The dev compose file targets podman locally but is plain Compose
+      # syntax; GH runners run it with docker compose.
+      - name: Start the stack
+        run: docker compose -f podman-compose.yml --profile development up -d --build
+
+      - name: Wait for the stack to be ready
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/public/v1/codelists > /dev/null 2>&1; then
+              echo "stack is up"; exit 0
+            fi
+            sleep 5
+          done
+          echo "stack did not become ready" >&2
+          docker compose -f podman-compose.yml --profile development ps
+          exit 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: postman/package-lock.json
+
+      - name: Run newman suite
+        working-directory: postman
+        run: |
+          npm ci
+          npm test
+
+      - name: Set up k6
+        uses: grafana/setup-k6-action@v1
+
+      # Functional smoke only (low rate, short duration): catches wiring
+      # regressions, not performance ones.
+      - name: k6 smoke
+        run: |
+          ./k6/seed.sh
+          k6 run -e RATE=20 -e DURATION=30s k6/ingestion-write.js
+          k6 run -e VUS=5 -e DURATION=30s k6/public-read.js
+
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose -f podman-compose.yml --profile development logs --tail 200
