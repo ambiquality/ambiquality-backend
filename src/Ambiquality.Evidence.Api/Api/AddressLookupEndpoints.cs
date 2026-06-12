@@ -21,12 +21,10 @@ public static class AddressLookupEndpoints
 
         group.MapGet("/suggest", Suggest)
             .WithName("SuggestAddresses")
-            .WithOpenApi()
             .WithDescription("Autocomplete Czech addresses against RÚIAN (ČÚZK, CC BY 4.0)");
 
         group.MapGet("/resolve", Resolve)
             .WithName("ResolveAddress")
-            .WithOpenApi()
             .WithDescription("Resolve a suggestion key to the full OFN address (RÚIAN codes + WGS84 coordinates)");
     }
 

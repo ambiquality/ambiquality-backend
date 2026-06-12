@@ -33,15 +33,9 @@ are already baked into the repo YAML and the newman build order.
 
 ## Testing & thesis chapter (plan: thoughts/shared/plans/PLAN-testing-and-thesis-chapter.md)
 
-All four phases done 2026-06-12 (backend branch `test/newman-suite-refresh`;
-chapter committed in MrLogEN/BP main as 3fb69a1 and pushed). PR #51 open,
-tests.yml CI green (run 27420832241). Remaining:
-- Optional: bump actions/setup-dotnet@v4 (Node 20 deprecation warning,
-  forced Node 24 on 2026-06-16) and address WithOpenApi obsoletion warnings
-  in Evidence.Api SensorEndpoints (aka.ms/aspnet/deprecate/002).
-- **Phase 4 — thesis** chapter `testovani.tex` in /home/vilem/FIS/BP (Czech,
-  ≤ 5 pages); structure already in the plan file. Current numbers: xUnit 577/577,
-  newman 75 req / 113 assertions.
+All four phases done 2026-06-12 (PR #51 merged, tests.yml CI green; chapter
+`testovani.tex` committed in MrLogEN/BP main as 3fb69a1 and pushed). Current
+numbers: xUnit 577/577, newman 75 req / 113 assertions.
 
 
 ## Docs — hosted documentation site (optional)

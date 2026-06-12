@@ -21,20 +21,15 @@ public static class BuildingEndpoints
 
         group.MapPost("/", RegisterBuilding)
             .WithName("RegisterBuilding")
-            .WithOpenApi()
             .WithDescription("Register a new building");
 
         // Owner-scoped catalog listing: authenticated (no AllowAnonymous), returns
         // only the caller's own buildings with unmasked coordinates. The public,
-        // masked listing lives in Public.Api. GET + HEAD share the route, so
-        // .WithOpenApi() is omitted (it throws on multi-method routes).
+        // masked listing lives in Public.Api.
         group.MapMethods("/", ["GET", "HEAD"], ListBuildings)
             .WithName("ListBuildings")
             .WithDescription("List the authenticated owner's buildings (unmasked coordinates)");
 
-        // GET + HEAD share one route. The modern AddOpenApi pipeline advertises
-        // both methods from route metadata; the legacy .WithOpenApi() helper is
-        // omitted here because it throws on multi-method routes.
         group.MapMethods("/{buildingId:guid}", ["GET", "HEAD"], GetBuildingById)
             .WithName("GetBuildingById")
             .WithDescription("Get a building by ID")
@@ -47,27 +42,22 @@ public static class BuildingEndpoints
 
         group.MapPut("/{buildingId:guid}/name", ChangeBuildingName)
             .WithName("ChangeBuildingName")
-            .WithOpenApi()
             .WithDescription("Record a new building name effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/address", ChangeBuildingAddress)
             .WithName("ChangeBuildingAddress")
-            .WithOpenApi()
             .WithDescription("Record a new building address effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/type", ChangeBuildingType)
             .WithName("ChangeBuildingType")
-            .WithOpenApi()
             .WithDescription("Record a new building type effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/location", ChangeBuildingLocation)
             .WithName("ChangeBuildingLocation")
-            .WithOpenApi()
             .WithDescription("Record a new building location effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{buildingId:guid}/years", ChangeBuildingYears)
             .WithName("ChangeBuildingYears")
-            .WithOpenApi()
             .WithDescription("Record new construction/renovation years effective from validFrom (appends history, does not overwrite)");
     }
 

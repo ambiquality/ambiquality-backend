@@ -21,18 +21,14 @@ public static class SensorEndpoints
 
         group.MapPost("/", RegisterSensor)
             .WithName("RegisterSensor")
-            .WithOpenApi()
             .WithDescription("Register a new sensor in a room");
 
         // Owner-scoped listing: authenticated (no AllowAnonymous), requires the
-        // caller to own the containing building. GET + HEAD share the route, so
-        // .WithOpenApi() is omitted (it throws on multi-method routes).
+        // caller to own the containing building.
         group.MapMethods("/", ["GET", "HEAD"], ListSensors)
             .WithName("ListSensors")
             .WithDescription("List the sensors of a room in a building the caller owns");
 
-        // GET + HEAD share one route; the AddOpenApi pipeline advertises both
-        // methods from route metadata, so .WithOpenApi() is omitted here.
         group.MapMethods("/{sensorId:guid}", ["GET", "HEAD"], GetSensorById)
             .WithName("GetSensorById")
             .WithDescription("Get a sensor by ID")
@@ -45,27 +41,22 @@ public static class SensorEndpoints
 
         group.MapPut("/{sensorId:guid}/identity", ChangeSensorIdentity)
             .WithName("ChangeSensorIdentity")
-            .WithOpenApi()
             .WithDescription("Record new sensor identity (manufacturer, model, serial) effective from validFrom (appends history)");
 
         group.MapPut("/{sensorId:guid}/placement", ChangeSensorPlacement)
             .WithName("ChangeSensorPlacement")
-            .WithOpenApi()
             .WithDescription("Record a new sensor placement (room) effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{sensorId:guid}/status", ChangeSensorStatus)
             .WithName("ChangeSensorStatus")
-            .WithOpenApi()
             .WithDescription("Record a new sensor lifecycle status effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{sensorId:guid}/installation", ChangeSensorInstallation)
             .WithName("ChangeSensorInstallation")
-            .WithOpenApi()
             .WithDescription("Record new sensor installation details (F08) effective from validFrom (appends history, does not overwrite)");
 
         group.MapPost("/{sensorId:guid}/measured-parameters", AddMeasuredParameter)
             .WithName("AddMeasuredParameter")
-            .WithOpenApi()
             .WithDescription("Record a measured-parameter capability effective from validFrom (appends history)");
 
         // PUT, not DELETE: closing a capability's validity period is a soft-history
@@ -74,7 +65,6 @@ public static class SensorEndpoints
         // temporal mutation.
         group.MapPut("/{sensorId:guid}/measured-parameters/{parameterCode}", RemoveMeasuredParameter)
             .WithName("RemoveMeasuredParameter")
-            .WithOpenApi()
             .WithDescription("Close a measured-parameter capability's validity as of validTo (soft history)");
     }
 
