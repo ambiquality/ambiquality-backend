@@ -20,19 +20,14 @@ public static class RoomEndpoints
 
         group.MapPost("/", RegisterRoom)
             .WithName("RegisterRoom")
-            .WithOpenApi()
             .WithDescription("Register a new room in a building");
 
         // Owner-scoped listing: authenticated (no AllowAnonymous), requires the
-        // caller to own the containing building. GET + HEAD share the route, so
-        // .WithOpenApi() is omitted (it throws on multi-method routes).
+        // caller to own the containing building.
         group.MapMethods("/", ["GET", "HEAD"], ListRooms)
             .WithName("ListRooms")
             .WithDescription("List the rooms of a building the caller owns");
 
-        // GET + HEAD share one route. The modern AddOpenApi pipeline advertises
-        // both methods from route metadata; the legacy .WithOpenApi() helper is
-        // omitted here because it throws on multi-method routes.
         group.MapMethods("/{roomId:guid}", ["GET", "HEAD"], GetRoomById)
             .WithName("GetRoomById")
             .WithDescription("Get a room by ID")
@@ -45,37 +40,30 @@ public static class RoomEndpoints
 
         group.MapPut("/{roomId:guid}/name", ChangeRoomName)
             .WithName("ChangeRoomName")
-            .WithOpenApi()
             .WithDescription("Record a new room name effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/floor", ChangeRoomFloor)
             .WithName("ChangeRoomFloor")
-            .WithOpenApi()
             .WithDescription("Record a new room floor effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/function", ChangeRoomFunction)
             .WithName("ChangeRoomFunction")
-            .WithOpenApi()
             .WithDescription("Record a new room function effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/exposure", ChangeRoomExposure)
             .WithName("ChangeRoomExposure")
-            .WithOpenApi()
             .WithDescription("Record a new room exposure effective from validFrom (appends history, does not overwrite)");
 
         group.MapPut("/{roomId:guid}/geometry", ChangeRoomGeometry)
             .WithName("ChangeRoomGeometry")
-            .WithOpenApi()
             .WithDescription("Record new room geometry (area, ceiling height) effective from validFrom (appends history)");
 
         group.MapPut("/{roomId:guid}/ventilation", ChangeRoomVentilation)
             .WithName("ChangeRoomVentilation")
-            .WithOpenApi()
             .WithDescription("Record a new room ventilation type effective from validFrom (appends history, does not overwrite)");
 
         group.MapPost("/{roomId:guid}/pollution-sources", AddPollutionSource)
             .WithName("AddPollutionSource")
-            .WithOpenApi()
             .WithDescription("Record a pollution source effective from validFrom (appends history)");
 
         // PUT, not DELETE: closing a pollution source's validity period is a
@@ -84,7 +72,6 @@ public static class RoomEndpoints
         // every other temporal mutation.
         group.MapPut("/{roomId:guid}/pollution-sources/{sourceCode}", RemovePollutionSource)
             .WithName("RemovePollutionSource")
-            .WithOpenApi()
             .WithDescription("Close a pollution source's validity as of validTo (soft history)");
     }
 
