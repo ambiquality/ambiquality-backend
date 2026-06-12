@@ -33,13 +33,12 @@ are already baked into the repo YAML and the newman build order.
 
 ## Testing & thesis chapter (plan: thoughts/shared/plans/PLAN-testing-and-thesis-chapter.md)
 
-Phases 1–3 done 2026-06-12 on branch `test/newman-suite-refresh` (newman
-refresh, `k6/` scenarios + seed script, `.github/workflows/tests.yml`).
-Remaining:
-- **k6 thesis-grade runs**: default knobs + `--summary-export` to `k6/results/`,
-  record hardware specs; these numbers feed the chapter.
-- **Verify first CI run** of tests.yml after push (docker compose build of the
-  full dev profile on a GH runner is unproven).
+All four phases done 2026-06-12 (backend branch `test/newman-suite-refresh`;
+chapter committed in MrLogEN/BP main as 3fb69a1, unpushed). Remaining:
+- **Verify first CI run** of tests.yml after the branch is pushed (docker
+  compose build of the full dev profile on a GH runner is unproven).
+- **Push MrLogEN/BP main** (3 commits ahead) via HTTPS + gh creds (SSH auth
+  unavailable in sessions).
 - **Phase 4 — thesis** chapter `testovani.tex` in /home/vilem/FIS/BP (Czech,
   ≤ 5 pages); structure already in the plan file. Current numbers: xUnit 577/577,
   newman 75 req / 113 assertions.
