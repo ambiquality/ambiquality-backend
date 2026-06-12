@@ -13,7 +13,7 @@ small and cheap to load into context.
 ## API testing using Podman & Newman
 
 The `postman/collections/ambiquality-api` suite has a request for every endpoint
-of Auth, Evidence, Ingestion and Public (60 requests / 86 assertions, runs green
+of Auth, Evidence, Ingestion and Public (75 requests / 113 assertions, runs green
 via `cd postman && npm install && npm test` against a fresh `./dev.sh up-d`
 stack). It covers the F10 `POST /ingestion/measurements` (happy + 401 bad-key +
 422 out-of-range) and a real register → confirm → login → change-email E2E that
@@ -30,9 +30,18 @@ are already baked into the repo YAML and the newman build order.
 - **Push repo → cloud (optional).** If the cloud collection is kept around, sync
   it FROM the repo so it stops drifting. Not required for `npm test`, which runs
   entirely off the repo YAML via `build-collection.mjs`.
-- **Broaden unhappy paths.** Only ingestion and the confirm flow exercise
-  failures today; the rest are happy-path only. Add 401 on protected
-  Evidence/Account routes, 404 / 422 on bad payloads, etc.
+
+## Testing & thesis chapter (plan: thoughts/shared/plans/PLAN-testing-and-thesis-chapter.md)
+
+Phase 1 (newman refresh: installation coverage + 401/404/400 unhappy paths) done
+2026-06-12 on branch `test/newman-suite-refresh`. Remaining:
+- **Phase 2 — k6** performance tests (`k6/` scenarios for public-read, ingestion
+  ≥ 100 msg/s, stress; summary-export JSON; local runs = thesis numbers).
+- **Phase 3 — CI** `.github/workflows/tests.yml`: dotnet test + compose-up +
+  newman; optional non-blocking k6 smoke.
+- **Phase 4 — thesis** chapter `testovani.tex` in /home/vilem/FIS/BP (Czech,
+  ≤ 5 pages); structure already in the plan file. Current numbers: xUnit 577/577,
+  newman 75 req / 113 assertions.
 
 
 ## Docs — hosted documentation site (optional)

@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/evidence/v1/buildings/{{buildingId}}/rooms/{{roomId}}/sensors/{{sensorId}}/installation"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{"positionNote": null,"distanceWindowM": null,"distanceDoorM": null,"distanceSourceM": null,"measurementFrequencySeconds": null,"installedOn": "2026-06-10","lastCalibratedOn": "2026-06-01","validFrom": "{{now}}"}'
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 400', () => pm.response.to.have.status(400));
+    language: text/javascript
+order: 5500
