@@ -5,20 +5,27 @@
 # the `v*`-tag release workflows, and a human runs this script to roll a chosen tag.
 #
 #   ./deploy.sh <backend-tag> [frontend-tag]
-#   ./deploy.sh v1.2.0                # frontend tag defaults to the backend tag
-#   ./deploy.sh v1.2.0 v0.9.0         # pin them independently
+#   ./deploy.sh v0.2.1                # frontend tag defaults to the backend tag
+#   ./deploy.sh v0.2.1 v0.1.0         # pin them independently
+#
+# Git tags are `vX.Y.Z`, but the release workflow's metadata-action strips the
+# leading `v`, so the GHCR image tags are `X.Y.Z`. This script accepts either form
+# and normalizes it, so `v0.2.1` and `0.2.1` both resolve to the :0.2.1 image.
 #
 # Rollback is just re-running with an older tag (DB migrations are forward-only, so
 # a rollback is image-only — do not roll back across a migration that changed schema).
 #
 # Config via environment (override as needed):
-#   DEPLOY_HOST   ssh target            (default: deploy@ambiquality.org)
+#   DEPLOY_HOST   ssh target            (default: ambiquality@ambiquality.org)
 #   DEPLOY_DIR    remote deploy dir     (default: ~/ambiquality)
 set -euo pipefail
 
+# Accept v-prefixed or bare versions; the image tags are bare (see above).
 BACKEND_TAG="${1:?usage: ./deploy.sh <backend-tag> [frontend-tag]}"
 FRONTEND_TAG="${2:-$BACKEND_TAG}"
-DEPLOY_HOST="${DEPLOY_HOST:-deploy@ambiquality.org}"
+BACKEND_TAG="${BACKEND_TAG#v}"
+FRONTEND_TAG="${FRONTEND_TAG#v}"
+DEPLOY_HOST="${DEPLOY_HOST:-ambiquality@ambiquality.org}"
 DEPLOY_DIR="${DEPLOY_DIR:-ambiquality}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
