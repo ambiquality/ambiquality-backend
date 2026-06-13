@@ -133,6 +133,8 @@ services:
       Smtp__FromAddress: ${SMTP_FROM_ADDRESS}
       Smtp__FromName: ${SMTP_FROM_NAME}
       App__FrontendBaseUrl: ${APP_FRONTEND_BASE_URL}
+      # Comma-separated browser origins allowed to call this API (the SPA).
+      Cors__AllowedOrigins: ${CORS_ALLOWED_ORIGINS:-}
     networks:
       - db
       - public
@@ -150,6 +152,8 @@ services:
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
       Jwt__Secret: ${JWT_SECRET:?error}
+      # Comma-separated browser origins allowed to call this API (the SPA).
+      Cors__AllowedOrigins: ${CORS_ALLOWED_ORIGINS:-}
     volumes:
       - ./conf/vocabulary-extensions.json:/etc/ambiquality/vocabulary-extensions.json:ro
     networks:
