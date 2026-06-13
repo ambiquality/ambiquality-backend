@@ -263,6 +263,13 @@ services:
       - public
     restart: unless-stopped
     stop_grace_period: 10s
+    # Caddyfile.production resolves the API host and ACME contact from the
+    # container env via Caddy's {$DOMAIN} / {$ACME_EMAIL} substitution, so they
+    # must be injected here — without them config adaptation fails (empty site
+    # address / `email` with no argument).
+    environment:
+      DOMAIN: ${DOMAIN:?error}
+      ACME_EMAIL: ${ACME_EMAIL:?error}
     # Production ingress binds the real web ports so Let's Encrypt ACME challenges
     # and the HTTP->HTTPS redirect (Caddyfile.production) are reachable.
     ports:
