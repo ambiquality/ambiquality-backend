@@ -125,6 +125,10 @@ services:
       Jwt__ConfirmationTokenHours: "${JWT_CONFIRMATION_TOKEN_HOURS}"
       Smtp__Host: ${SMTP_HOST}
       Smtp__Port: "${SMTP_PORT}"
+      # Relay credentials — left empty the sender skips AUTH (dev Mailpit), set them
+      # and it authenticates (SmtpEmailSender). A real relay requires both.
+      Smtp__Username: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
       Smtp__UseStartTls: "${SMTP_USE_STARTTLS}"
       Smtp__FromAddress: ${SMTP_FROM_ADDRESS}
       Smtp__FromName: ${SMTP_FROM_NAME}
@@ -244,15 +248,26 @@ services:
       - db
       - public
 
+  # Static SPA, built and published from the ambiquality-frontend repo. It versions
+  # independently of the backend, so it carries its own tag (FRONTEND_TAG) rather
+  # than the backend's TAG. Served only through the ingress Caddy (apex + www).
+  frontend:
+    image: ghcr.io/ambiquality/frontend:${FRONTEND_TAG:-latest}
+    networks:
+      - public
+    restart: unless-stopped
+
   caddy:
     image: docker.io/library/caddy:2.11.3-alpine
     networks:
       - public
     restart: unless-stopped
     stop_grace_period: 10s
+    # Production ingress binds the real web ports so Let's Encrypt ACME challenges
+    # and the HTTP->HTTPS redirect (Caddyfile.production) are reachable.
     ports:
-      - "8080:80"
-      - "8443:443"
+      - "80:80"
+      - "443:443"
     volumes:
       - ./conf:/etc/caddy
       - caddy_data:/data

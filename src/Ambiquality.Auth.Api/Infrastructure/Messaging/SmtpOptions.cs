@@ -13,7 +13,7 @@ public sealed class SmtpOptions
 
     public bool UseStartTls { get; init; } = true;
 
-    public string FromAddress { get; init; } = "no-reply@ambiquality.cz";
+    public string FromAddress { get; init; } = "no-reply@ambiquality.org";
 
     public string FromName { get; init; } = "AmbiQuality";
 }

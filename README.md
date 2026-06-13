@@ -65,9 +65,10 @@ cp .env.example .env
 
 [Caddy](https://caddyserver.com/) is the public ingress; the API services are not published
 directly except where noted. Routing is defined in `conf/Caddyfile` (plain HTTP for local
-development). For production use `conf/Caddyfile.production` — a domain-addressed site block
-that turns on automatic TLS and the HTTP→HTTPS redirect (SYS-01); see the comments in that
-file for the two-line deploy procedure.
+development). For production use `conf/Caddyfile.production` — domain-addressed site blocks
+(API on `api.ambiquality.org`, SPA on the apex) that turn on automatic TLS and the
+HTTP→HTTPS redirect (SYS-01). The full deploy procedure — `./deploy.sh <tag>`, GHCR releases,
+and one-time VPS setup — is documented in [`docs/deployment.md`](docs/deployment.md).
 
 Caddy's `handle_path` strips the matched prefix, so each service sees paths without it
 (e.g. `/public/v1/observations` reaches Public.Api as `/v1/observations`).
