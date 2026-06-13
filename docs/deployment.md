@@ -20,7 +20,7 @@ off-site backups and data-export archives.
                           │ ingestion-worker export-worker public-api│
                           │ postgres(TimescaleDB) redis postgres-backup│
                           └──────────────────────────────────────────┘
-                          named volumes → /mnt/data (block volume)
+                          all Podman storage → $PODMAN_DATA_ROOT (cloud volume)
                           daily pg_dump  → Hetzner S3 (off-site, RPO ≤ 24 h)
 ```
 
@@ -75,14 +75,19 @@ Override the target with env vars: `DEPLOY_HOST=deploy@1.2.3.4 DEPLOY_DIR=ambiqu
 You already did: no root login, no password (key-only) SSH. Remaining, as the non-root
 deploy user:
 
-1. **Block volume** — format (if fresh) and mount persistently so all container data lives
-   on it:
+1. **Cloud volume** — format (if fresh) and mount the scalable Hetzner volume persistently
+   so all container data lives on it. `PODMAN_DATA_ROOT` (in the server `.env`) is the single
+   place the path is configured — set it to this mount point.
    ```bash
+   # The attached Hetzner volume, e.g. /mnt/HC_Volume_106004051 — set PODMAN_DATA_ROOT to it.
+   export PODMAN_DATA_ROOT=/mnt/HC_Volume_106004051
    sudo mkfs.ext4 -F /dev/disk/by-id/scsi-0HC_Volume_<id>     # only if unformatted
-   sudo mkdir -p /mnt/data && sudo chown $USER:$USER /mnt/data
-   # /etc/fstab:  /dev/disk/by-id/scsi-0HC_Volume_<id>  /mnt/data  ext4  discard,nofail,defaults  0 0
-   sudo mount /mnt/data
+   sudo mkdir -p "$PODMAN_DATA_ROOT" && sudo chown "$USER:$USER" "$PODMAN_DATA_ROOT"
+   # /etc/fstab:  /dev/disk/by-id/scsi-0HC_Volume_<id>  /mnt/HC_Volume_106004051  ext4  discard,nofail,defaults  0 0
+   sudo mount "$PODMAN_DATA_ROOT"
    ```
+   To scale later: resize the volume in the Hetzner console, then grow the filesystem with
+   `sudo resize2fs /dev/disk/by-id/scsi-0HC_Volume_<id>` (online, no downtime).
 
 2. **Firewall** — only SSH + web (mirror this in the Hetzner Cloud Firewall too):
    ```bash
@@ -90,19 +95,25 @@ deploy user:
    sudo ufw allow 22/tcp && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw enable
    ```
 
-3. **Rootless Podman**, with all storage on the block volume so the small root disk stays
-   free and every named volume (postgres-data, redis-data, backup-data, export-data,
-   caddy_data) lands on `/mnt/data`:
+3. **Rootless Podman**, with all storage on the cloud volume so the small root disk stays
+   free and every image layer + named volume (postgres-data, redis-data, backup-data,
+   export-data, caddy_data) lands under `$PODMAN_DATA_ROOT`. The graphroot is templated from
+   the env var, so the path is set in exactly one place (the `.env`). Podman owns these dirs,
+   so there is no manual UID/chown of a bind target:
    ```bash
    sudo apt install -y podman podman-compose
    sudo loginctl enable-linger "$USER"            # keep containers up after logout
-   mkdir -p ~/.config/containers
-   cat > ~/.config/containers/storage.conf <<'EOF'
+   # Pull PODMAN_DATA_ROOT from the deploy .env so the path isn't duplicated:
+   set -a && . ~/ambiquality/.env && set +a
+   mkdir -p ~/.config/containers "$PODMAN_DATA_ROOT/containers"
+   cat > ~/.config/containers/storage.conf <<EOF
    [storage]
    driver = "overlay"
-   graphroot = "/mnt/data/containers"
+   graphroot = "$PODMAN_DATA_ROOT/containers"
    EOF
    ```
+   > Changing `PODMAN_DATA_ROOT` after the first run relocates storage — Podman won't migrate
+   > existing data, so do it before the initial `up` (or `podman system reset` and redeploy).
 
 4. **GHCR login** — images are private; create a GitHub PAT with `read:packages`:
    ```bash
