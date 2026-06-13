@@ -68,12 +68,21 @@ pinned images, `up -d --remove-orphans`, and smoke-checks `https://api.ambiquali
 **Rollback** = re-run with an older tag. Migrations are forward-only, so do not roll back
 across a schema change (image-only rollback is safe).
 
-Override the target with env vars: `DEPLOY_HOST=deploy@1.2.3.4 DEPLOY_DIR=ambiquality ./deploy.sh v1.0.0`.
+Override the target with env vars: `DEPLOY_HOST=ambiquality@1.2.3.4 ./deploy.sh v0.2.1`.
+
+`deploy.sh` accepts `v0.2.1` or `0.2.1` — the git tag is `vX.Y.Z` but the GHCR **image** tag is
+`X.Y.Z` (the release workflow's metadata-action strips the `v`), so the script normalizes it. If
+you run `podman compose` by hand instead, set `TAG=0.2.1` (no `v`) in the `.env`, or the pull
+fails with `manifest unknown`.
 
 ## One-time VPS setup
 
-You already did: no root login, no password (key-only) SSH. Remaining, as the non-root
-deploy user:
+Prereqs: no root login, no password (key-only) SSH. The stack runs as a **dedicated
+unprivileged service user** (e.g. `ambiquality`) — not your admin user — for isolation:
+locked password (`passwd -l`), key-only SSH with a real shell (rootless Podman over SSH needs
+one), subuid/subgid ranges, and `loginctl enable-linger`. `deploy.sh` then targets that user
+(`DEPLOY_HOST=ambiquality@ambiquality.org`). Run the steps below **as that service user**
+(use `sudo` only for the system-level bits: volume, firewall, sysctl, package install).
 
 1. **Cloud volume** — format (if fresh) and mount the scalable Hetzner volume persistently
    so all container data lives on it. `PODMAN_DATA_ROOT` (in the server `.env`) is the single
@@ -115,6 +124,13 @@ deploy user:
    > Changing `PODMAN_DATA_ROOT` after the first run relocates storage — Podman won't migrate
    > existing data, so do it before the initial `up` (or `podman system reset` and redeploy).
 
+   Rootless Podman cannot bind privileged ports (<1024), but Caddy needs 80 + 443. Lower the
+   threshold once (80 covers both, since it is a floor, not a list):
+   ```bash
+   echo 'net.ipv4.ip_unprivileged_port_start=80' | sudo tee /etc/sysctl.d/99-rootless-ports.conf
+   sudo sysctl -w net.ipv4.ip_unprivileged_port_start=80    # apply now, no reboot
+   ```
+
 4. **GHCR login** — images are private; create a GitHub PAT with `read:packages`:
    ```bash
    echo "$GHCR_PAT" | podman login ghcr.io -u <github-user> --password-stdin
@@ -152,3 +168,16 @@ restore procedure.
   storage this is fsync-latency-sensitive but well within the 100 msmt/s target.
 - Only Caddy publishes ports; Postgres and Redis are reachable only on the internal
   Podman networks.
+- **Outbound to dual-stack hosts (IPv6).** The rootless containers get an IPv6 address but no
+  IPv6 *route*, so they prefer IPv6 to any dual-stack host and fail with
+  `SocketException (101) Network is unreachable` — this hit SMTP (`mail.ambiquality.org`) and
+  would also hit Evidence.Api's external RÚIAN geocoder. Fixes, broadest first: force the
+  containers IPv4-only (`pasta_options = ["--ipv4-only"]` in `~/.config/containers/containers.conf`,
+  then recreate); or drop the dual-stack host's AAAA record; or pin it to its IPv4 with
+  `extra_hosts` on the service.
+- **SMTP.** `mail.ambiquality.org` does submission on **465 (implicit TLS)**, not 587 — set
+  `SMTP_PORT=465` + `SMTP_USE_STARTTLS=false` (MailKit's Auto mode then uses SslOnConnect).
+  `SMTP_USERNAME` is the full mailbox address. A wrong port surfaces as
+  `SocketException (111) Connection refused`.
+- Registration commits the user row before sending the confirmation mail, so a failed SMTP
+  send leaves a half-registered account — clean those up (or reset the DB) when testing.
