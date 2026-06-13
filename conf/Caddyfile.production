@@ -1,21 +1,23 @@
-# Production ingress template (SYS-01: HTTPS-only with HTTP→HTTPS redirect).
+# Production ingress (SYS-01: HTTPS-only with HTTP→HTTPS redirect).
 #
 # The committed `Caddyfile` binds plain :80 for local development. In production,
-# use THIS file as /etc/caddy/Caddyfile instead (e.g. copy it over conf/Caddyfile
-# on the deploy host) and:
+# use THIS file as /etc/caddy/Caddyfile instead (deploy.sh copies it over
+# conf/Caddyfile on the host) and:
 #
-#   1. set DOMAIN (e.g. api.ambiquality.cz) and ACME_EMAIL in the environment,
-#   2. publish ports 80 and 443 on the caddy service (edit the `ports:` mapping
-#      from "8080:80"/"8443:443" to "80:80"/"443:443") so the ACME challenges
-#      and the redirect are reachable.
+#   1. set DOMAIN (the API host, e.g. api.ambiquality.org) and ACME_EMAIL in the
+#      environment (the server .env),
+#   2. publish ports 80 and 443 on the caddy service — already done in
+#      compose.ghcr.yml.
 #
-# A domain-addressed site block makes Caddy provision and renew certificates
+# Each domain-addressed site block makes Caddy provision and renew certificates
 # automatically (Let's Encrypt) and answer plain HTTP on :80 only with a 308
-# redirect to HTTPS — no cleartext API traffic is served.
+# redirect to HTTPS — no cleartext traffic is served. The Cloudflare records for
+# these names are DNS-only (grey cloud), so the ACME challenge reaches Caddy.
 {
 	email {$ACME_EMAIL}
 }
 
+# ── Backend API (path-routed to each service) ──────────────────────────────
 {$DOMAIN} {
 	handle_path /evidence/* {
 		reverse_proxy evidence-api:6200
@@ -32,4 +34,15 @@
 	handle_path /auth/* {
 		reverse_proxy auth-api:6100
 	}
+}
+
+# ── Frontend SPA (apex + www) ───────────────────────────────────────────────
+# Canonicalize www → apex, then reverse-proxy to the frontend container, which
+# serves the static bundle with its own SPA history fallback.
+www.ambiquality.org {
+	redir https://ambiquality.org{uri} permanent
+}
+
+ambiquality.org {
+	reverse_proxy frontend:80
 }
