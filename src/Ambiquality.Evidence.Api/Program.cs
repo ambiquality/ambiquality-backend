@@ -145,6 +145,20 @@ builder.Services.AddOpenApi(options =>
 });
 builder.Services.AddProblemDetails();
 
+// --- CORS --------------------------------------------------------------------
+// The operator SPA is served from a different origin than this API, so browsers
+// require CORS. Bearer-token flow, no cookies, so no AllowCredentials. Allowed
+// origins come from config (comma-separated) so dev (localhost) and prod (the
+// frontend domain) are both expressible; empty means no CORS headers.
+var corsOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? string.Empty)
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+builder.Services.AddCors(options =>
+    options.AddDefaultPolicy(policy =>
+    {
+        if (corsOrigins.Length > 0)
+            policy.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod();
+    }));
+
 var app = builder.Build();
 
 // --- Middleware -------------------------------------------------------
@@ -174,6 +188,7 @@ app.Use(async (context, next) =>
     }
 });
 
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 

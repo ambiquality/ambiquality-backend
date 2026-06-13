@@ -89,6 +89,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddProblemDetails();
 
+// --- CORS --------------------------------------------------------------------
+// The SPA is served from a different origin than this API (ambiquality.org vs
+// api.ambiquality.org), so browsers require CORS. Bearer-token flow, no cookies,
+// so no AllowCredentials. Allowed origins come from config (comma-separated) so
+// dev (localhost) and prod (the frontend domain) are both expressible; empty
+// means no CORS headers (server-to-server only).
+var corsOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? string.Empty)
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+builder.Services.AddCors(options =>
+    options.AddDefaultPolicy(policy =>
+    {
+        if (corsOrigins.Length > 0)
+            policy.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod();
+    }));
+
 // --- Brute-force rate limiting ----------------------------------------------
 // Per-IP fixed window on /login. Complements the per-account backoff in
 // LoginHandler: this stops volumetric guessing from one source; the backoff
@@ -183,6 +198,7 @@ app.UseForwardedHeaders(forwardedHeadersOptions);
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
