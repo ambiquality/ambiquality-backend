@@ -79,7 +79,7 @@ public sealed class MonthlyExporterTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ExportAsync_Csv_WritesZippedArchiveAndRecordsMetadata()
+    public async Task ExportAsync_Csv_WritesGzippedFileAndRecordsMetadata()
     {
         await SeedAsync(
             ("co2", 800, new DateTime(2026, 5, 10, 12, 0, 0, DateTimeKind.Utc)),
@@ -92,15 +92,13 @@ public sealed class MonthlyExporterTests : IAsyncLifetime
 
         await exporter.ExportAsync(new ExportMonth(2026, 5), csv, CancellationToken.None);
 
-        var zipPath = Path.Combine(_exportDir,
-            "exports", "2026", "05", "measurements-2026-05.csv.zip");
-        Assert.True(File.Exists(zipPath));
+        var gzPath = Path.Combine(_exportDir,
+            "exports", "2026", "05", "measurements-2026-05.csv.gz");
+        Assert.True(File.Exists(gzPath));
 
-        using (var archive = ZipFile.OpenRead(zipPath))
+        await using (var gzip = new GZipStream(File.OpenRead(gzPath), CompressionMode.Decompress))
+        using (var reader = new StreamReader(gzip, Encoding.UTF8))
         {
-            var entry = archive.GetEntry("measurements.csv");
-            Assert.NotNull(entry);
-            using var reader = new StreamReader(entry!.Open(), Encoding.UTF8);
             var content = await reader.ReadToEndAsync();
             var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             Assert.Equal(CsvMeasurementSerializer.Header, lines[0]);
@@ -112,15 +110,15 @@ public sealed class MonthlyExporterTests : IAsyncLifetime
         Assert.Equal((short)2026, export.Year);
         Assert.Equal((short)5, export.Month);
         Assert.Equal("text/csv", export.MediaType);
-        Assert.Equal("application/zip", export.CompressFormat);
-        Assert.Equal("exports/2026/05/measurements-2026-05.csv.zip", export.FileKey);
-        Assert.Equal("https://dl.example.org/exports/2026/05/measurements-2026-05.csv.zip", export.DownloadUrl);
+        Assert.Equal("application/gzip", export.CompressFormat);
+        Assert.Equal("exports/2026/05/measurements-2026-05.csv.gz", export.FileKey);
+        Assert.Equal("https://dl.example.org/exports/2026/05/measurements-2026-05.csv.gz", export.DownloadUrl);
         Assert.Equal(2, export.RecordCount);
         Assert.True(export.FileSizeBytes > 0);
     }
 
     [Fact]
-    public async Task ExportAsync_JsonLd_WritesGraphAndRecordsMetadata()
+    public async Task ExportAsync_JsonLd_WritesGzippedGraphAndRecordsMetadata()
     {
         await SeedAsync(
             ("co2", 800, new DateTime(2026, 5, 10, 12, 0, 0, DateTimeKind.Utc)));
@@ -130,17 +128,18 @@ public sealed class MonthlyExporterTests : IAsyncLifetime
 
         await exporter.ExportAsync(new ExportMonth(2026, 5), jsonLd, CancellationToken.None);
 
-        var zipPath = Path.Combine(_exportDir,
-            "exports", "2026", "05", "measurements-2026-05.jsonld.zip");
-        using var archive = ZipFile.OpenRead(zipPath);
-        var entry = archive.GetEntry("measurements.jsonld");
-        Assert.NotNull(entry);
-        using var doc = await JsonDocument.ParseAsync(entry!.Open());
+        var gzPath = Path.Combine(_exportDir,
+            "exports", "2026", "05", "measurements-2026-05.jsonld.gz");
+        Assert.True(File.Exists(gzPath));
+
+        await using var gzip = new GZipStream(File.OpenRead(gzPath), CompressionMode.Decompress);
+        using var doc = await JsonDocument.ParseAsync(gzip);
         Assert.Single(doc.RootElement.GetProperty("@graph").EnumerateArray());
 
         await using var db = _postgres.NewContext();
         var export = db.MeasurementExports.Single();
         Assert.Equal("application/ld+json", export.MediaType);
+        Assert.Equal("application/gzip", export.CompressFormat);
         Assert.Equal(1, export.RecordCount);
     }
 
@@ -165,9 +164,9 @@ public sealed class MonthlyExporterTests : IAsyncLifetime
 
         await exporter.ExportAsync(new ExportMonth(2026, 5), jsonLd, CancellationToken.None);
 
-        var zipPath = Path.Combine(_exportDir, "exports", "2026", "05", "measurements-2026-05.jsonld.zip");
-        using var archive = ZipFile.OpenRead(zipPath);
-        using var doc = await JsonDocument.ParseAsync(archive.GetEntry("measurements.jsonld")!.Open());
+        var gzPath = Path.Combine(_exportDir, "exports", "2026", "05", "measurements-2026-05.jsonld.gz");
+        await using var gzip = new GZipStream(File.OpenRead(gzPath), CompressionMode.Decompress);
+        using var doc = await JsonDocument.ParseAsync(gzip);
         var obs = doc.RootElement.GetProperty("@graph").EnumerateArray().Single();
 
         Assert.Equal($"https://example.org/v1/rooms/{roomId:D}",

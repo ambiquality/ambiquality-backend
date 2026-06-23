@@ -9,10 +9,11 @@ namespace Ambiquality.Export.Worker.Exporting;
 
 /// <summary>
 /// Exports a single (month, format): streams the month's measurements through the
-/// format serializer into a zip entry, uploads the archive, and records the export
-/// metadata. The serialized payload is staged in a temp file (not memory) so the
-/// archive can be re-read for the upload without buffering the whole month; the temp
-/// file is deleted afterwards.
+/// format serializer into a gzip-compressed temp file, uploads it, and records the
+/// export metadata. Single-file gzip (not a zip archive) keeps the download simple —
+/// no container to unwrap, just decompress and read. The serialized payload is staged
+/// in a temp file so the compressed bytes can be re-read for upload without buffering
+/// the whole month in memory; the temp file is deleted afterwards.
 /// </summary>
 public sealed class MonthlyExporter(
     ExportRepository repository,
@@ -27,9 +28,9 @@ public sealed class MonthlyExporter(
 
     public IReadOnlyList<ExportFormat> Formats =>
     [
-        new ExportFormat("text/csv", "csv", "measurements.csv",
+        new ExportFormat("text/csv", "csv",
             (rows, dest, _, ct) => CsvMeasurementSerializer.WriteAsync(rows, dest, ct)),
-        new ExportFormat("application/ld+json", "jsonld", "measurements.jsonld",
+        new ExportFormat("application/ld+json", "jsonld",
             (rows, dest, foi, ct) => _jsonLd.WriteAsync(rows, dest, foi, ct))
     ];
 
@@ -38,9 +39,6 @@ public sealed class MonthlyExporter(
         var key = BuildKey(month, format);
         var tempPath = Path.GetTempFileName();
 
-        // The room each sensor occupied over time, to stamp every observation's feature of
-        // interest. The placement set is the bounded device registry, so it loads once here
-        // (not per row) and resolves in memory.
         var featureOfInterest = await placements.LoadResolverAsync(ct);
 
         try
@@ -48,16 +46,14 @@ public sealed class MonthlyExporter(
             long recordCount;
             await using (var temp = new FileStream(tempPath, FileMode.Create, FileAccess.ReadWrite, FileShare.None))
             {
-                using (var archive = new ZipArchive(temp, ZipArchiveMode.Create, leaveOpen: true))
+                await using (var gzip = new GZipStream(temp, CompressionLevel.Optimal, leaveOpen: true))
                 {
-                    var entry = archive.CreateEntry(format.ZipEntryName, CompressionLevel.Optimal);
-                    await using var entryStream = entry.Open();
                     var rows = repository.StreamMonthAsync(month.StartUtc, month.NextMonthStartUtc, ct);
-                    recordCount = await format.Serialize(rows, entryStream, featureOfInterest, ct);
+                    recordCount = await format.Serialize(rows, gzip, featureOfInterest, ct);
                 }
 
                 temp.Position = 0;
-                var url = await storage.UploadAsync(key, temp, "application/zip", ct);
+                var url = await storage.UploadAsync(key, temp, "application/gzip", ct);
 
                 await repository.InsertExportAsync(new MeasurementExport
                 {
@@ -65,7 +61,7 @@ public sealed class MonthlyExporter(
                     Year = month.Year,
                     Month = month.Month,
                     MediaType = format.MediaType,
-                    CompressFormat = "application/zip",
+                    CompressFormat = "application/gzip",
                     FileKey = key,
                     DownloadUrl = url.ToString(),
                     FileSizeBytes = temp.Length,
@@ -86,5 +82,5 @@ public sealed class MonthlyExporter(
     }
 
     private static string BuildKey(ExportMonth month, ExportFormat format) =>
-        $"exports/{month.Year:D4}/{month.Month:D2}/measurements-{month.Year:D4}-{month.Month:D2}.{format.KeySuffix}.zip";
+        $"exports/{month.Year:D4}/{month.Month:D2}/measurements-{month.Year:D4}-{month.Month:D2}.{format.KeySuffix}.gz";
 }
