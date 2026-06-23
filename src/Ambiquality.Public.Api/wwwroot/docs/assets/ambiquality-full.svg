@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="771.16907"
+   height="132.43442"
+   viewBox="0 0 771.16906 132.43442"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <linearGradient
+       id="linearGradient51">
+      <stop
+         style="stop-color:#4d4d4d;stop-opacity:1;"
+         offset="0"
+         id="stop51" />
+      <stop
+         style="stop-color:#4d4d4d;stop-opacity:0;"
+         offset="1"
+         id="stop52" />
+    </linearGradient>
+    <linearGradient
+       xlink:href="#linearGradient51"
+       id="linearGradient52"
+       x1="68.121407"
+       y1="576.07874"
+       x2="163.41264"
+       y2="469.76208"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(-23.181296,0.39377)" />
+    <linearGradient
+       xlink:href="#linearGradient51"
+       id="linearGradient56"
+       gradientUnits="userSpaceOnUse"
+       x1="186.25102"
+       y1="508.37079"
+       x2="65.365051"
+       y2="511.12717"
+       gradientTransform="translate(-23.181296,24.39377)" />
+  </defs>
+  <g
+     id="g1"
+     transform="translate(-41.549515,-470.11272)">
+    <ellipse
+       style="opacity:0.53;fill:url(#linearGradient52);fill-opacity:1;stroke-width:1.30658"
+       id="ellipse4"
+       cx="102.3022"
+       cy="524.3299"
+       rx="60.752686"
+       ry="54.217197" />
+    <ellipse
+       style="opacity:0.53;fill:url(#linearGradient56);fill-opacity:1;stroke-width:1.30658"
+       id="ellipse56"
+       cx="102.3022"
+       cy="548.3299"
+       rx="60.752686"
+       ry="54.217197" />
+    <text
+       xml:space="preserve"
+       style="font-size:118.977px;line-height:10.6;font-family:'Droid Sans Fallback';-inkscape-font-specification:'Droid Sans Fallback';letter-spacing:0px;word-spacing:2.07px;writing-mode:lr-tb;direction:ltr;fill:#90896f;fill-opacity:1;stroke-width:1.23935"
+       x="89.503952"
+       y="563.84723"
+       id="text6"><tspan
+         id="tspan6"
+         x="89.503952"
+         y="563.84723"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:118.977px;line-height:10.6;font-family:'Ubuntu Sans';-inkscape-font-specification:'Ubuntu Sans Bold';letter-spacing:0px;word-spacing:2.07px;fill:#333333;fill-opacity:1;stroke-width:1.23935"
+         dx="0 3.51 2.03 2 0.94 0.85000002 0.039999999 2.1199999 0.76999998 2.3599999 -9.3942356">ambiqualit<tspan
+   id="tspan5"
+   style="letter-spacing:0px;word-spacing:2.07px;fill:#333333;fill-opacity:1"
+   dx="-3.8399999">y</tspan></tspan></text>
+  </g>
+</svg>
