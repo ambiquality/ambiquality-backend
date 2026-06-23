@@ -30,6 +30,12 @@ public enum IngestRejectionReason
     /// <summary>Sensor is registered but not in the active state (UC10 alt. C) → 403.</summary>
     SensorNotActive,
 
+    /// <summary>
+    /// The sensor published more frequently than its profile's reporting interval
+    /// allows → 429; the result carries a <see cref="IngestMeasurementsResult.RetryAfterSeconds"/>.
+    /// </summary>
+    RateLimited,
+
     /// <summary>Sensor does not declare a reading's parameter (UC10 alt. A) → 422.</summary>
     ParameterNotDeclared,
 
@@ -54,6 +60,13 @@ public sealed record IngestMeasurementsResult
     public IngestRejectionReason? Rejection { get; private init; }
     public string? Detail { get; private init; }
 
+    /// <summary>
+    /// For a <see cref="IngestRejectionReason.RateLimited"/> rejection, the seconds the
+    /// sensor should wait before retrying (surfaced as the <c>Retry-After</c> header);
+    /// <c>null</c> for every other outcome.
+    /// </summary>
+    public int? RetryAfterSeconds { get; private init; }
+
     public bool IsAccepted => Accepted is not null;
 
     public static IngestMeasurementsResult Accept(IReadOnlyList<AcceptedReading> accepted, DateTime receivedAt) =>
@@ -61,4 +74,7 @@ public sealed record IngestMeasurementsResult
 
     public static IngestMeasurementsResult Reject(IngestRejectionReason reason, string detail) =>
         new() { Rejection = reason, Detail = detail };
+
+    public static IngestMeasurementsResult RateLimited(string detail, int retryAfterSeconds) =>
+        new() { Rejection = IngestRejectionReason.RateLimited, Detail = detail, RetryAfterSeconds = retryAfterSeconds };
 }

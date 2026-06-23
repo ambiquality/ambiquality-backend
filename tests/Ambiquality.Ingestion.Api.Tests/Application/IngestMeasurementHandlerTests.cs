@@ -5,6 +5,7 @@ using Ambiquality.Ingestion.Api.Application;
 using Ambiquality.Ingestion.Api.Application.Abstractions;
 using Ambiquality.Ingestion.Api.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace Ambiquality.Ingestion.Api.Tests.Application;
@@ -55,6 +56,29 @@ public class IngestMeasurementHandlerTests
         return ctx;
     }
 
+    /// <summary>
+    /// A rate limiter with a fixed verdict, recording the window/permits it was asked for.
+    /// Defaults to allowing every hit so the existing validation tests are unaffected.
+    /// </summary>
+    private sealed class StubRateLimiter(RateLimitDecision decision) : IRateLimiter
+    {
+        public StubRateLimiter() : this(RateLimitDecision.Allow) { }
+
+        public int Hits { get; private set; }
+        public int? LastWindowSeconds { get; private set; }
+
+        public Task<RateLimitDecision> HitAsync(
+            string key, int windowSeconds, int permitsPerWindow, CancellationToken cancellationToken)
+        {
+            Hits++;
+            LastWindowSeconds = windowSeconds;
+            return Task.FromResult(decision);
+        }
+    }
+
+    private static IOptions<RateLimitOptions> RateLimit(RateLimitOptions? options = null) =>
+        Options.Create(options ?? new RateLimitOptions());
+
     private static ISensorCatalog CatalogReturning(SensorValidationView? view)
     {
         var catalog = Substitute.For<ISensorCatalog>();
@@ -70,8 +94,10 @@ public class IngestMeasurementHandlerTests
         new(SensorId, PlainKey, readings);
 
     private static IngestMeasurementHandler Handler(
-        SensorValidationView? view, FakeQueue queue, DateTime? now = null) =>
-        new(new FixedClock(now ?? DateTime.UtcNow), CatalogReturning(view), NewIeq(), queue);
+        SensorValidationView? view, FakeQueue queue, DateTime? now = null,
+        IRateLimiter? rateLimiter = null, RateLimitOptions? rateLimitOptions = null) =>
+        new(new FixedClock(now ?? DateTime.UtcNow), CatalogReturning(view), NewIeq(), queue,
+            rateLimiter ?? new StubRateLimiter(), RateLimit(rateLimitOptions));
 
     [Fact]
     public async Task UnknownSensor_IsUnauthorized_AndNotEnqueued()
@@ -161,7 +187,8 @@ public class IngestMeasurementHandlerTests
         ieq.ParameterRanges.Add(new ParameterRange("pm2_5", 0, 1_000, "µg/m³"));
         ieq.SaveChanges();
         var handler = new IngestMeasurementHandler(
-            new FixedClock(DateTime.UtcNow), CatalogReturning(view), ieq, queue);
+            new FixedClock(DateTime.UtcNow), CatalogReturning(view), ieq, queue,
+            new StubRateLimiter(), RateLimit());
 
         var result = await handler.Handle(
             Batch(new MeasurementReadingInput("pm2_5", 12.5, " μg/m³ ")), CancellationToken.None);
@@ -297,5 +324,66 @@ public class IngestMeasurementHandlerTests
 
         Assert.False(result.IsAccepted);
         Assert.Equal(IngestRejectionReason.QueueUnavailable, result.Rejection);
+    }
+
+    [Fact]
+    public async Task RateLimited_IsRejectedWithRetryAfter_AndNotEnqueued()
+    {
+        var queue = new FakeQueue();
+        var view = new SensorValidationView(KeyHash, "active", ["co2"]);
+        var limiter = new StubRateLimiter(RateLimitDecision.Deny(retryAfterSeconds: 240));
+        var handler = Handler(view, queue, rateLimiter: limiter);
+
+        var result = await handler.Handle(Command(value: 800), CancellationToken.None);
+
+        Assert.False(result.IsAccepted);
+        Assert.Equal(IngestRejectionReason.RateLimited, result.Rejection);
+        Assert.Equal(240, result.RetryAfterSeconds);
+        Assert.Empty(queue.Published);
+    }
+
+    [Fact]
+    public async Task RateLimitWindow_UsesDeclaredInterval_ClampedToFloor()
+    {
+        var queue = new FakeQueue();
+        // Sensor declares a 60s interval, below the 300s floor — the window must clamp up.
+        var view = new SensorValidationView(KeyHash, "active", ["co2"], ReportingIntervalSeconds: 60);
+        var limiter = new StubRateLimiter();
+        var handler = Handler(view, queue, rateLimiter: limiter);
+
+        await handler.Handle(Command(value: 800), CancellationToken.None);
+
+        Assert.Equal(1, limiter.Hits);
+        Assert.Equal(300, limiter.LastWindowSeconds);
+    }
+
+    [Fact]
+    public async Task RateLimitWindow_HonoursDeclaredIntervalAboveFloor()
+    {
+        var queue = new FakeQueue();
+        var view = new SensorValidationView(KeyHash, "active", ["co2"], ReportingIntervalSeconds: 1800);
+        var limiter = new StubRateLimiter();
+        var handler = Handler(view, queue, rateLimiter: limiter);
+
+        await handler.Handle(Command(value: 800), CancellationToken.None);
+
+        Assert.Equal(1800, limiter.LastWindowSeconds);
+    }
+
+    [Fact]
+    public async Task RateLimitDisabled_SkipsTheLimiter()
+    {
+        var queue = new FakeQueue();
+        var view = new SensorValidationView(KeyHash, "active", ["co2"]);
+        var limiter = new StubRateLimiter(RateLimitDecision.Deny(retryAfterSeconds: 300));
+        var handler = Handler(view, queue, rateLimiter: limiter,
+            rateLimitOptions: new RateLimitOptions { Enabled = false });
+
+        var result = await handler.Handle(Command(value: 800), CancellationToken.None);
+
+        // Limiter never consulted; the batch sails through to the queue.
+        Assert.Equal(0, limiter.Hits);
+        Assert.True(result.IsAccepted);
+        Assert.Single(queue.Published);
     }
 }

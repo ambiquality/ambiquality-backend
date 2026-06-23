@@ -2,6 +2,7 @@ using Ambiquality.Core.Infrastructure.Persistence;
 using Ambiquality.Core.Messaging;
 using Ambiquality.Ingestion.Api.Application.Abstractions;
 using Ambiquality.Ingestion.Api.Infrastructure.Security;
+using Microsoft.Extensions.Options;
 
 namespace Ambiquality.Ingestion.Api.Application;
 
@@ -24,9 +25,12 @@ public sealed class IngestMeasurementHandler(
     IClock clock,
     ISensorCatalog catalog,
     IeqDbContext ieq,
-    IMeasurementQueuePublisher queue)
+    IMeasurementQueuePublisher queue,
+    IRateLimiter rateLimiter,
+    IOptions<RateLimitOptions> rateLimitOptions)
 {
     private const string ActiveStatusCode = "active";
+    private readonly RateLimitOptions _rateLimit = rateLimitOptions.Value;
 
     public async Task<IngestMeasurementsResult> Handle(IngestMeasurementsCommand command, CancellationToken ct)
     {
@@ -43,6 +47,22 @@ public sealed class IngestMeasurementHandler(
             return IngestMeasurementsResult.Reject(
                 IngestRejectionReason.SensorNotActive,
                 $"Sensor is '{sensor.StatusCode}', not active.");
+
+        // Per-sensor publish rate limit (keyed by sensor id — one API key per sensor).
+        // Enforced before the per-reading DB validation so a sensor hammering the endpoint
+        // cannot also hammer the parameter-range lookups. The window is the sensor's own
+        // declared reporting interval, clamped to the >= 5 min floor.
+        if (_rateLimit.Enabled)
+        {
+            var window = _rateLimit.WindowFor(sensor.ReportingIntervalSeconds);
+            var decision = await rateLimiter.HitAsync(
+                _rateLimit.KeyPrefix + command.SensorId, window, _rateLimit.PermitsPerWindow, ct);
+            if (!decision.Allowed)
+                return IngestMeasurementsResult.RateLimited(
+                    $"Sensor is publishing faster than its {window}s reporting interval allows; "
+                    + $"retry in {decision.RetryAfterSeconds}s or lengthen the interval in the sensor profile.",
+                    decision.RetryAfterSeconds);
+        }
 
         // Validate every reading before publishing anything — the batch is all-or-nothing.
         var seen = new HashSet<string>(command.Readings.Count);

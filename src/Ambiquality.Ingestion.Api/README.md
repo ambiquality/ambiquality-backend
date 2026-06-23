@@ -71,13 +71,31 @@ failure short-circuits with a Problem Details response and nothing is enqueued:
 | 0 | The batch carries at least one reading | empty batch | `422` |
 | 1 | Sensor exists **and** `SHA-256(X-Sensor-Key)` matches `evidence.sensors.api_key_hash` | unknown sensor / bad key | `401` |
 | 2 | Sensor's current status is `active` | not active | `403` |
-| 3 | Each parameter appears at most once in the batch | duplicate parameter | `422` |
-| 4 | Sensor declares each reading's `parameterCode` (open row) | parameter not declared | `422` |
-| 5 | Each reading's `unit` matches the parameter's canonical unit (`ieq.parameter_ranges.unit`) | unit mismatch | `422` |
-| 6 | Each value lies within `ieq.parameter_ranges` for its parameter | value out of range | `422` |
-| 7 | Atomically enqueue the batch, then ack | — | `202` |
+| 3 | Sensor is within its publish rate limit | rate limited | `429` |
+| 4 | Each parameter appears at most once in the batch | duplicate parameter | `422` |
+| 5 | Sensor declares each reading's `parameterCode` (open row) | parameter not declared | `422` |
+| 6 | Each reading's `unit` matches the parameter's canonical unit (`ieq.parameter_ranges.unit`) | unit mismatch | `422` |
+| 7 | Each value lies within `ieq.parameter_ranges` for its parameter | value out of range | `422` |
+| 8 | Atomically enqueue the batch, then ack | — | `202` |
 
 Every problem carries a stable `urn:ambiquality:ingestion:<reason>` `type`.
+
+### Per-sensor publish rate limit
+
+A sensor may publish at most `PermitsPerWindow` batches (default **1**) per window, where the
+window is the sensor's own **reporting interval** — the `measurement_frequency_seconds` on its open
+`evidence.sensor_installation_history` row, set/changed via Evidence.Api (F08) and editable in the
+frontend. The window is clamped to a **5-minute floor** (`MinIntervalSeconds`) so a sensor can never
+be limited to faster than 5 minutes, and falls back to `DefaultIntervalSeconds` (300 s) when the
+sensor declares no interval. The limit is **keyed by sensor id** (one API key per sensor), enforced
+*before* the per-reading database validation so a misbehaving sensor cannot also load the
+parameter-range lookups.
+
+Implementation is a Redis fixed-window counter (`RedisFixedWindowRateLimiter`) on the queue's Redis
+instance but a throw-away keyspace (`ieq:ingest:rl:<sensorId>`) — losing it merely resets a window,
+so it fails open. A throttled batch is rejected with **429** and a `Retry-After` header giving the
+seconds left in the window. Configure under the `IngestionRateLimit` section; set `Enabled: false`
+to bypass entirely.
 
 Unit matching (UC10 step 3's unit half) compares the reading's declared `unit` against the
 parameter's **canonical unit** in `ieq.parameter_ranges` — each supported quantity has exactly

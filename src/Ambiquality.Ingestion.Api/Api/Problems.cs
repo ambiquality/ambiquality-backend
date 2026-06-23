@@ -24,6 +24,9 @@ internal static class Problems
         IngestRejectionReason.SensorNotActive => TypedResults.Problem(
             detail, statusCode: StatusCodes.Status403Forbidden,
             title: "Sensor not active", type: TypePrefix + "sensor-not-active"),
+        IngestRejectionReason.RateLimited => TypedResults.Problem(
+            detail, statusCode: StatusCodes.Status429TooManyRequests,
+            title: "Rate limit exceeded", type: TypePrefix + "rate-limited"),
         IngestRejectionReason.ParameterNotDeclared => TypedResults.Problem(
             detail, statusCode: StatusCodes.Status422UnprocessableEntity,
             title: "Parameter not declared", type: TypePrefix + "parameter-not-declared"),

@@ -18,14 +18,19 @@ public sealed class SensorCatalog(NpgsqlDataSource dataSource) : ISensorCatalog
 
         string apiKeyHash;
         string statusCode;
+        int? reportingIntervalSeconds;
         await using (var command = new NpgsqlCommand(
             // sensors."Id" is quoted PascalCase: the Evidence mapping leaves the
             // primary key column at its default name while other columns are snake_case.
+            // LEFT JOIN the open installation row — a sensor may have none, and even when
+            // it does the reporting interval is optional, so this column is nullable.
             """
-            SELECT s.api_key_hash, ss.status_code
+            SELECT s.api_key_hash, ss.status_code, ih.measurement_frequency_seconds
             FROM evidence.sensors s
             JOIN evidence.sensor_status_history ss
               ON ss.sensor_id = s."Id" AND upper_inf(ss.validity)
+            LEFT JOIN evidence.sensor_installation_history ih
+              ON ih.sensor_id = s."Id" AND upper_inf(ih.validity)
             WHERE s."Id" = @id
             """, connection))
         {
@@ -36,6 +41,7 @@ public sealed class SensorCatalog(NpgsqlDataSource dataSource) : ISensorCatalog
 
             apiKeyHash = reader.GetString(0);
             statusCode = reader.GetString(1);
+            reportingIntervalSeconds = reader.IsDBNull(2) ? null : reader.GetInt32(2);
         }
 
         var parameterCodes = new List<string>();
@@ -52,6 +58,6 @@ public sealed class SensorCatalog(NpgsqlDataSource dataSource) : ISensorCatalog
                 parameterCodes.Add(reader.GetString(0));
         }
 
-        return new SensorValidationView(apiKeyHash, statusCode, parameterCodes);
+        return new SensorValidationView(apiKeyHash, statusCode, parameterCodes, reportingIntervalSeconds);
     }
 }

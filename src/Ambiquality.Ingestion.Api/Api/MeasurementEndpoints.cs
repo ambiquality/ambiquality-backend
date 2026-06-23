@@ -51,6 +51,12 @@ public static class MeasurementEndpoints
                 new MeasurementsAcceptedResponse(result.ReceivedAt!.Value, measurements));
         }
 
+        // A throttled sensor gets a Retry-After header (RFC 9110 §10.2.3) alongside the
+        // 429 problem, so a well-behaved client can back off for exactly the window's
+        // remaining seconds. Set on the response before the result is written.
+        if (result.RetryAfterSeconds is { } retryAfter)
+            context.Response.Headers.RetryAfter = retryAfter.ToString();
+
         return Problems.ToProblem(result.Rejection!.Value, result.Detail!);
     }
 }

@@ -24,6 +24,9 @@ public sealed class IngestionApiFactory : WebApplicationFactory<Program>, IAsync
     /// <summary>Captures what the endpoint enqueued, replacing the real Redis publisher.</summary>
     public CapturingQueuePublisher Queue { get; } = new();
 
+    /// <summary>In-memory rate limiter, replacing the Redis-backed one (no broker in tests).</summary>
+    public InMemoryFixedWindowRateLimiter RateLimiter { get; } = new();
+
     public async Task InitializeAsync() => await _postgres.InitializeAsync();
 
     public new async Task DisposeAsync()
@@ -63,6 +66,13 @@ public sealed class IngestionApiFactory : WebApplicationFactory<Program>, IAsync
                 services.Remove(publisherDescriptor);
 
             services.AddSingleton<IMeasurementQueuePublisher>(Queue);
+
+            var limiterDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(IRateLimiter));
+            if (limiterDescriptor is not null)
+                services.Remove(limiterDescriptor);
+
+            services.AddSingleton<IRateLimiter>(RateLimiter);
         });
     }
 
