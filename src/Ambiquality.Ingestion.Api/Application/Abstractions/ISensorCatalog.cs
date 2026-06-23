@@ -18,7 +18,14 @@ public interface ISensorCatalog
 /// <param name="ApiKeyHash">SHA-256 hex of the sensor's API key.</param>
 /// <param name="StatusCode">Currently open lifecycle status (e.g. <c>active</c>).</param>
 /// <param name="DeclaredParameterCodes">Parameter codes the sensor currently declares.</param>
+/// <param name="ReportingIntervalSeconds">
+/// The sensor's declared reporting interval in seconds (F08
+/// <c>measurement_frequency_seconds</c> on the open installation row), or <c>null</c>
+/// when the sensor has no installation row or left the field blank. Drives the
+/// per-sensor publish rate limit; a null falls back to the configured default.
+/// </param>
 public sealed record SensorValidationView(
     string ApiKeyHash,
     string StatusCode,
-    IReadOnlyCollection<string> DeclaredParameterCodes);
+    IReadOnlyCollection<string> DeclaredParameterCodes,
+    int? ReportingIntervalSeconds = null);

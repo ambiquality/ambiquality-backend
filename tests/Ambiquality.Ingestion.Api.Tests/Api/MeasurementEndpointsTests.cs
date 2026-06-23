@@ -250,6 +250,46 @@ public sealed class MeasurementEndpointsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SecondBatchWithinWindow_Returns429WithRetryAfter_AndEnqueuesOnlyTheFirst()
+    {
+        var (sensorId, apiKey) = await _factory.SeedSensorAsync(["co2"]);
+
+        var first = await PostAsync(sensorId, "co2", 800, apiKey);
+        var second = await PostAsync(sensorId, "co2", 810, apiKey);
+
+        Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, second.StatusCode);
+
+        // Only the first reading made it onto the queue.
+        var message = Assert.Single(_factory.Queue.Published);
+        Assert.Equal(800, message.Value);
+
+        // 429 carries Retry-After (seconds left in the 5-minute default window) and the
+        // uniform problem type.
+        Assert.NotNull(second.Headers.RetryAfter?.Delta);
+        Assert.InRange(second.Headers.RetryAfter!.Delta!.Value.TotalSeconds, 1, 300);
+        using var problem = JsonDocument.Parse(await second.Content.ReadAsStringAsync());
+        Assert.Equal(
+            "urn:ambiquality:ingestion:rate-limited",
+            problem.RootElement.GetProperty("type").GetString());
+    }
+
+    [Fact]
+    public async Task BatchAfterWindowElapses_IsAcceptedAgain()
+    {
+        var (sensorId, apiKey) = await _factory.SeedSensorAsync(["co2"]);
+
+        var first = await PostAsync(sensorId, "co2", 800, apiKey);
+        // Jump past the 5-minute default window so the sensor's counter resets.
+        _factory.RateLimiter.Clock = () => DateTimeOffset.UtcNow.AddSeconds(301);
+        var second = await PostAsync(sensorId, "co2", 810, apiKey);
+
+        Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, second.StatusCode);
+        Assert.Equal(2, _factory.Queue.Published.Count);
+    }
+
+    [Fact]
     public async Task ValueOutOfRange_Returns422_AndEnqueuesNothing()
     {
         var (sensorId, apiKey) = await _factory.SeedSensorAsync(["co2"]);

@@ -35,10 +35,15 @@ Per-project READMEs and the root `README.md` are the human-facing docs; this fil
 
 **Ingestion is a queue + worker write path.** Ingestion.Api accepts a *batch* of readings from one
 sensor (`{ sensorId, readings: [{ parameterCode, value, unit }, …] }` — a sensor reports only the
-quantities it measures) and validates them synchronously (authenticate sensor + active once, then per
+quantities it measures) and validates them synchronously (authenticate sensor + active once, then a
+per-sensor publish rate-limit check, then per
 reading: declared, unit matches the parameter's canonical unit in `ieq.parameter_ranges`, value in
 range; the batch is all-or-nothing — one bad reading rejects the whole
-request). It stamps `received_at` at acceptance (one clock read shared by the batch), then atomically
+request). The rate limit (keyed by sensor id, Redis fixed-window) caps a sensor to
+`PermitsPerWindow` batches per its declared reporting interval (`measurement_frequency_seconds` on the
+open `evidence.sensor_installation_history` row, clamped to a 5-min floor, default 5 min); exceeding it
+returns **429** + `Retry-After`. See *Architecture Decisions → Ingestion queue + worker* and
+`Ingestion.Api/README.md`. It stamps `received_at` at acceptance (one clock read shared by the batch), then atomically
 appends the readings to a durable Redis stream (`MULTI`/`EXEC` for multi-reading batches) and returns
 **202 Accepted** — it never touches the `measurements` table. Ingestion.Worker drains the stream's
 consumer group in batches and bulk-inserts into the `ieq` hypertable. See *Architecture Decisions →

@@ -7,6 +7,7 @@ using Ambiquality.Ingestion.Api.Application.Abstractions;
 using Ambiquality.Ingestion.Api.Infrastructure;
 using Ambiquality.Ingestion.Api.Infrastructure.Catalog;
 using Ambiquality.Ingestion.Api.Infrastructure.Queue;
+using Ambiquality.Ingestion.Api.Infrastructure.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Scalar.AspNetCore;
@@ -49,6 +50,13 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     return ConnectionMultiplexer.Connect(connectionString);
 });
 builder.Services.AddSingleton<IMeasurementQueuePublisher, RedisMeasurementQueuePublisher>();
+
+// --- Per-sensor publish rate limit -------------------------------------------
+// Reuses the queue's Redis connection (separate keyspace) for a fixed-window counter
+// keyed by sensor id; the window is the sensor's declared reporting interval.
+builder.Services.Configure<RateLimitOptions>(
+    builder.Configuration.GetSection(RateLimitOptions.SectionName));
+builder.Services.AddSingleton<IRateLimiter, RedisFixedWindowRateLimiter>();
 
 // --- Application -------------------------------------------------------------
 builder.Services.AddSingleton<IClock, SystemClock>();
