@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="cs">
+  <head>
+    <title>Měření kvality vnitřního prostředí (IEQ)</title>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type" />
+    <meta content="width=device-width,initial-scale=1" name="viewport" />
+    <meta name="theme-color" content="#057fa5" />
+    <link rel="icon" type="image/svg+xml" href="assets/ambiquality-logo.svg" />
+
+    <!-- ReSpec, profil „odcz" (Otevřená data ČR) z https://github.com/datagov-cz/respec,
+         vendorovaný lokálně. Vizuální styl (base.css) build načítá z ofn.gov.cz/static. -->
+    <script class="remove" src="respec-odcz.js"></script>
+    <script class="remove">
+      var respecConfig = {
+        specStatus: "base",
+        shortName: "ieq-mereni",
+        // Bez vládního brandingu: logo Ambiquality nahrazuje výchozí loga profilu odcz.
+        logos: [{
+          src: "assets/ambiquality-logo.svg",
+          alt: "Ambiquality",
+          href: "https://data.ambiquality.org/",
+          width: 220,
+          height: 56,
+          id: "ambiquality-logo"
+        }],
+        editors: [{
+          name: "Vilém Charwot",
+          company: "Vysoká škola ekonomická v Praze",
+          companyURL: "https://www.vse.cz/",
+          mailto: "vilem.charwot@proton.me"
+        }],
+        license: "cc-by",
+        thisVersion: "https://data.ambiquality.org/docs/",
+        latestVersion: "https://data.ambiquality.org/docs/",
+        github: "https://github.com/ambiquality/ambiquality-backend",
+        // Žádné externí xref dotazy (respec.org) – dokument je samostatný, odkazy jsou explicitní.
+        xref: false,
+        inlineCSS: true,
+        otherLinks: [{
+          key: "Související rozhraní",
+          data: [
+            { value: "Dokumentace API (OpenAPI / Scalar)", href: "https://data.ambiquality.org/scalar/v1" },
+            { value: "Katalog DCAT-AP", href: "https://data.ambiquality.org/v1/catalog" },
+            { value: "JSON-LD kontext", href: "https://data.ambiquality.org/v1/context/measurements.jsonld" }
+          ]
+        }],
+        thanks: "Dokument vznikl jako součást bakalářské práce na Vysoké škole ekonomické v Praze."
+      };
+    </script>
+  </head>
+
+  <body>
+    <section id="abstract" class="introductory">
+      <h2>Abstrakt</h2>
+      <p>
+        Tento dokument je <strong>otevřenou formální normou</strong> popisující datový model měření
+        <strong>kvality vnitřního prostředí budov</strong> (anglicky <em>Indoor Environmental Quality</em>, IEQ),
+        která platforma <a href="https://data.ambiquality.org/">Ambiquality</a> zveřejňuje jako otevřená data.
+        Norma vymezuje sledovanou entitu — jednotlivé <strong>pozorování</strong> (měření jedné veličiny jedním
+        senzorem v jednom okamžiku) — a každou její vlastnost popisuje včetně datového typu, povinnosti, navázané
+        ontologie a možných úskalí. Doplňuje ji slovník sledovaných vlastností, číselníky a popis kontextových
+        entit (budova, místnost, senzor). Všechna data jsou poskytována pod licencí
+        <a href="https://creativecommons.org/licenses/by/4.0/">CC&nbsp;BY&nbsp;4.0</a>.
+      </p>
+    </section>
+
+    <section id="přehled" class="introductory">
+      <h2>Přehled</h2>
+      <p>
+        Datový model je ukotven ve standardní ontologii <a href="https://www.w3.org/TR/vocab-ssn/">SOSA/SSN</a>
+        (Sensor, Observation, Sample, and Actuator), kterou doplňují:
+      </p>
+      <ul>
+        <li><a href="https://qudt.org/">QUDT</a> — typy veličin (<code>qudt:hasQuantityKind</code>) a jednotky (<code>qudt:unit</code>);</li>
+        <li><a href="https://www.w3.org/2004/02/skos/core.html">SKOS</a> — číselníky a slovník sledovaných vlastností;</li>
+        <li><a href="http://purl.org/dc/terms/">Dublin Core Terms</a> — identifikace a licence;</li>
+        <li><a href="https://www.dcat-ap.de/">DCAT-AP 3.0</a> — metadata katalogu datové sady;</li>
+        <li><a href="https://ofn.gov.cz/adresy/2020-07-01/">OFN Adresy</a> a <a href="https://nahlizenitomapy.cuzk.cz/">RÚIAN</a> — adresy budov;</li>
+        <li>jmenný prostor Ambiquality <code>ambiq:</code> = <code>https://data.ambiquality.org/ns#</code> pro vlastnosti,
+            které ve standardních slovnících nemají ekvivalent (čas přijetí, příznak neplatnosti).</li>
+      </ul>
+      <p>
+        Data jsou dereferencovatelná (5★ otevřená data): každé pozorování, sledovaná vlastnost, koncept číselníku,
+        budova, místnost i senzor mají vlastní IRI, jež vrací JSON nebo JSON-LD (obsahový vyjednávání přes hlavičku
+        <code>Accept</code>). Strojově čitelný přístup popisuje
+        <a href="https://data.ambiquality.org/scalar/v1">specifikace OpenAPI</a>.
+      </p>
+      <figure id="obr-model">
+        <img src="assets/model.svg" alt="Konceptuální model: Pozorování odkazuje na Sledovanou vlastnost (sosa:observedProperty), Senzor (sosa:madeBySensor) a Místnost coby předmět zájmu (sosa:hasFeatureOfInterest); Místnost patří do Budovy." style="max-width:100%;height:auto;" />
+        <figcaption>Konceptuální model měření IEQ a jeho vazby na kontextové entity.</figcaption>
+      </figure>
+    </section>
+
+    <section id="specifikace">
+      <h2>Specifikace</h2>
+      <p>
+        V této sekci je definována hlavní třída <a href="#třída-pozorování">Pozorování</a> a všechny její vlastnosti
+        a vazby. U každé vlastnosti je uveden identifikátor používaný v datových formátech, datový typ, název, popis,
+        navázaný termín ontologie (IRI), povinnost a — kde je to relevantní — možná úskalí při interpretaci.
+      </p>
+
+      <section id="třída-pozorování">
+        <h3>Pozorování</h3>
+        <p>
+          Třída <code>sosa:Observation</code> reprezentuje jedno měření jedné fyzikální veličiny jedním senzorem
+          v jednom okamžiku. Hodnota je vždy doprovázena identifikací <em>co</em> se měří
+          (<a href="#vazba-pozorování-sledovaná-vlastnost">sledovaná vlastnost</a>), <em>čím</em>
+          (<a href="#vazba-pozorování-senzor">senzor</a>) a <em>kde</em>
+          (<a href="#vazba-pozorování-předmět-zájmu">předmět zájmu — místnost</a>).
+        </p>
+
+        <section id="vlastnost-pozorování-iri">
+          <h4>Identifikátor</h4>
+          <dl>
+            <dt>Vlastnost</dt><dd><code>iri</code> / <code>@id</code></dd>
+            <dt>Typ</dt><dd>IRI</dd>
+            <dt>Jméno</dt><dd>Identifikátor pozorování</dd>
+            <dt>Popis</dt><dd>Dereferencovatelné IRI pozorování ve tvaru <code>https://data.ambiquality.org/v1/observations/{uuid}</code>. V prosté reprezentaci JSON je hodnota UUID dostupná též ve vlastnosti <code>id</code> (<code>dcterms:identifier</code>).</dd>
+            <dt>Povinnost</dt><dd>Povinná</dd>
+            <dt>Příklady</dt><dd><code>https://data.ambiquality.org/v1/observations/3f1c…</code></dd>
+          </dl>
+        </section>
+
+        <section id="vlastnost-pozorování-hodnota">
+          <h4>Naměřená hodnota</h4>
+          <dl>
+            <dt>Vlastnost</dt><dd><code>value</code></dd>
+            <dt>Typ</dt><dd>Desetinné číslo (<code>xsd:double</code>)</dd>
+            <dt>Jméno</dt><dd>Naměřená hodnota</dd>
+            <dt>Popis</dt><dd>Skalární výsledek měření; v JSON-LD termín <code>sosa:hasSimpleResult</code>.</dd>
+            <dt>Povinnost</dt><dd>Povinná</dd>
+            <dt>Příklady</dt><dd><code>412.5</code></dd>
+            <dt>Úskalí</dt><dd>Hodnota je vždy vyjádřena v kanonické jednotce dané <a href="#vlastnost-pozorování-jednotka-uri">jednotce QUDT</a> sledované veličiny; nepřevádějte ji podle volného textového <code>unit</code>, který slouží jen pro čtení člověkem.</dd>
+          </dl>
+        </section>
+
+        <section id="vlastnost-pozorování-jednotka">
+          <h4>Jednotka (text)</h4>
+          <dl>
+            <dt>Vlastnost</dt><dd><code>unit</code></dd>
+            <dt>Typ</dt><dd>Text</dd>
+            <dt>Jméno</dt><dd>Jednotka deklarovaná senzorem</dd>
+            <dt>Popis</dt><dd>Symbol jednotky tak, jak jej ohlásil senzor (např. <code>ppm</code>, <code>°C</code>). Slouží pro čtení člověkem; strojově závaznou jednotkou je <a href="#vlastnost-pozorování-jednotka-uri"><code>unitUri</code></a>.</dd>
+            <dt>Povinnost</dt><dd>Nepovinná</dd>
+            <dt>Příklady</dt><dd><code>ppm</code></dd>
+          </dl>
+        </section>
+
+        <section id="vlastnost-pozorování-jednotka-uri">
+          <h4>Jednotka (QUDT)</h4>
+          <dl>
+            <dt>Vlastnost</dt><dd><code>unitUri</code></dd>
+            <dt>Typ</dt><dd>IRI (jednotka QUDT)</dd>
+            <dt>Jméno</dt><dd>Kanonická jednotka</dd>
+            <dt>Popis</dt><dd>Jednotka, ve které je vyjádřena <code>value</code>; v JSON-LD termín <code>qudt:unit</code>. Hodnota je IRI z <a href="https://qudt.org/vocab/unit/">slovníku jednotek QUDT</a>.</dd>
+            <dt>Povinnost</dt><dd>Nepovinná (vyplněna pro všechny zabudované veličiny)</dd>
+            <dt>Příklady</dt><dd><code>http://qudt.org/vocab/unit/PPM</code></dd>
+          </dl>
+        </section>
+
+        <section id="vlastnost-pozorování-typ-veličiny">
+          <h4>Typ veličiny (QUDT)</h4>
+          <dl>
+            <dt>Vlastnost</dt><dd><code>quantityKindUri</code></dd>
+            <dt>Typ</dt><dd>IRI (typ veličiny QUDT)</dd>
+            <dt>Jméno</dt><dd>Rozměrový typ veličiny</dd>
+            <dt>Popis</dt><dd>Hrubší <em>rozměrový</em> typ veličiny (např. <code>MassDensity</code> sdílený všemi pevnými částicemi); v JSON-LD termín <code>qudt:hasQuantityKind</code>.</dd>
+            <dt>Povinnost</dt><dd>Nepovinná</dd>
+            <dt>Příklady</dt><dd><code>http://qudt.org/vocab/quantitykind/AmountOfSubstanceFraction</code></dd>
+            <dt>Úskalí</dt><dd>Typ veličiny <strong>nerozlišuje</strong> jednotlivé látky (PM2.5 vs. PM10, VOC vs. CO₂) — k tomu slouží <a href="#vazba-pozorování-sledovaná-vlastnost">sledovaná vlastnost</a>. Pro filtrování konkrétní látky vždy používejte <code>observedProperty</code>, nikoli typ veličiny.</dd>
+          </dl>
+        </section>
+
+        <section id="vlastnost-pozorování-čas-měření">
+          <h4>Čas měření</h4>
+          <dl>
+            <dt>Vlastnost</dt><dd><code>observedAt</code></dd>
+            <dt>Typ</dt><dd>Datum a čas (<code>xsd:dateTime</code>, UTC)</dd>
+            <dt>Jméno</dt><dd>Čas měření podle senzoru</dd>
+            <dt>Popis</dt><dd>Okamžik, kdy senzor hodnotu naměřil (čas hodin senzoru); v JSON-LD termín <code>sosa:resultTime</code>.</dd>
+            <dt>Povinnost</dt><dd>Povinná</dd>
+            <dt>Příklady</dt><dd><code>2026-01-15T10:30:45.123456Z</code></dd>
+            <dt>Úskalí</dt><dd>Nezaměňujte s <a href="#vlastnost-pozorování-čas-přijetí">časem přijetí</a>. Čas měření závisí na nastavení hodin senzoru a může se mírně lišit od reálného času.</dd>
+          </dl>
+        </section>
+
+        <section id="vlastnost-pozorování-čas-přijetí">
+          <h4>Čas přijetí</h4>
+          <dl>
+            <dt>Vlastnost</dt><dd><code>receivedAt</code></dd>
+            <dt>Typ</dt><dd>Datum a čas (<code>xsd:dateTime</code>, UTC)</dd>
+            <dt>Jméno</dt><dd>Čas přijetí platformou</dd>
+            <dt>Popis</dt><dd>Okamžik, kdy platforma měření přijala a orazítkovala (čas serveru); v JSON-LD termín <code>ambiq:receivedTime</code>.</dd>
+            <dt>Povinnost</dt><dd>Povinná</dd>
+            <dt>Příklady</dt><dd><code>2026-01-15T10:30:46.234567Z</code></dd>
+            <dt>Úskalí</dt><dd>Toto je čas důvěryhodný pro řazení a stránkování dat; je stabilní bez ohledu na zpoždění fronty. Čas měření naopak pochází od senzoru.</dd>
+          </dl>
+        </section>
+
+        <section id="vlastnost-pozorování-neplatnost">
+          <h4>Příznak neplatnosti</h4>
+          <dl>
+            <dt>Vlastnost</dt><dd><code>isInvalid</code></dd>
+            <dt>Typ</dt><dd>Pravdivostní hodnota (<code>xsd:boolean</code>)</dd>
+            <dt>Jméno</dt><dd>Neplatné měření</dd>
+            <dt>Popis</dt><dd>Příznak „měkké" neplatnosti; v JSON-LD termín <code>ambiq:isInvalid</code>. Publikovaná měření se nikdy nemažou ani nemění — vadné se pouze označí.</dd>
+            <dt>Povinnost</dt><dd>Povinná</dd>
+            <dt>Příklady</dt><dd><code>false</code></dd>
+            <dt>Úskalí</dt><dd>Výchozí dotazy neplatná měření vynechávají; pro jejich zahrnutí použijte parametr <code>includeInvalid=true</code>. Neplatná hodnota zůstává v datech kvůli auditovatelnosti a neměnnosti.</dd>
+          </dl>
+        </section>
+
+        <section id="vlastnost-pozorování-licence">
+          <h4>Licence</h4>
+          <dl>
+            <dt>Vlastnost</dt><dd><code>license</code></dd>
+            <dt>Typ</dt><dd>IRI</dd>
+            <dt>Jméno</dt><dd>Licence</dd>
+            <dt>Popis</dt><dd>Licence dat; v JSON-LD termín <code>dcterms:license</code>. Vždy <a href="https://creativecommons.org/licenses/by/4.0/">CC&nbsp;BY&nbsp;4.0</a>.</dd>
+            <dt>Povinnost</dt><dd>Povinná</dd>
+            <dt>Příklady</dt><dd><code>https://creativecommons.org/licenses/by/4.0/</code></dd>
+          </dl>
+        </section>
+
+        <section id="vazba-pozorování-sledovaná-vlastnost">
+          <h4>Vazba: Sledovaná vlastnost</h4>
+          <dl>
+            <dt>Vazba</dt><dd><code>observedProperty</code></dd>
+            <dt>Typ</dt><dd><a href="#slovník-vlastností">Sledovaná vlastnost</a> (<code>sosa:ObservableProperty</code>)</dd>
+            <dt>Jméno</dt><dd>Sledovaná vlastnost</dd>
+            <dt>Popis</dt><dd>Konkrétní, látku rozlišující veličina, kterou pozorování měří; v JSON-LD termín <code>sosa:observedProperty</code>. Hodnota je dereferencovatelné IRI <code>https://data.ambiquality.org/v1/properties/{kód}</code>.</dd>
+            <dt>Povinnost</dt><dd>Povinná</dd>
+            <dt>Příklady</dt><dd><code>https://data.ambiquality.org/v1/properties/co2</code></dd>
+          </dl>
+        </section>
+
+        <section id="vazba-pozorování-senzor">
+          <h4>Vazba: Senzor</h4>
+          <dl>
+            <dt>Vazba</dt><dd><code>madeBySensor</code></dd>
+            <dt>Typ</dt><dd><a href="#třída-senzor">Senzor</a> (<code>sosa:Sensor</code>)</dd>
+            <dt>Jméno</dt><dd>Měřicí senzor</dd>
+            <dt>Popis</dt><dd>Senzor, který hodnotu naměřil; v JSON-LD termín <code>sosa:madeBySensor</code>. Hodnota je IRI senzoru v evidenci.</dd>
+            <dt>Povinnost</dt><dd>Povinná (vlastnost <code>sensorId</code> obsahuje UUID senzoru)</dd>
+            <dt>Příklady</dt><dd><code>https://data.ambiquality.org/v1/sensors/9b2a…</code></dd>
+          </dl>
+        </section>
+
+        <section id="vazba-pozorování-předmět-zájmu">
+          <h4>Vazba: Předmět zájmu</h4>
+          <dl>
+            <dt>Vazba</dt><dd><code>featureOfInterestIri</code></dd>
+            <dt>Typ</dt><dd><a href="#třída-místnost">Místnost</a> (<code>ambiq:Room</code>)</dd>
+            <dt>Jméno</dt><dd>Předmět zájmu</dd>
+            <dt>Popis</dt><dd>Místnost, ve které senzor v okamžiku měření byl; v JSON-LD termín <code>sosa:hasFeatureOfInterest</code>.</dd>
+            <dt>Povinnost</dt><dd>Nepovinná</dd>
+            <dt>Příklady</dt><dd><code>https://data.ambiquality.org/v1/rooms/77d0…</code></dd>
+            <dt>Úskalí</dt><dd>Jde o <strong>časový snímek</strong> umístění senzoru v době měření, nikoli o aktuální umístění. Je-li <code>null</code>, žádné období umístění daný okamžik nepokrývá (senzor nebyl v té době přiřazen k místnosti).</dd>
+          </dl>
+        </section>
+      </section>
+    </section>
+
+    <section id="slovník-vlastností">
+      <h2>Slovník sledovaných vlastností</h2>
+      <p>
+        Každá sledovaná vlastnost je publikována jako <code>sosa:ObservableProperty</code> a zároveň
+        <code>skos:Concept</code> na dereferencovatelném IRI <code>https://data.ambiquality.org/v1/properties/{kód}</code>.
+        Nese typ veličiny a jednotku QUDT a — u regulovaných znečišťujících látek — vazbu <code>skos:exactMatch</code>
+        na <a href="http://dd.eionet.europa.eu/vocabulary/aq/pollutant/">slovník znečišťujících látek EEA/EIONET</a>.
+        Úplný seznam vrací <a href="https://data.ambiquality.org/v1/properties">/v1/properties</a>.
+      </p>
+      <table class="def">
+        <thead>
+          <tr><th>Kód</th><th>Název</th><th>Typ veličiny (QUDT)</th><th>Jednotka (QUDT)</th><th>EEA exactMatch</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>co2</code></td><td>Oxid uhličitý</td><td>AmountOfSubstanceFraction</td><td>PPM</td><td>—</td></tr>
+          <tr><td><code>eco2</code></td><td>Ekvivalentní oxid uhličitý (eCO₂)</td><td>AmountOfSubstanceFraction</td><td>PPM</td><td>—</td></tr>
+          <tr><td><code>co</code></td><td>Oxid uhelnatý</td><td>AmountOfSubstanceFraction</td><td>PPM</td><td>pollutant/10</td></tr>
+          <tr><td><code>o3</code></td><td>Ozon</td><td>MassDensity</td><td>MicroGM-PER-M3</td><td>pollutant/7</td></tr>
+          <tr><td><code>no2</code></td><td>Oxid dusičitý</td><td>MassDensity</td><td>MicroGM-PER-M3</td><td>pollutant/8</td></tr>
+          <tr><td><code>so2</code></td><td>Oxid siřičitý</td><td>MassDensity</td><td>MicroGM-PER-M3</td><td>pollutant/1</td></tr>
+          <tr><td><code>voc</code></td><td>Těkavé organické látky (TVOC)</td><td>AmountOfSubstanceFraction</td><td>PPB</td><td>—</td></tr>
+          <tr><td><code>pm1</code></td><td>Pevné částice &lt; 1 µm (PM1)</td><td>MassDensity</td><td>MicroGM-PER-M3</td><td>—</td></tr>
+          <tr><td><code>pm2_5</code></td><td>Pevné částice &lt; 2,5 µm (PM2.5)</td><td>MassDensity</td><td>MicroGM-PER-M3</td><td>pollutant/6001</td></tr>
+          <tr><td><code>pm4</code></td><td>Pevné částice &lt; 4 µm (PM4)</td><td>MassDensity</td><td>MicroGM-PER-M3</td><td>—</td></tr>
+          <tr><td><code>pm10</code></td><td>Pevné částice &lt; 10 µm (PM10)</td><td>MassDensity</td><td>MicroGM-PER-M3</td><td>pollutant/5</td></tr>
+          <tr><td><code>temperature</code></td><td>Teplota vzduchu</td><td>Temperature</td><td>DEG_C</td><td>—</td></tr>
+          <tr><td><code>humidity</code></td><td>Relativní vlhkost</td><td>RelativeHumidity</td><td>PERCENT_RH</td><td>—</td></tr>
+          <tr><td><code>air_velocity</code></td><td>Rychlost proudění vzduchu</td><td>Speed</td><td>M-PER-SEC</td><td>—</td></tr>
+          <tr><td><code>pressure</code></td><td>Atmosférický tlak</td><td>AtmosphericPressure</td><td>PA</td><td>—</td></tr>
+          <tr><td><code>illuminance</code></td><td>Osvětlenost</td><td>Illuminance</td><td>LUX</td><td>—</td></tr>
+          <tr><td><code>cct</code></td><td>Náhradní teplota chromatičnosti</td><td>CorrelatedColorTemperature</td><td>K</td><td>—</td></tr>
+          <tr><td><code>laeq</code></td><td>Ekvivalentní hladina akustického tlaku A (LAeq)</td><td>SoundPressureLevel</td><td>DeciB_A</td><td>—</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Provozovatel může slovník <em>rozšířit</em> o vlastní veličiny (nikdy přepsat zabudované) konfiguračním
+        souborem rozšíření slovníku. Hodnoty <code>pollutant/{id}</code> jsou koncovkou IRI
+        <code>http://dd.eionet.europa.eu/vocabulary/aq/pollutant/{id}</code>.
+      </p>
+    </section>
+
+    <section id="číselníky">
+      <h2>Číselníky</h2>
+      <p>
+        Kontextové entity používají řízené slovníky publikované jako SKOS koncepty na dereferencovatelných IRI
+        <code>https://data.ambiquality.org/v1/codelists/{schéma}/{kód}</code> (dvojjazyčné popisky cs/en).
+        Přehled vrací <a href="https://data.ambiquality.org/v1/codelists">/v1/codelists</a>.
+      </p>
+
+      <section id="číselník-building-type">
+        <h3>Typ budovy (<code>building-type</code>)</h3>
+        <p><code>residential</code> Bytový dům · <code>family_house</code> Rodinný dům · <code>office</code> Administrativní budova ·
+           <code>educational</code> Školská budova · <code>healthcare</code> Zdravotnické zařízení · <code>retail</code> Obchodní budova ·
+           <code>industrial</code> Průmyslová budova · <code>other</code> Jiné</p>
+      </section>
+      <section id="číselník-room-function">
+        <h3>Funkce místnosti (<code>room-function</code>)</h3>
+        <p><code>office</code> Kancelář · <code>classroom</code> Učebna · <code>conference</code> Konferenční místnost ·
+           <code>lab</code> Laboratoř · <code>kitchen</code> Kuchyně · <code>storage</code> Sklad · <code>corridor</code> Chodba ·
+           <code>other</code> Jiné</p>
+      </section>
+      <section id="číselník-ventilation-type">
+        <h3>Typ větrání (<code>ventilation-type</code>)</h3>
+        <p><code>natural</code> Přirozené větrání · <code>mechanical</code> Nucené větrání · <code>hybrid</code> Hybridní větrání ·
+           <code>none</code> Bez větrání</p>
+      </section>
+      <section id="číselník-pollution-source">
+        <h3>Zdroj znečištění (<code>pollution-source</code>)</h3>
+        <p><code>traffic</code> Doprava · <code>industry</code> Průmysl · <code>construction</code> Stavební činnost ·
+           <code>cooking</code> Vaření · <code>chemicals</code> Chemické látky · <code>tobacco_smoke</code> Tabákový kouř ·
+           <code>none</code> Žádné · <code>other</code> Jiné</p>
+      </section>
+      <section id="číselník-exposure">
+        <h3>Doba pobytu (<code>exposure</code>)</h3>
+        <p><code>short</code> Krátkodobý pobyt · <code>medium</code> Střednědobý pobyt · <code>long</code> Dlouhodobý pobyt</p>
+      </section>
+      <section id="číselník-sensor-status">
+        <h3>Stav senzoru (<code>sensor-status</code>)</h3>
+        <p><code>active</code> Aktivní · <code>maintenance</code> V údržbě · <code>decommissioned</code> Vyřazeno</p>
+      </section>
+    </section>
+
+    <section id="kontextové-entity">
+      <h2>Kontextové entity</h2>
+      <p>
+        Pozorování se odkazují na následující entity evidence (budova, místnost, senzor). Každá má vlastní
+        dereferencovatelné IRI a aktuální stav; historická verze se získá parametrem <code>asOf</code>.
+      </p>
+
+      <section id="třída-budova">
+        <h3>Budova</h3>
+        <p>
+          Třída <code>ambiq:Building</code>. Adresa následuje český standard
+          <a href="https://ofn.gov.cz/adresy/2020-07-01/">OFN Adresy</a> ukotvený na kód adresního místa RÚIAN
+          (viz ADR 0002 v repozitáři). Vlastnosti: <code>name</code>, <code>address</code> (OFN Adresa),
+          <code>buildingTypeCode</code> (číselník <code>building-type</code>), <code>latitude</code>, <code>longitude</code>,
+          <code>yearBuilt</code>, <code>yearRenovated</code>. Souřadnice jsou přesné (otevřená data, bez anonymizace).
+          Schéma: <a href="https://data.ambiquality.org/v1/schema/building.json">building.json</a>.
+        </p>
+      </section>
+
+      <section id="třída-místnost">
+        <h3>Místnost</h3>
+        <p>
+          Třída <code>ambiq:Room</code>; vystupuje jako předmět zájmu pozorování. Vlastnosti: <code>buildingId</code>
+          (vazba na budovu), <code>name</code>, <code>floor</code> (podlaží), <code>functionCode</code>
+          (<code>room-function</code>), <code>exposureCode</code> (<code>exposure</code>), <code>areaM2</code>,
+          <code>ceilingHeightM</code>, <code>ventilationType</code> (<code>ventilation-type</code>),
+          <code>pollutionSources</code> (seznam konceptů <code>pollution-source</code>).
+          Schéma: <a href="https://data.ambiquality.org/v1/schema/room.json">room.json</a>.
+        </p>
+      </section>
+
+      <section id="třída-senzor">
+        <h3>Senzor</h3>
+        <p>
+          Třída <code>sosa:Sensor</code>. Vlastnosti: <code>buildingId</code>, <code>roomId</code>,
+          <code>manufacturer</code>, <code>model</code>, <code>serialNumber</code>, <code>statusCode</code>
+          (<code>sensor-status</code>) a <code>measuredParameters</code> — seznam měřených veličin
+          (<code>sosa:observes</code>) s jejich typem veličiny a jednotkou QUDT.
+          Schéma: <a href="https://data.ambiquality.org/v1/schema/sensor.json">sensor.json</a>.
+        </p>
+      </section>
+    </section>
+
+    <section id="příklady">
+      <h2>Příklady a schémata</h2>
+      <p>
+        Data jsou dostupná jako JSON, JSON-LD (s odkazem na
+        <a href="https://data.ambiquality.org/v1/context/measurements.jsonld">@context</a>) a CSV
+        (samopopisné přes <a href="https://data.ambiquality.org/v1/schema/observations.csv-metadata.json">tabulkové schéma CSVW</a>).
+        Prostá JSON schémata: <a href="https://data.ambiquality.org/v1/schema/observation.json">observation.json</a>.
+      </p>
+
+      <section id="příklad-pozorování-jsonld">
+        <h3>Pozorování v JSON-LD</h3>
+        <aside class="example" title="Jedno pozorování (JSON-LD)">
+          <pre class="json">
+{
+  "@context": "https://data.ambiquality.org/v1/context/measurements.jsonld",
+  "@id": "https://data.ambiquality.org/v1/observations/3f1c8e2a-…",
+  "@type": "sosa:Observation",
+  "sosa:observedProperty": { "@id": "https://data.ambiquality.org/v1/properties/co2" },
+  "qudt:hasQuantityKind": { "@id": "http://qudt.org/vocab/quantitykind/AmountOfSubstanceFraction" },
+  "sosa:hasFeatureOfInterest": { "@id": "https://data.ambiquality.org/v1/rooms/77d0…" },
+  "sosa:madeBySensor": { "@id": "https://data.ambiquality.org/v1/sensors/9b2a…" },
+  "sosa:hasSimpleResult": 412.5,
+  "qudt:unit": { "@id": "http://qudt.org/vocab/unit/PPM" },
+  "sosa:resultTime": "2026-01-15T10:30:45.123456Z",
+  "ambiq:receivedTime": "2026-01-15T10:30:46.234567Z",
+  "ambiq:isInvalid": false,
+  "license": "https://creativecommons.org/licenses/by/4.0/"
+}
+          </pre>
+        </aside>
+      </section>
+
+      <section id="příklad-pozorování-csv">
+        <h3>Pozorování v CSV</h3>
+        <aside class="example" title="Pozorování (CSV se záhlavím; sloupce dle CSVW schématu)">
+          <pre>
+id,sensor_id,parameter_code,value,unit,observed_property_uri,quantity_kind_uri,unit_uri,observed_at,received_at,is_invalid
+3f1c8e2a-…,9b2a…,co2,412.5,ppm,https://data.ambiquality.org/v1/properties/co2,http://qudt.org/vocab/quantitykind/AmountOfSubstanceFraction,http://qudt.org/vocab/unit/PPM,2026-01-15T10:30:45.123456Z,2026-01-15T10:30:46.234567Z,false
+          </pre>
+        </aside>
+      </section>
+    </section>
+
+    <section id="související-normy" class="appendix">
+      <h2>Související normy a datové sady</h2>
+      <ul>
+        <li><a href="https://www.w3.org/TR/vocab-ssn/">SOSA/SSN</a> — Semantic Sensor Network Ontology (W3C).</li>
+        <li><a href="https://qudt.org/">QUDT</a> — Quantities, Units, Dimensions and Types.</li>
+        <li><a href="https://www.w3.org/2004/02/skos/core.html">SKOS</a> — Simple Knowledge Organization System.</li>
+        <li><a href="https://www.w3.org/TR/vocab-dcat-3/">DCAT 3</a> / <a href="https://semiceu.github.io/DCAT-AP/releases/3.0.0/">DCAT-AP 3.0</a> — metadata katalogu (<a href="https://data.ambiquality.org/v1/catalog">/v1/catalog</a>).</li>
+        <li><a href="https://ofn.gov.cz/adresy/2020-07-01/">OFN Adresy</a> a <a href="https://nahlizenitomapy.cuzk.cz/">RÚIAN</a> — adresy budov.</li>
+        <li><a href="http://dd.eionet.europa.eu/vocabulary/aq/pollutant/">EEA/EIONET</a> — slovník znečišťujících látek ovzduší.</li>
+        <li><a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> — licence dat.</li>
+      </ul>
+    </section>
+  </body>
+</html>

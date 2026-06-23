@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Konceptuální model dat o kvalitě vnitřního prostředí (IEQ).
+     Anchored on SOSA/SSN; ambiq: is the Ambiquality namespace. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="430" viewBox="0 0 760 430"
+     font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif" role="img"
+     aria-label="Konceptuální model: Pozorování odkazuje na Sledovanou vlastnost, Senzor a Místnost (předmět zájmu); Místnost patří do Budovy.">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#456"/>
+    </marker>
+    <style>
+      .cls { fill:#eef6f9; stroke:#057fa5; stroke-width:2; rx:8; }
+      .cls.ext { fill:#f4f1ea; stroke:#9a8f73; }
+      .title { font-size:15px; font-weight:600; fill:#13323d; }
+      .iri { font-size:11px; fill:#5a6b72; font-family:monospace; }
+      .edge { stroke:#456; stroke-width:1.6; fill:none; }
+      .elabel { font-size:11.5px; fill:#34474f; font-family:monospace; }
+    </style>
+  </defs>
+
+  <!-- Pozorování -->
+  <rect class="cls" x="280" y="20" width="200" height="58" rx="8"/>
+  <text class="title" x="380" y="44" text-anchor="middle">Pozorování</text>
+  <text class="iri"   x="380" y="62" text-anchor="middle">sosa:Observation</text>
+
+  <!-- Sledovaná vlastnost -->
+  <rect class="cls" x="40" y="150" width="220" height="58" rx="8"/>
+  <text class="title" x="150" y="174" text-anchor="middle">Sledovaná vlastnost</text>
+  <text class="iri"   x="150" y="192" text-anchor="middle">sosa:ObservableProperty</text>
+
+  <!-- Senzor -->
+  <rect class="cls" x="500" y="150" width="220" height="58" rx="8"/>
+  <text class="title" x="610" y="174" text-anchor="middle">Senzor</text>
+  <text class="iri"   x="610" y="192" text-anchor="middle">sosa:Sensor</text>
+
+  <!-- Místnost (předmět zájmu) -->
+  <rect class="cls" x="280" y="250" width="200" height="58" rx="8"/>
+  <text class="title" x="380" y="274" text-anchor="middle">Místnost</text>
+  <text class="iri"   x="380" y="292" text-anchor="middle">ambiq:Room (předmět zájmu)</text>
+
+  <!-- Budova -->
+  <rect class="cls" x="280" y="350" width="200" height="58" rx="8"/>
+  <text class="title" x="380" y="374" text-anchor="middle">Budova</text>
+  <text class="iri"   x="380" y="392" text-anchor="middle">ambiq:Building</text>
+
+  <!-- edges -->
+  <!-- Observation -> ObservableProperty -->
+  <path class="edge" marker-end="url(#arrow)" d="M285 66 C200 90 150 110 150 148"/>
+  <text class="elabel" x="150" y="120" text-anchor="middle">sosa:observedProperty</text>
+
+  <!-- Observation -> Sensor -->
+  <path class="edge" marker-end="url(#arrow)" d="M475 66 C560 90 610 110 610 148"/>
+  <text class="elabel" x="615" y="120" text-anchor="middle">sosa:madeBySensor</text>
+
+  <!-- Observation -> Room (feature of interest) -->
+  <path class="edge" marker-end="url(#arrow)" d="M380 80 L380 248"/>
+  <text class="elabel" x="386" y="170" text-anchor="start">sosa:hasFeatureOfInterest</text>
+
+  <!-- Room -> Building -->
+  <path class="edge" marker-end="url(#arrow)" d="M380 310 L380 348"/>
+  <text class="elabel" x="386" y="333" text-anchor="start">ambiq:building</text>
+
+  <!-- Sensor -> Room (placed in) -->
+  <path class="edge" marker-end="url(#arrow)" d="M610 210 C610 280 500 285 482 282"/>
+  <text class="elabel" x="560" y="262" text-anchor="middle">ambiq:room</text>
+</svg>
