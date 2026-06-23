@@ -70,12 +70,50 @@ public static class ContentNegotiation
         return false;
     }
 
-    /// <summary>The wire media type for a resolved <see cref="ResponseFormat"/>.</summary>
+    /// <summary>
+    /// Content negotiation for endpoints that serve <em>only</em> JSON-LD (e.g. the DCAT
+    /// catalog). Absent/wildcard Accept defaults to <c>application/ld+json</c>. An explicit
+    /// <c>application/json</c> is also accepted and returns the same JSON-LD document (the
+    /// DCAT structure is valid JSON regardless of the <c>@</c>-keys). Only <c>text/csv</c>
+    /// and other non-JSON types yield 406.
+    /// </summary>
+    public static bool TryResolveJsonLdOnly(HttpRequest request)
+    {
+        StringValues header = request.Headers.Accept;
+        if (StringValues.IsNullOrEmpty(header))
+            return true;
+
+        if (!MediaTypeHeaderValue.TryParseList(header, out var accepted) || accepted.Count == 0)
+            return true;
+
+        // Walk types in decreasing quality order; skip unsupported types rather than
+        // returning false immediately, so that Accept: text/csv, */*;q=0.9 still resolves
+        // (the wildcard covers JSON-LD).
+        // application/json is treated as an alias: clients that do not set Accept, or set
+        // the generic application/json, must not be broken by a JSON-LD-only endpoint.
+        foreach (var media in accepted.OrderByDescending(m => m.Quality ?? 1.0))
+        {
+            var type = media.MediaType.Value;
+            if (string.IsNullOrEmpty(type))
+                continue;
+
+            if (type is "*/*" or "application/*"
+                || Matches(type, Constants.MediaTypeJsonLd)
+                || Matches(type, Constants.MediaTypeJson))
+                return true;
+
+            // This type is explicitly unsupported; try the next lower-quality entry.
+        }
+
+        return false;
+    }
+
+    /// <summary>The wire Content-Type value (with charset / header params) for a resolved format.</summary>
     public static string MediaType(ResponseFormat format) => format switch
     {
-        ResponseFormat.JsonLd => Constants.MediaTypeJsonLd,
-        ResponseFormat.Csv => Constants.MediaTypeCsv,
-        _ => Constants.MediaTypeJson
+        ResponseFormat.JsonLd => Constants.ContentTypeJsonLd,
+        ResponseFormat.Csv => Constants.ContentTypeCsv,
+        _ => Constants.ContentTypeJson
     };
 
     private static bool Matches(string candidate, string target) =>

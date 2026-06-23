@@ -87,16 +87,18 @@ public static class CatalogEndpoints
             .WithTags("Catalog")
             .WithName("GetDcatCatalog")
             .WithSummary("DCAT-AP 3.0 catalog metadata")
-            .WithDescription("Open-data catalog record describing the IEQ dataset (JSON-LD / JSON).");
+            .WithDescription("Open-data catalog record describing the IEQ dataset. Served as application/ld+json by default; application/json is also accepted (same document). text/csv is not supported (406).")
+            .Produces(StatusCodes.Status200OK, contentType: Constants.MediaTypeJsonLd)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
 
     private static async Task<IResult> GetCatalog(
         HttpContext http, IeqDbContext db, IEvidenceCatalog catalog, IExportCatalog exports,
         IConfiguration config, CancellationToken ct)
     {
-        // DCAT is RDF, so JSON-LD is the default; only an explicit application/json
-        // downgrades to plain JSON. text/csv is not meaningful here.
-        if (!ContentNegotiation.TryResolveFormat(http.Request, out var format) || format == ResponseFormat.Csv)
+        // The catalog is a JSON-LD-only resource (DCAT-AP is RDF). application/json is
+        // treated as an alias for JSON-LD (same document, same content-type); text/csv is rejected.
+        if (!ContentNegotiation.TryResolveJsonLdOnly(http.Request))
             return Problems.UnsupportedMediaType();
 
         var iri = IriBuilder.ForRequest(http.Request, config);
@@ -107,8 +109,7 @@ public static class CatalogEndpoints
         var document = BuildDocument(iri, start, end, extent, exportRows);
         http.Response.Headers.CacheControl = $"public, max-age={Constants.CacheSeconds}";
 
-        var contentType = format == ResponseFormat.Json ? Constants.MediaTypeJson : Constants.MediaTypeJsonLd;
-        return Results.Json(document, contentType: contentType);
+        return Results.Json(document, contentType: Constants.ContentTypeJsonLd);
     }
 
     private static IReadOnlyDictionary<string, object?> BuildDocument(
