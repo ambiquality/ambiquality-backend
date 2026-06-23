@@ -1,4 +1,15 @@
 :80 {
+	encode {
+		zstd
+		gzip
+		match {
+			header Content-Type application/json*
+			header Content-Type application/ld+json*
+			header Content-Type text/*
+			header Content-Type application/problem+json*
+		}
+	}
+
 	handle_path /evidence/* {
 		reverse_proxy evidence-api:6200
 	}

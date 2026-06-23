@@ -19,6 +19,17 @@
 
 # ── Backend API (path-routed to each service) ──────────────────────────────
 {$DOMAIN} {
+	encode {
+		zstd
+		gzip
+		match {
+			header Content-Type application/json*
+			header Content-Type application/ld+json*
+			header Content-Type text/*
+			header Content-Type application/problem+json*
+		}
+	}
+
 	handle_path /evidence/* {
 		reverse_proxy evidence-api:6200
 	}
@@ -44,5 +55,10 @@ www.ambiquality.org {
 }
 
 ambiquality.org {
+	encode {
+		zstd
+		gzip
+	}
+
 	reverse_proxy frontend:80
 }
