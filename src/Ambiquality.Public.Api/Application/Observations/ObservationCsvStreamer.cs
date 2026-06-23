@@ -22,7 +22,7 @@ public sealed class ObservationCsvStreamer(IAsyncEnumerable<Measurement>? rows, 
     public async Task ExecuteAsync(HttpContext httpContext)
     {
         var response = httpContext.Response;
-        response.ContentType = "text/csv; charset=utf-8";
+        response.ContentType = Constants.ContentTypeCsv;
         response.Headers.ContentDisposition = "attachment; filename=observations.csv";
         response.Headers.CacheControl = $"public, max-age={Constants.CacheSeconds}";
         response.Headers.Append("Link", $"<{Constants.LicenseIri}>; rel=\"license\"");

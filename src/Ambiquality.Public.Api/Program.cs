@@ -157,7 +157,15 @@ app.UseStaticFiles();
 // deliverable, F15). Scalar mounts at "/scalar/{documentName}" by default, which
 // does not collide with the "/v1/..." API routes.
 app.MapOpenApi();
-app.MapScalarApiReference();
+app.MapScalarApiReference(options =>
+{
+    options.Title = "Ambiquality Public API";
+    options.Theme = ScalarTheme.Purple;
+    // Default HTTP client for "Try it" — no auth needed (all routes are public).
+    options.DefaultHttpClient = new(ScalarTarget.Http, ScalarClient.HttpClient);
+    // Each endpoint declares its own Produces content types, which Scalar uses to
+    // populate the Accept header dropdown in Try it. No global override needed.
+});
 
 // --- Routing -----------------------------------------------------------------
 app.MapObservationEndpoints();

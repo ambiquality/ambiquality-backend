@@ -25,12 +25,22 @@ public static class ObservationEndpoints
                 + "Paging is keyset (opaque cursor), not offset: the observations hypertable is "
                 + "append-only and unbounded, so a cursor gives stable, gap-free pages and constant "
                 + "latency at any depth — unlike the catalog endpoints, which use small, bounded "
-                + "offset/page collections.");
+                + "offset/page collections.")
+            .Produces<ObservationPage>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson,
+                Constants.MediaTypeJsonLd, Constants.MediaTypeCsv)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
 
         group.MapMethods("/{id:guid}", ["GET", "HEAD"], GetObservationById)
             .WithName("GetObservationById")
             .WithSummary("Get an observation by id")
-            .WithDescription("The stable IRI target for a single observation (JSON or JSON-LD).");
+            .WithDescription("The stable IRI target for a single observation (JSON or JSON-LD).")
+            .Produces<ObservationResponse>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson,
+                Constants.MediaTypeJsonLd)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
 
     private static async Task<IResult> ListObservations(
@@ -67,7 +77,7 @@ public static class ObservationEndpoints
             : iri.ObservationsNext(result.NextCursor.Encode(), QueryWithoutCursor(http.Request));
 
         if (format == ResponseFormat.JsonLd)
-            return Results.Json(ObservationJsonLd.ToGraph(items, iri, nextIri), contentType: Constants.MediaTypeJsonLd);
+            return Results.Json(ObservationJsonLd.ToGraph(items, iri, nextIri), contentType: Constants.ContentTypeJsonLd);
 
         return Results.Ok(new ObservationPage(items, result.NextCursor?.Encode(), nextIri, Constants.LicenseIri));
     }
@@ -96,7 +106,7 @@ public static class ObservationEndpoints
 
         if (format == ResponseFormat.JsonLd)
             return Results.Json(ObservationJsonLd.ToResource(observation, iri, includeContext: true),
-                contentType: Constants.MediaTypeJsonLd);
+                contentType: Constants.ContentTypeJsonLd);
 
         return Results.Ok(observation);
     }

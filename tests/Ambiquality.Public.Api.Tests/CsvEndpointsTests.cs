@@ -48,7 +48,7 @@ public sealed class CsvEndpointsTests(TimescaleFixture fixture) : PublicApiTestB
     {
         var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/schema/observations.csv-metadata.json");
 
-        Assert.Equal("http://www.w3.org/ns/csvw", doc.GetProperty("@context").GetString());
+        Assert.Equal("https://www.w3.org/ns/csvw", doc.GetProperty("@context").GetString());
         var columns = doc.GetProperty("tableSchema").GetProperty("columns").EnumerateArray()
             .Select(c => c.GetProperty("name").GetString()).ToList();
         Assert.Equal(

@@ -17,17 +17,28 @@ public static class CodelistEndpoints
         group.MapMethods("/", ["GET", "HEAD"], ListCodelists)
             .WithName("ListCodelists")
             .WithSummary("List codelists")
-            .WithDescription("The catalog's controlled vocabularies as SKOS concept schemes (JSON or JSON-LD).");
+            .WithDescription("The catalog's controlled vocabularies as SKOS concept schemes (JSON or JSON-LD).")
+            .Produces<CodelistIndexResponse>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson, Constants.MediaTypeJsonLd)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
 
         group.MapMethods("/{scheme}", ["GET", "HEAD"], GetScheme)
             .WithName("GetCodelistScheme")
             .WithSummary("Get a codelist (concept scheme)")
-            .WithDescription("A single codelist with its bilingual concepts (JSON or JSON-LD).");
+            .WithDescription("A single codelist with its bilingual concepts (JSON or JSON-LD).")
+            .Produces<CodelistSchemeResponse>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson, Constants.MediaTypeJsonLd)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
 
         group.MapMethods("/{scheme}/{code}", ["GET", "HEAD"], GetConcept)
             .WithName("GetCodelistConcept")
             .WithSummary("Get a codelist concept")
-            .WithDescription("The dereferenceable IRI target for a single codelist concept (JSON or JSON-LD).");
+            .WithDescription("The dereferenceable IRI target for a single codelist concept (JSON or JSON-LD).")
+            .Produces<CodelistConceptResponse>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson, Constants.MediaTypeJsonLd)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
 
     private static IResult ListCodelists(HttpContext http, IConfiguration configuration)
@@ -41,7 +52,7 @@ public static class CodelistEndpoints
         if (format == ResponseFormat.JsonLd)
         {
             var schemes = Codelists.All.Select(c => CodelistSchemeResponse.From(c, iri));
-            return Results.Json(CodelistJsonLd.ToGraph(schemes), contentType: Constants.MediaTypeJsonLd);
+            return Results.Json(CodelistJsonLd.ToGraph(schemes), contentType: Constants.ContentTypeJsonLd);
         }
 
         var refs = Codelists.All
@@ -63,7 +74,7 @@ public static class CodelistEndpoints
         SetVocabularyCache(http);
 
         return format == ResponseFormat.JsonLd
-            ? Results.Json(CodelistJsonLd.ToScheme(response, includeContext: true), contentType: Constants.MediaTypeJsonLd)
+            ? Results.Json(CodelistJsonLd.ToScheme(response, includeContext: true), contentType: Constants.ContentTypeJsonLd)
             : Results.Ok(response);
     }
 
@@ -80,7 +91,7 @@ public static class CodelistEndpoints
         SetVocabularyCache(http);
 
         return format == ResponseFormat.JsonLd
-            ? Results.Json(CodelistJsonLd.ToConcept(response, includeContext: true), contentType: Constants.MediaTypeJsonLd)
+            ? Results.Json(CodelistJsonLd.ToConcept(response, includeContext: true), contentType: Constants.ContentTypeJsonLd)
             : Results.Ok(response);
     }
 

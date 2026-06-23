@@ -7,6 +7,55 @@ namespace Ambiquality.Public.Api.Tests;
 public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBase(fixture)
 {
     [Fact]
+    public async Task Catalog_ContentType_IsJsonLd()
+    {
+        var response = await Client.GetAsync("/v1/catalog");
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("application/ld+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Catalog_WithJsonAccept_ReturnsJsonLd()
+    {
+        // application/json is accepted as an alias — clients that omit Accept or send the
+        // generic JSON type must not be broken. The response is always application/ld+json.
+        var request = new HttpRequestMessage(HttpMethod.Get, "/v1/catalog");
+        request.Headers.Add("Accept", "application/json");
+        var response = await Client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("application/ld+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Catalog_WithWildcardAccept_ReturnsJsonLd()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/v1/catalog");
+        request.Headers.Add("Accept", "*/*");
+        var response = await Client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("application/ld+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Catalog_WithJsonAndWildcardAccept_ReturnsJsonLd()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/v1/catalog");
+        request.Headers.Add("Accept", "application/json, */*;q=0.9");
+        var response = await Client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("application/ld+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Catalog_WithCsvAccept_Returns406()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/v1/catalog");
+        request.Headers.Add("Accept", "text/csv");
+        var response = await Client.SendAsync(request);
+        Assert.Equal(System.Net.HttpStatusCode.NotAcceptable, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Catalog_IsDcatCatalogWithDataset()
     {
         var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");

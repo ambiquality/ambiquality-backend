@@ -35,10 +35,17 @@ public static class Constants
     public const string RdfsNamespace = "http://www.w3.org/2000/01/rdf-schema#";
     public const string DctermsNamespace = "http://purl.org/dc/terms/";
 
-    // Supported representation media types (content negotiation).
+    // Canonical MIME types — used for content negotiation (Accept matching) and as
+    // dcat:mediaType values in DCAT-AP metadata. No parameters; bare type only.
     public const string MediaTypeJson = "application/json";
     public const string MediaTypeJsonLd = "application/ld+json";
     public const string MediaTypeCsv = "text/csv";
+
+    // Wire Content-Type values for HTTP response headers — always declare encoding and,
+    // for CSV, the header-row presence so CSVW processors and HTTP clients know the layout.
+    public const string ContentTypeJson = MediaTypeJson + "; charset=utf-8";
+    public const string ContentTypeJsonLd = MediaTypeJsonLd + "; charset=utf-8";
+    public const string ContentTypeCsv = MediaTypeCsv + "; charset=utf-8; header=present";
 
     /// <summary>Pinned DCAT-AP 3.0.0 JSON-LD context IRI used by the catalog endpoint.</summary>
     public const string DcatApContextIri =

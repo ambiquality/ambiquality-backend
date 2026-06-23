@@ -22,14 +22,16 @@ public static class PropertyEndpoints
                 "The platform's IEQ observable-property vocabulary. Each entry is the "
                 + "sosa:observedProperty target for its parameter, with its QUDT quantity kind "
                 + "+ applicable unit and any authoritative external match. JSON or JSON-LD.")
-            .Produces<PropertyCollection>(StatusCodes.Status200OK)
+            .Produces<PropertyCollection>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson, Constants.MediaTypeJsonLd)
             .ProducesProblem(StatusCodes.Status406NotAcceptable);
 
         group.MapMethods("/{code}", ["GET", "HEAD"], GetPropertyByCode)
             .WithName("GetPropertyByCode")
             .WithSummary("Get an observable property by code")
             .WithDescription("The dereferenceable IRI target for a single observed property (JSON or JSON-LD).")
-            .Produces<PropertyResponse>(StatusCodes.Status200OK)
+            .Produces<PropertyResponse>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson, Constants.MediaTypeJsonLd)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
@@ -47,7 +49,7 @@ public static class PropertyEndpoints
         SetVocabularyCache(http);
 
         return format == ResponseFormat.JsonLd
-            ? Results.Json(PropertyJsonLd.ToGraph(items), contentType: Constants.MediaTypeJsonLd)
+            ? Results.Json(PropertyJsonLd.ToGraph(items), contentType: Constants.ContentTypeJsonLd)
             : Results.Ok(new PropertyCollection(items, Constants.LicenseIri));
     }
 
@@ -65,7 +67,7 @@ public static class PropertyEndpoints
         SetVocabularyCache(http);
 
         return format == ResponseFormat.JsonLd
-            ? Results.Json(PropertyJsonLd.ToResource(property, includeContext: true), contentType: Constants.MediaTypeJsonLd)
+            ? Results.Json(PropertyJsonLd.ToResource(property, includeContext: true), contentType: Constants.ContentTypeJsonLd)
             : Results.Ok(property);
     }
 

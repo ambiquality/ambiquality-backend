@@ -12,7 +12,8 @@ public static class RoomEndpoints
         group.MapMethods("/{id:guid}", ["GET", "HEAD"], GetRoomById)
             .WithName("GetRoomById")
             .WithSummary("Get a room by id")
-            .Produces<RoomResponse>(StatusCodes.Status200OK)
+            .Produces<RoomResponse>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson, Constants.MediaTypeJsonLd)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status406NotAcceptable);
 
@@ -20,7 +21,8 @@ public static class RoomEndpoints
             .WithName("ListRoomSensors")
             .WithSummary("List sensors in a room")
             .WithDescription("Filters: parameterCode, status, page, pageSize.")
-            .Produces<CatalogPage<SensorResponse>>(StatusCodes.Status200OK)
+            .Produces<CatalogPage<SensorResponse>>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson, Constants.MediaTypeJsonLd)
             .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
 
@@ -39,7 +41,7 @@ public static class RoomEndpoints
         ResponseHeaders.SetListHeaders(http, iri, "room");
 
         return format == ResponseFormat.JsonLd
-            ? Results.Json(CatalogJsonLd.ToRoom(room, iri), contentType: Constants.MediaTypeJsonLd)
+            ? Results.Json(CatalogJsonLd.ToRoom(room, iri), contentType: Constants.ContentTypeJsonLd)
             : Results.Ok(room);
     }
 
@@ -63,7 +65,7 @@ public static class RoomEndpoints
 
         if (format == ResponseFormat.JsonLd)
             return Results.Json(CatalogJsonLd.ToGraph(items.Select(s => CatalogJsonLd.ToSensor(s, iri))),
-                contentType: Constants.MediaTypeJsonLd);
+                contentType: Constants.ContentTypeJsonLd);
 
         return Results.Ok(new CatalogPage<SensorResponse>(items, page, pageSize, total, next, Constants.LicenseIri));
     }
