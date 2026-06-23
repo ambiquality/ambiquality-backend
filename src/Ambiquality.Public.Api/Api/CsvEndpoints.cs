@@ -18,7 +18,9 @@ public static class CsvEndpoints
             .WithTags("Observations")
             .WithName("ExportObservationsCsv")
             .WithSummary("Export observations as CSV")
-            .WithDescription("Streams the filtered observation set as a downloadable CSV archive (CC BY 4.0).");
+            .WithDescription("Streams the filtered observation set as a downloadable CSV archive (CC BY 4.0).")
+            .Produces(StatusCodes.Status200OK, contentType: Constants.MediaTypeCsv)
+            .ProducesProblem(StatusCodes.Status400BadRequest);
     }
 
     /// <summary>

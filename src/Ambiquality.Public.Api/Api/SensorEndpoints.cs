@@ -12,7 +12,8 @@ public static class SensorEndpoints
         group.MapMethods("/{id:guid}", ["GET", "HEAD"], GetSensorById)
             .WithName("GetSensorById")
             .WithSummary("Get a sensor by id")
-            .Produces<SensorResponse>(StatusCodes.Status200OK)
+            .Produces<SensorResponse>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson, Constants.MediaTypeJsonLd)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
@@ -32,7 +33,7 @@ public static class SensorEndpoints
         ResponseHeaders.SetListHeaders(http, iri, "sensor");
 
         return format == ResponseFormat.JsonLd
-            ? Results.Json(CatalogJsonLd.ToSensor(sensor, iri), contentType: Constants.MediaTypeJsonLd)
+            ? Results.Json(CatalogJsonLd.ToSensor(sensor, iri), contentType: Constants.ContentTypeJsonLd)
             : Results.Ok(sensor);
     }
 }

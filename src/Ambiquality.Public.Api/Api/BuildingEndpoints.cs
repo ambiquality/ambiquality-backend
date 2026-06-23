@@ -23,7 +23,8 @@ public static class BuildingEndpoints
                 + "index is friendlier than the keyset cursor used by the unbounded observations feed. "
                 + "Each building carries a Czech OFN address (see the Address schema). Negotiable as "
                 + "JSON (default) or JSON-LD (Accept: application/ld+json).")
-            .Produces<CatalogPage<BuildingResponse>>(StatusCodes.Status200OK)
+            .Produces<CatalogPage<BuildingResponse>>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson, Constants.MediaTypeJsonLd)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status406NotAcceptable);
 
@@ -34,7 +35,8 @@ public static class BuildingEndpoints
                 "Returns one building with its current OFN address (see the Address schema) and "
                 + "precise coordinates. Negotiable as JSON (default) or JSON-LD; the JSON-LD form "
                 + "emits a conformant OFN Adresa node with dereferenceable RÚIAN IRIs.")
-            .Produces<BuildingResponse>(StatusCodes.Status200OK)
+            .Produces<BuildingResponse>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson, Constants.MediaTypeJsonLd)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status406NotAcceptable);
 
@@ -42,7 +44,8 @@ public static class BuildingEndpoints
             .WithName("ListBuildingRooms")
             .WithSummary("List rooms of a building")
             .WithDescription("Filters: roomFunction, minExposure (minutes), page, pageSize.")
-            .Produces<CatalogPage<RoomResponse>>(StatusCodes.Status200OK)
+            .Produces<CatalogPage<RoomResponse>>(StatusCodes.Status200OK,
+                contentType: Constants.MediaTypeJson, Constants.MediaTypeJsonLd)
             .ProducesProblem(StatusCodes.Status406NotAcceptable);
     }
 
@@ -73,7 +76,7 @@ public static class BuildingEndpoints
 
         if (format == ResponseFormat.JsonLd)
             return Results.Json(CatalogJsonLd.ToGraph(items.Select(b => CatalogJsonLd.ToBuilding(b, iri))),
-                contentType: Constants.MediaTypeJsonLd);
+                contentType: Constants.ContentTypeJsonLd);
 
         return Results.Ok(new CatalogPage<BuildingResponse>(items, page, pageSize, total, next, Constants.LicenseIri));
     }
@@ -93,7 +96,7 @@ public static class BuildingEndpoints
         ResponseHeaders.SetListHeaders(http, iri, "building");
 
         return format == ResponseFormat.JsonLd
-            ? Results.Json(CatalogJsonLd.ToBuilding(building, iri), contentType: Constants.MediaTypeJsonLd)
+            ? Results.Json(CatalogJsonLd.ToBuilding(building, iri), contentType: Constants.ContentTypeJsonLd)
             : Results.Ok(building);
     }
 
@@ -117,7 +120,7 @@ public static class BuildingEndpoints
 
         if (format == ResponseFormat.JsonLd)
             return Results.Json(CatalogJsonLd.ToGraph(items.Select(r => CatalogJsonLd.ToRoom(r, iri))),
-                contentType: Constants.MediaTypeJsonLd);
+                contentType: Constants.ContentTypeJsonLd);
 
         return Results.Ok(new CatalogPage<RoomResponse>(items, page, pageSize, total, next, Constants.LicenseIri));
     }

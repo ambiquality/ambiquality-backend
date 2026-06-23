@@ -39,11 +39,12 @@ public static class ContextEndpoints
         app.MapMethods($"/{Constants.ApiVersion}/context/measurements.jsonld", ["GET", "HEAD"], (HttpContext http) =>
         {
             http.Response.Headers.CacheControl = $"public, max-age={Constants.ContextCacheSeconds}";
-            return Results.Json(Document, contentType: Constants.MediaTypeJsonLd);
+            return Results.Json(Document, contentType: Constants.ContentTypeJsonLd);
         })
         .WithTags("Context")
         .WithName("GetMeasurementsContext")
         .WithSummary("JSON-LD context for observations")
-        .WithDescription("The @context document that observation JSON-LD responses link to.");
+        .WithDescription("The @context document that observation JSON-LD responses link to.")
+        .Produces(StatusCodes.Status200OK, contentType: Constants.MediaTypeJsonLd);
     }
 }

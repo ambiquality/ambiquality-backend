@@ -1,5 +1,5 @@
 {
-  "@context": "http://www.w3.org/ns/csvw",
+  "@context": "https://www.w3.org/ns/csvw",
   "url": "../observations.csv",
   "dc:title": "Ambiquality IEQ observations (CSV)",
   "dc:description": "Tabular (CSVW) schema for the streamed observations CSV export (F17) and the monthly CSV archives. The columns carry the same SSN/SOSA + QUDT semantics published as JSON-LD, so a CSVW processor can lift the rows into the same RDF model.",
