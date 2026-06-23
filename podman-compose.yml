@@ -215,6 +215,11 @@ services:
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=ingestion_api;Password=${INGESTION_API_DB_PASSWORD:?error}"
       # The API only enqueues; the worker drains the stream and writes to ieq.
       ConnectionStrings__Redis: "redis:6379"
+      # Per-sensor publish rate limit. Defaults OFF in the dev/CI stack so the k6
+      # throughput smoke (one sensor at a high arrival rate, by design) and the
+      # repeated-ingest newman flow are not throttled; flip to "true" in .env to
+      # exercise it locally. Defaults ON in production (compose.ghcr.yml).
+      IngestionRateLimit__Enabled: ${INGESTION_RATE_LIMIT_ENABLED:-false}
     ports:
       - "6300:6300"
     volumes:

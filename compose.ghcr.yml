@@ -178,6 +178,9 @@ services:
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=ingestion_api;Password=${INGESTION_API_DB_PASSWORD:?error}"
       # The API only enqueues; the worker drains the stream and writes to ieq.
       ConnectionStrings__Redis: "redis:6379"
+      # Per-sensor publish rate limit; defaults ON in production. Tune the window
+      # via IngestionRateLimit__DefaultIntervalSeconds / __PermitsPerWindow if needed.
+      IngestionRateLimit__Enabled: ${INGESTION_RATE_LIMIT_ENABLED:-true}
     volumes:
       - ./conf/vocabulary-extensions.json:/etc/ambiquality/vocabulary-extensions.json:ro
     networks:

@@ -5,6 +5,11 @@
 // The API ack is 202 (durably enqueued) — this measures the accept path;
 // the worker drains the Redis stream asynchronously.
 //
+// This drives one sensor at a high arrival rate to measure platform write
+// throughput, which is orthogonal to the per-sensor publish rate limit — so the
+// limit must be OFF for this test (it is in the dev/CI stack; see podman-compose.yml).
+// With it on, every request after the first per window would be 429 by design.
+//
 //   ./k6/seed.sh
 //   k6 run k6/ingestion-write.js                       # 100 msg/s for 2m
 //   k6 run -e RATE=200 -e DURATION=5m k6/ingestion-write.js
