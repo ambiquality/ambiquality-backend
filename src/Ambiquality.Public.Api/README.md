@@ -185,6 +185,26 @@ Behind Caddy's path-stripping `handle_path /public/*`, the app no longer sees th
 `/public` prefix. Set `PublicApi:BaseIri` (env `PublicApi__BaseIri`) to the public
 base so the linked-data IRIs (`@id`, `next`, schema/context links) stay correct.
 
+**Canonical open-data host (`data.ambiquality.org`).** The published namespace and
+identifier IRIs — the `ambiq:` namespace, observation/property/codelist/sensor IRIs,
+JSON-Schema `$id`s and CSVW `propertyUrl`s — are anchored on `https://data.ambiquality.org`,
+deliberately *not* on the internal API host (`api.ambiquality.org/public/…`) so the
+permanent identifiers never depend on internal routing. For those IRIs to actually
+**dereference** (the spec calls them *"dereferencovatelné"*), production serves that host
+directly from this service:
+
+1. **DNS** — `data.ambiquality.org` → the ingress host (A + AAAA, DNS-only so the ACME
+   challenge reaches Caddy).
+2. **Ingress** — `conf/Caddyfile.production` has a dedicated `data.ambiquality.org` site
+   block that reverse-proxies straight to `public-api:6400` with **no** `/public` prefix,
+   so `https://data.ambiquality.org/v1/…` maps to the service's `/v1/…` one-to-one.
+3. **Config** — set `PUBLIC_API_BASE_IRI=https://data.ambiquality.org/v1` in the server
+   `.env` (consumed by `compose.ghcr.yml` as `PublicApi__BaseIri`) so minted IRIs use the
+   canonical host instead of deriving the request origin (`api.ambiquality.org/public`).
+
+The `api.ambiquality.org/public/*` route keeps working unchanged for internal/back-compat
+callers; `data.ambiquality.org` is the public-facing identifier host.
+
 `/v1/map/snapshot` caches its result for ~60 s in Redis when `ConnectionStrings:Redis`
 (env `ConnectionStrings__Redis`) is set; with no Redis configured it falls back to an
 in-process memory cache, and any cache fault degrades to a fresh compute (the read path
