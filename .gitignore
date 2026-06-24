@@ -491,6 +491,9 @@ thoughts/*
 # build output goes to /tmp and node_modules is ignored by the global rule above.
 .postman
 
+# draw.io editor backup files (e.g. .$conceptual-class-diagram.drawio.bkp)
+.$*.drawio.bkp
+
 #claude
 .claude
 .tldr
