@@ -65,11 +65,26 @@ echo "▶ Waiting for the API to answer through Caddy…"
 for i in $(seq 1 30); do
 	if curl -fsS --max-time 5 "https://api.ambiquality.org/public/v1/properties" >/dev/null 2>&1; then
 		echo "✓ Deploy live: api=$BACKEND_TAG, frontend=$FRONTEND_TAG"
-		exit 0
+		break
+	fi
+	if [ "$i" -eq 30 ]; then
+		echo "✗ Health check did not pass within ~90s — inspect with:" >&2
+		echo "    ssh $DEPLOY_HOST 'cd $DEPLOY_DIR && podman compose -f compose.ghcr.yml ps && podman compose -f compose.ghcr.yml logs --tail=50'" >&2
+		exit 1
 	fi
 	sleep 3
 done
 
-echo "✗ Health check did not pass within ~90s — inspect with:" >&2
-echo "    ssh $DEPLOY_HOST 'cd $DEPLOY_DIR && podman compose -f compose.ghcr.yml ps && podman compose -f compose.ghcr.yml logs --tail=50'" >&2
-exit 1
+# 4. Confirm the canonical open-data host dereferences (DNS + the data. Caddy
+#    block + PUBLIC_API_BASE_IRI must all be in place). Non-fatal: the deploy is
+#    already live above; a failure here just means the data. ingress/DNS or the
+#    base-IRI env still needs wiring, so warn rather than fail the roll.
+echo "▶ Checking the canonical open-data host (data.ambiquality.org)…"
+if curl -fsS --max-time 5 "https://data.ambiquality.org/v1/properties" >/dev/null 2>&1; then
+	echo "✓ Identifier host live: https://data.ambiquality.org/v1/…"
+else
+	echo "⚠ data.ambiquality.org/v1/properties did not answer — published IRIs will not" >&2
+	echo "  dereference. Check the data. DNS record, the Caddyfile.production data. block," >&2
+	echo "  and PUBLIC_API_BASE_IRI=https://data.ambiquality.org/v1 in the server .env." >&2
+fi
+exit 0

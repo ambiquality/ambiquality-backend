@@ -7,7 +7,11 @@
 #   1. set DOMAIN (the API host, e.g. api.ambiquality.org) and ACME_EMAIL in the
 #      environment (the server .env),
 #   2. publish ports 80 and 443 on the caddy service — already done in
-#      compose.ghcr.yml.
+#      compose.ghcr.yml,
+#   3. point DNS for the open-data host (data.ambiquality.org) at this ingress and
+#      set PUBLIC_API_BASE_IRI=https://data.ambiquality.org/v1 in the server .env so
+#      the public-api mints IRIs under the canonical data host (see the data. block
+#      below and Ambiquality.Public.Api/README.md → Deployment note).
 #
 # Each domain-addressed site block makes Caddy provision and renew certificates
 # automatically (Let's Encrypt) and answer plain HTTP on :80 only with a 308
@@ -45,6 +49,28 @@
 	handle_path /auth/* {
 		reverse_proxy auth-api:6100
 	}
+}
+
+# ── Open-data identifier host (canonical public IRIs) ───────────────────────
+# data.ambiquality.org is the permanent namespace/identifier host for the open
+# data (the ambiq: namespace, observation/property/codelist IRIs, JSON-Schema
+# $ids, CSVW propertyUrls). It reverse-proxies straight to public-api with NO
+# /public prefix, so https://data.ambiquality.org/v1/… maps one-to-one to the
+# service's /v1/… — the published IRIs therefore resolve. Keep this in lockstep
+# with PUBLIC_API_BASE_IRI=https://data.ambiquality.org/v1 in the server .env.
+data.ambiquality.org {
+	encode {
+		zstd
+		gzip
+		match {
+			header Content-Type application/json*
+			header Content-Type application/ld+json*
+			header Content-Type text/*
+			header Content-Type application/problem+json*
+		}
+	}
+
+	reverse_proxy public-api:6400
 }
 
 # ── Frontend SPA (apex + www) ───────────────────────────────────────────────
