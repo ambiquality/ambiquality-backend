@@ -120,5 +120,14 @@ public static class EvidenceSeed
           ('{M3}', '{SensorId}', 'co2', 420, 'ppm', '2026-05-01 11:00:00+00', '2026-05-01 11:00:00+00', false),
           ('{M4}', '{SensorId}', 'co2', 430, 'ppm', '2026-05-01 12:00:00+00', '2026-05-01 12:00:00+00', true),
           ('{M5}', '{SensorId}', 'temperature', 21.5, '°C', '2026-05-01 13:00:00+00', '2026-05-01 13:00:00+00', false);
+
+        -- Published monthly archives: two months, each as a single gzip file per format.
+        -- Exercises the dcat:DatasetSeries + per-month member datasets in the catalog.
+        INSERT INTO ieq.measurement_exports (id, year, month, media_type, compress_format, file_key, download_url, file_size_bytes, record_count, exported_at)
+        VALUES
+          (gen_random_uuid(), 2026, 4, 'text/csv', 'application/gzip', 'exports/2026/04/measurements-2026-04.csv.gz', 'https://data.example/exports/2026/04/measurements-2026-04.csv.gz', 1024, 100, '2026-05-01 02:00:00+00'),
+          (gen_random_uuid(), 2026, 4, 'application/ld+json', 'application/gzip', 'exports/2026/04/measurements-2026-04.jsonld.gz', 'https://data.example/exports/2026/04/measurements-2026-04.jsonld.gz', 2048, 100, '2026-05-01 02:00:00+00'),
+          (gen_random_uuid(), 2026, 5, 'text/csv', 'application/gzip', 'exports/2026/05/measurements-2026-05.csv.gz', 'https://data.example/exports/2026/05/measurements-2026-05.csv.gz', 1536, 5, '2026-06-01 02:00:00+00'),
+          (gen_random_uuid(), 2026, 5, 'application/ld+json', 'application/gzip', 'exports/2026/05/measurements-2026-05.jsonld.gz', 'https://data.example/exports/2026/05/measurements-2026-05.jsonld.gz', 3072, 5, '2026-06-01 02:00:00+00');
         """;
 }

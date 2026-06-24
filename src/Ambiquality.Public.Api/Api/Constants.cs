@@ -62,6 +62,11 @@ public static class Constants
     public const string FrequencyContinuous =
         "http://publications.europa.eu/resource/authority/frequency/CONT";
 
+    /// <summary>"Monthly" from the EU frequency codelist (dcterms:accrualPeriodicity);
+    /// the downloadable archive series gains one new member per calendar month.</summary>
+    public const string FrequencyMonthly =
+        "http://publications.europa.eu/resource/authority/frequency/MONTHLY";
+
     /// <summary>JSON-LD file type from the EU file-type codelist (dcterms:format).</summary>
     public const string FileTypeJsonLd =
         "http://publications.europa.eu/resource/authority/file-type/JSON_LD";

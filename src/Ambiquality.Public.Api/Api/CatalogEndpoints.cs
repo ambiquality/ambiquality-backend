@@ -6,10 +6,13 @@ using Ambiquality.Public.Api.Infrastructure.Catalog;
 namespace Ambiquality.Public.Api.Api;
 
 /// <summary>
-/// DCAT-AP 3.0 catalog metadata (F16). One <c>dcat:Dataset</c> describes the whole
-/// platform with two distributions (JSON-LD and CSV), spatial + temporal coverage
-/// derived from live data, a contact point, and the CC BY 4.0 license. Served as
-/// JSON-LD by default; plain JSON on explicit <c>Accept: application/json</c>.
+/// DCAT-AP 3.0 catalog metadata (F16/F17). The catalog publishes two things:
+/// a continuous live <c>dcat:Dataset</c> (the queryable API, JSON-LD + CSV access
+/// points, spatial + temporal coverage from live data) and — when monthly archives
+/// exist — a <c>dcat:DatasetSeries</c> whose members are one <c>dcat:Dataset</c> per
+/// calendar month. A monthly slice is distinct data, so it is a member dataset with
+/// its own gzip distributions, never another distribution of the live dataset. Served
+/// as JSON-LD by default; plain JSON on explicit <c>Accept: application/json</c>.
 /// </summary>
 public static class CatalogEndpoints
 {
@@ -40,6 +43,22 @@ public static class CatalogEndpoints
     [
         ("en", DatasetTitle),
         ("cs", "Ambiquality – otevřená data o kvalitě vnitřního prostředí")
+    ];
+
+    private static readonly (string Lang, string Value)[] SeriesTitle =
+    [
+        ("en", "Ambiquality IEQ measurements — monthly archives"),
+        ("cs", "Ambiquality – měření IEQ, měsíční archivy")
+    ];
+
+    private static readonly (string Lang, string Value)[] SeriesDescription =
+    [
+        ("en", "Downloadable monthly archives of the Ambiquality IEQ measurements, one "
+             + "dataset per calendar month. Each month is published as a single "
+             + "gzip-compressed CSV file and a single gzip-compressed JSON-LD file."),
+        ("cs", "Měsíční archivy měření IEQ platformy Ambiquality ke stažení, jedna datová "
+             + "sada na kalendářní měsíc. Každý měsíc je publikován jako jeden gzipem "
+             + "komprimovaný CSV soubor a jeden gzipem komprimovaný JSON-LD soubor.")
     ];
 
     private static readonly (string Lang, string Value)[] DatasetDescription =
@@ -116,58 +135,21 @@ public static class CatalogEndpoints
         IriBuilder iri, DateTime? start, DateTime? end, SpatialExtent? extent,
         IReadOnlyList<ExportDistributionRow> exports)
     {
-        // Live API access points plus one downloadable archive per published export.
-        // CSV distributions advertise the CSVW tabular schema via dcterms:conformsTo.
-        var csvSchema = iri.CsvMetadata();
-        var distributions = new List<object>
+        // The catalog always carries the continuous live dataset. When monthly archives
+        // exist, it additionally carries a dcat:DatasetSeries and one member dcat:Dataset
+        // per month — newest first.
+        var datasets = new List<object> { LiveDataset(iri, start, end, extent) };
+
+        var months = exports
+            .GroupBy(e => (e.Year, e.Month))
+            .OrderByDescending(g => g.Key.Year).ThenByDescending(g => g.Key.Month)
+            .ToList();
+
+        if (months.Count > 0)
         {
-            Distribution(iri.Observations(), Constants.MediaTypeJsonLd, "Observations as JSON-LD"),
-            Distribution(iri.ObservationsCsv(), Constants.MediaTypeCsv, "Observations as CSV", conformsTo: csvSchema)
-        };
-        distributions.AddRange(exports.Select(e => DownloadDistribution(e, csvSchema)));
-
-        var dataset = new Dictionary<string, object?>
-        {
-            ["@id"] = $"{iri.Catalog()}#dataset",
-            ["@type"] = "dcat:Dataset",
-            ["dcterms:title"] = Multilingual(DatasetTitleMultilingual),
-            ["dcterms:description"] = Multilingual(DatasetDescription),
-            ["dcterms:publisher"] = Publisher(),
-            ["dcterms:license"] = new Dictionary<string, object?> { ["@id"] = Constants.LicenseIri },
-            ["dcat:theme"] = new Dictionary<string, object?> { ["@id"] = Constants.ThemeEnvironment },
-            ["dcat:keyword"] = Multilingual(Keywords),
-            // Measurements stream in continuously; the dataset is updated continuously.
-            ["dcterms:accrualPeriodicity"] = new Dictionary<string, object?> { ["@id"] = Constants.FrequencyContinuous },
-            ["dcat:contactPoint"] = new Dictionary<string, object?>
-            {
-                ["@type"] = "vcard:Individual",
-                ["vcard:fn"] = PublisherName,
-                ["vcard:hasEmail"] = new Dictionary<string, object?> { ["@id"] = $"mailto:{ContactEmail}" }
-            },
-            ["dcat:distribution"] = distributions
-        };
-
-        if (start is not null)
-            dataset["dcterms:issued"] = TypedDate(start.Value, "xsd:date");
-
-        if (start is not null && end is not null)
-            dataset["dcterms:temporal"] = new Dictionary<string, object?>
-            {
-                ["@type"] = "dcterms:PeriodOfTime",
-                ["dcat:startDate"] = TypedDate(start.Value, "xsd:dateTime"),
-                ["dcat:endDate"] = TypedDate(end.Value, "xsd:dateTime")
-            };
-
-        if (extent is not null)
-            dataset["dcterms:spatial"] = new Dictionary<string, object?>
-            {
-                ["@type"] = "dcterms:Location",
-                ["dcat:bbox"] = new Dictionary<string, object?>
-                {
-                    ["@type"] = "geosparql:wktLiteral",
-                    ["@value"] = WktEnvelope(extent)
-                }
-            };
+            datasets.Add(MonthlySeries(iri, months));
+            datasets.AddRange(months.Select(object (m) => MonthlyDataset(iri, m)));
+        }
 
         return new Dictionary<string, object?>
         {
@@ -179,10 +161,149 @@ public static class CatalogEndpoints
             // mandatory in base DCAT-AP 3.0. Both were previously absent at the Catalog level.
             ["dcterms:description"] = Multilingual(CatalogDescription),
             ["dcterms:publisher"] = Publisher(),
-            ["dcterms:license"] = new Dictionary<string, object?> { ["@id"] = Constants.LicenseIri },
-            ["dcat:dataset"] = dataset
+            ["dcterms:license"] = Ref(Constants.LicenseIri),
+            ["dcat:dataset"] = datasets
         };
     }
+
+    /// <summary>
+    /// The continuous live dataset: the queryable API exposed as two distributions
+    /// (JSON-LD + CSV access points), updated continuously. The CSV distribution
+    /// advertises the CSVW tabular schema via dcterms:conformsTo.
+    /// </summary>
+    private static Dictionary<string, object?> LiveDataset(
+        IriBuilder iri, DateTime? start, DateTime? end, SpatialExtent? extent)
+    {
+        var csvSchema = iri.CsvMetadata();
+        var dataset = new Dictionary<string, object?>
+        {
+            ["@id"] = $"{iri.Catalog()}#dataset",
+            ["@type"] = "dcat:Dataset",
+            ["dcterms:title"] = Multilingual(DatasetTitleMultilingual),
+            ["dcterms:description"] = Multilingual(DatasetDescription),
+            ["dcterms:publisher"] = Publisher(),
+            ["dcterms:license"] = Ref(Constants.LicenseIri),
+            ["dcat:theme"] = Ref(Constants.ThemeEnvironment),
+            ["dcat:keyword"] = Multilingual(Keywords),
+            // Measurements stream in continuously; the dataset is updated continuously.
+            ["dcterms:accrualPeriodicity"] = Ref(Constants.FrequencyContinuous),
+            ["dcat:contactPoint"] = ContactPoint(),
+            ["dcat:distribution"] = new List<object>
+            {
+                Distribution(iri.Observations(), Constants.MediaTypeJsonLd, "Observations as JSON-LD"),
+                Distribution(iri.ObservationsCsv(), Constants.MediaTypeCsv, "Observations as CSV", conformsTo: csvSchema)
+            }
+        };
+
+        if (start is not null)
+            dataset["dcterms:issued"] = TypedDate(start.Value, "xsd:date");
+
+        if (start is not null && end is not null)
+            dataset["dcterms:temporal"] = Period(start.Value, end.Value);
+
+        if (extent is not null)
+            dataset["dcterms:spatial"] = Spatial(extent);
+
+        return dataset;
+    }
+
+    /// <summary>
+    /// The dcat:DatasetSeries grouping the monthly archive members. Its temporal extent
+    /// spans the published months and dcat:first/dcat:last point at the chronological
+    /// ends; <paramref name="months"/> is ordered newest-first.
+    /// </summary>
+    private static Dictionary<string, object?> MonthlySeries(
+        IriBuilder iri, IReadOnlyList<IGrouping<(short Year, short Month), ExportDistributionRow>> months)
+    {
+        var newest = months[0].Key;
+        var oldest = months[^1].Key;
+
+        return new Dictionary<string, object?>
+        {
+            ["@id"] = SeriesIri(iri),
+            ["@type"] = "dcat:DatasetSeries",
+            ["dcterms:title"] = Multilingual(SeriesTitle),
+            ["dcterms:description"] = Multilingual(SeriesDescription),
+            ["dcterms:publisher"] = Publisher(),
+            ["dcterms:license"] = Ref(Constants.LicenseIri),
+            ["dcat:theme"] = Ref(Constants.ThemeEnvironment),
+            ["dcterms:accrualPeriodicity"] = Ref(Constants.FrequencyMonthly),
+            ["dcterms:temporal"] = Period(MonthStart(oldest), MonthStart(newest).AddMonths(1)),
+            ["dcat:first"] = Ref(MonthDatasetIri(iri, oldest)),
+            ["dcat:last"] = Ref(MonthDatasetIri(iri, newest))
+        };
+    }
+
+    /// <summary>
+    /// One month's archive as a member dcat:Dataset: linked to the series via
+    /// dcat:inSeries, bounded by dcterms:temporal to the calendar month, and carrying
+    /// one gzip download distribution per published format.
+    /// </summary>
+    private static Dictionary<string, object?> MonthlyDataset(
+        IriBuilder iri, IGrouping<(short Year, short Month), ExportDistributionRow> month)
+    {
+        var (year, mon) = month.Key;
+        var monthStart = MonthStart(month.Key);
+        var csvSchema = iri.CsvMetadata();
+
+        return new Dictionary<string, object?>
+        {
+            ["@id"] = MonthDatasetIri(iri, month.Key),
+            ["@type"] = "dcat:Dataset",
+            ["dcterms:title"] = Multilingual(
+            [
+                ("en", $"Ambiquality IEQ measurements {year:D4}-{mon:D2}"),
+                ("cs", $"Ambiquality – měření IEQ za {year:D4}-{mon:D2}")
+            ]),
+            ["dcterms:description"] = Multilingual(
+            [
+                ("en", $"Indoor environmental quality measurements for the {year:D4}-{mon:D2} "
+                     + "calendar month, as a downloadable monthly archive."),
+                ("cs", $"Měření kvality vnitřního prostředí za kalendářní měsíc {year:D4}-{mon:D2} "
+                     + "ke stažení jako měsíční archiv.")
+            ]),
+            ["dcterms:publisher"] = Publisher(),
+            ["dcterms:license"] = Ref(Constants.LicenseIri),
+            ["dcat:theme"] = Ref(Constants.ThemeEnvironment),
+            ["dcat:inSeries"] = Ref(SeriesIri(iri)),
+            ["dcterms:temporal"] = Period(monthStart, monthStart.AddMonths(1)),
+            ["dcat:distribution"] = month.Select(object (e) => DownloadDistribution(e, csvSchema)).ToList()
+        };
+    }
+
+    private static string SeriesIri(IriBuilder iri) => $"{iri.Catalog()}#series";
+
+    private static string MonthDatasetIri(IriBuilder iri, (short Year, short Month) m) =>
+        $"{iri.Catalog()}#dataset-{m.Year:D4}-{m.Month:D2}";
+
+    private static DateTime MonthStart((short Year, short Month) m) =>
+        new(m.Year, m.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    private static Dictionary<string, object?> Ref(string id) => new() { ["@id"] = id };
+
+    private static Dictionary<string, object?> ContactPoint() => new()
+    {
+        ["@type"] = "vcard:Individual",
+        ["vcard:fn"] = PublisherName,
+        ["vcard:hasEmail"] = Ref($"mailto:{ContactEmail}")
+    };
+
+    private static Dictionary<string, object?> Period(DateTime start, DateTime end) => new()
+    {
+        ["@type"] = "dcterms:PeriodOfTime",
+        ["dcat:startDate"] = TypedDate(start, "xsd:dateTime"),
+        ["dcat:endDate"] = TypedDate(end, "xsd:dateTime")
+    };
+
+    private static Dictionary<string, object?> Spatial(SpatialExtent extent) => new()
+    {
+        ["@type"] = "dcterms:Location",
+        ["dcat:bbox"] = new Dictionary<string, object?>
+        {
+            ["@type"] = "geosparql:wktLiteral",
+            ["@value"] = WktEnvelope(extent)
+        }
+    };
 
     // Language-tagged literals ({"@language","@value"} form) — DCAT-AP-CZ wants parallel
     // cs+en versions of title/description/keyword, not bare strings.
@@ -222,36 +343,30 @@ public static class CatalogEndpoints
         return dist;
     }
 
+    // One published monthly archive object: a single gzip-compressed file (dcat:compressFormat
+    // = application/gzip), not a multi-file container. The owning month dataset carries the
+    // temporal bound, so the distribution does not repeat it.
     private static Dictionary<string, object?> DownloadDistribution(ExportDistributionRow e, string csvSchema)
     {
-        var monthStart = new DateTime(e.Year, e.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var monthEnd = monthStart.AddMonths(1);
-
         var dist = new Dictionary<string, object?>
         {
             ["@type"] = "dcat:Distribution",
-            ["dcterms:title"] = $"Measurements {e.Year:D4}-{e.Month:D2} ({e.MediaType}, zipped)",
-            ["dcat:downloadURL"] = new Dictionary<string, object?> { ["@id"] = e.DownloadUrl },
+            ["dcterms:title"] = $"Measurements {e.Year:D4}-{e.Month:D2} ({e.MediaType}, gzip)",
+            ["dcat:downloadURL"] = Ref(e.DownloadUrl),
             ["dcat:mediaType"] = e.MediaType,
             ["dcat:compressFormat"] = e.CompressFormat,
-            ["dcterms:license"] = new Dictionary<string, object?> { ["@id"] = Constants.LicenseIri },
-            ["dcterms:temporal"] = new Dictionary<string, object?>
-            {
-                ["@type"] = "dcterms:PeriodOfTime",
-                ["dcat:startDate"] = TypedDate(monthStart, "xsd:dateTime"),
-                ["dcat:endDate"] = TypedDate(monthEnd, "xsd:dateTime")
-            }
+            ["dcterms:license"] = Ref(Constants.LicenseIri)
         };
 
         if (FileTypeFor(e.MediaType) is { } formatIri)
-            dist["dcterms:format"] = new Dictionary<string, object?> { ["@id"] = formatIri };
+            dist["dcterms:format"] = Ref(formatIri);
 
         if (e.FileSizeBytes is { } size)
             dist["dcat:byteSize"] = size;
 
-        // Zipped CSV archives share the live CSV's CSVW tabular schema.
+        // Gzipped CSV archives share the live CSV's CSVW tabular schema.
         if (string.Equals(e.MediaType, Constants.MediaTypeCsv, StringComparison.Ordinal))
-            dist["dcterms:conformsTo"] = new Dictionary<string, object?> { ["@id"] = csvSchema };
+            dist["dcterms:conformsTo"] = Ref(csvSchema);
 
         return dist;
     }

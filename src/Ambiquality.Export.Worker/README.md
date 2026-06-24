@@ -2,9 +2,11 @@
 
 Background worker that publishes monthly open-data archives of the measurement
 hypertable. Once per month it exports the most recent fully-elapsed calendar month to
-S3-compatible object storage in two formats — **CSV** and **JSON-LD**, each zipped —
-and records the export in `ieq.measurement_exports` so the DCAT-AP catalog in
-**Public.Api** can list them as downloadable `dcat:Distribution` entries (F16/F17).
+S3-compatible object storage in two formats — **CSV** and **JSON-LD**, each as a single
+**gzip-compressed file** (not a multi-file zip container) — and records the export in
+`ieq.measurement_exports` so the DCAT-AP catalog in **Public.Api** can list each month as
+a member `dcat:Dataset` of a `dcat:DatasetSeries`, with one `dcat:Distribution` per format
+(F16/F17).
 
 ## How it works
 
@@ -15,8 +17,11 @@ and records the export in `ieq.measurement_exports` so the DCAT-AP catalog in
    is not skipped).
 2. **Export** — `MonthlyExporter` streams the month's rows from the hypertable
    (`received_at` in a half-open `[start, nextMonthStart)` window, the partition
-   column) one row at a time through the format serializer into a `ZipArchive` entry.
-   The archive is staged in a temp file (not memory), uploaded, then deleted.
+   column) one row at a time through the format serializer into a single `GZipStream`.
+   Splitting a dataset across files or wrapping it in a zip container would be poor
+   open-data practice, so each (month, format) is exactly one `.gz` file. The compressed
+   payload is staged in a temp file (not memory) so it can be re-read for upload, then
+   deleted.
 3. **Record** — the upload's download URL, byte size and record count land in
    `ieq.measurement_exports` (`ON CONFLICT (year, month, media_type) DO NOTHING`, so a
    redelivered pass is idempotent).
@@ -49,8 +54,8 @@ mirrors Public.Api's `sosa:hasFeatureOfInterest`, which the export cannot share 
 Object key layout:
 
 ```
-exports/{year:D4}/{month:D2}/measurements-{year:D4}-{month:D2}.csv.zip
-exports/{year:D4}/{month:D2}/measurements-{year:D4}-{month:D2}.jsonld.zip
+exports/{year:D4}/{month:D2}/measurements-{year:D4}-{month:D2}.csv.gz
+exports/{year:D4}/{month:D2}/measurements-{year:D4}-{month:D2}.jsonld.gz
 ```
 
 ## Configuration (`Export` section)
