@@ -87,18 +87,24 @@ public static class CatalogEndpoints
         ("en", "open data"), ("cs", "otevřená data")
     ];
 
-    private static readonly object[] DcatContext =
-    [
-        Constants.DcatApContextIri,
-        new Dictionary<string, object?>
-        {
-            ["ambiq"] = Constants.AmbiqNamespace,
-            ["vcard"] = "http://www.w3.org/2006/vcard/ns#",
-            ["foaf"] = "http://xmlns.com/foaf/0.1/",
-            ["geosparql"] = "http://www.opengis.net/ont/geosparql#",
-            ["xsd"] = "http://www.w3.org/2001/XMLSchema#"
-        }
-    ];
+    // Self-contained prefix map: every compact IRI used in the catalog body (dcat:*,
+    // dcterms:*, foaf:*, vcard:*, geosparql:*, xsd:*) is defined here. We deliberately do
+    // NOT reference the remote SEMIC DCAT-AP JSON-LD context: that document defines
+    // colon-bearing terms (e.g. "Xsd:dateTime") whose "Xsd" prefix is undefined, so a
+    // strict JSON-LD 1.1 processor rejects the whole context with INVALID_IRI_MAPPING
+    // ("term in form of IRI must expand to definition") — which broke both the EU ITB
+    // DCAT-AP validator and the lkod-validator. The body uses plain compact IRIs and
+    // explicit @id/@value/@language wrappers, so it needs prefix expansion only, nothing
+    // the remote term context provided.
+    private static readonly Dictionary<string, object?> DcatContext = new()
+    {
+        ["dcat"] = "http://www.w3.org/ns/dcat#",
+        ["dcterms"] = Constants.DctermsNamespace,
+        ["vcard"] = "http://www.w3.org/2006/vcard/ns#",
+        ["foaf"] = "http://xmlns.com/foaf/0.1/",
+        ["geosparql"] = "http://www.opengis.net/ont/geosparql#",
+        ["xsd"] = "http://www.w3.org/2001/XMLSchema#"
+    };
 
     public static void MapDcatCatalogEndpoints(this WebApplication app)
     {

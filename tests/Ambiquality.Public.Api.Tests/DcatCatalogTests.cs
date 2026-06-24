@@ -56,6 +56,23 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
     }
 
     [Fact]
+    public async Task Catalog_Context_IsSelfContainedPrefixMap()
+    {
+        // Regression: the @context must NOT pull in the remote SEMIC DCAT-AP JSON-LD
+        // context. That document defines colon-bearing terms ("Xsd:dateTime", …) whose
+        // prefix is undefined, so strict JSON-LD processors reject the whole context
+        // (INVALID_IRI_MAPPING) — breaking the EU ITB and lkod validators. The context
+        // must be a single inline object that itself defines every prefix the body uses.
+        var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
+        var context = doc.GetProperty("@context");
+
+        Assert.Equal(JsonValueKind.Object, context.ValueKind);
+        Assert.DoesNotContain("semiceu.github.io", context.GetRawText());
+        foreach (var prefix in new[] { "dcat", "dcterms", "foaf", "vcard", "geosparql", "xsd" })
+            Assert.True(context.TryGetProperty(prefix, out _), $"missing prefix '{prefix}'");
+    }
+
+    [Fact]
     public async Task Catalog_IsDcatCatalogWithLiveDataset()
     {
         var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
