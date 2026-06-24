@@ -149,6 +149,12 @@ app.Use(async (context, next) =>
 
 app.UseCors();
 
+// Rewrites a directory request to its default document (index.html) so the data-model
+// spec at `/docs/` serves `wwwroot/docs/index.html` instead of 404-ing. Must run before
+// UseStaticFiles. Safe at root: wwwroot has no top-level index.html, so it only matches
+// `/docs/` and leaves the `/v1/...` API routes untouched.
+app.UseDefaultFiles();
+
 // Serves the static JSON Schema documents under /v1/schema/*.json that every
 // response references via its `Link: …; rel="describedby"` header.
 app.UseStaticFiles();
