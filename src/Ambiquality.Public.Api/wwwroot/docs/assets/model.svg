@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- UML diagram tříd: konceptuální model měření kvality vnitřního prostředí (IEQ).
      Ukotveno v ontologii SOSA/SSN; jmenný prostor ambiq: = https://data.ambiquality.org/ns#.
+     Konceptuální úroveň: uvádějí se názvy atributů a volitelnost ([0..1]), nikoli datové typy.
      Styl odpovídá diagramům tříd na ofn.gov.cz. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="860" height="600" viewBox="0 0 860 600"
      font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif" role="img"
@@ -30,11 +31,11 @@
     <text class="ster" x="430" y="31" text-anchor="middle">«sosa:Observation»</text>
     <text class="name" x="430" y="47" text-anchor="middle">Pozorování</text>
     <line class="sep" x1="330" y1="54" x2="530" y2="54"/>
-    <text class="attr" x="340" y="73">+ value : Double</text>
-    <text class="attr" x="340" y="90">+ observedAt : DateTime</text>
-    <text class="attr" x="340" y="107">+ receivedAt : DateTime</text>
-    <text class="attr" x="340" y="124">+ isInvalid : Boolean</text>
-    <text class="attr" x="340" y="141">+ unit : Text [0..1]</text>
+    <text class="attr" x="340" y="73">+ value</text>
+    <text class="attr" x="340" y="90">+ observedAt</text>
+    <text class="attr" x="340" y="107">+ receivedAt</text>
+    <text class="attr" x="340" y="124">+ isInvalid</text>
+    <text class="attr" x="340" y="141">+ unit [0..1]</text>
   </g>
 
   <!-- ============ Sledovaná vlastnost (sosa:ObservableProperty) ============ -->
@@ -44,10 +45,10 @@
     <text class="ster" x="144" y="225" text-anchor="middle">«sosa:ObservableProperty»</text>
     <text class="name" x="144" y="241" text-anchor="middle">Sledovaná vlastnost</text>
     <line class="sep" x1="20" y1="248" x2="268" y2="248"/>
-    <text class="attr" x="30" y="267">+ kód : Text</text>
-    <text class="attr" x="30" y="284">+ název : Text</text>
-    <text class="attr" x="30" y="301">+ typVeličiny : IRI [0..1]</text>
-    <text class="attr" x="30" y="318">+ jednotka : IRI [0..1]</text>
+    <text class="attr" x="30" y="267">+ kód</text>
+    <text class="attr" x="30" y="284">+ název</text>
+    <text class="attr" x="30" y="301">+ typVeličiny [0..1]</text>
+    <text class="attr" x="30" y="318">+ jednotka [0..1]</text>
   </g>
 
   <!-- ============ Senzor (sosa:Sensor) ============ -->
@@ -57,9 +58,9 @@
     <text class="ster" x="720" y="225" text-anchor="middle">«sosa:Sensor»</text>
     <text class="name" x="720" y="241" text-anchor="middle">Senzor</text>
     <line class="sep" x1="600" y1="248" x2="840" y2="248"/>
-    <text class="attr" x="610" y="267">+ výrobce : Text [0..1]</text>
-    <text class="attr" x="610" y="284">+ model : Text [0..1]</text>
-    <text class="attr" x="610" y="301">+ stav : Text [0..1]</text>
+    <text class="attr" x="610" y="267">+ výrobce [0..1]</text>
+    <text class="attr" x="610" y="284">+ model [0..1]</text>
+    <text class="attr" x="610" y="301">+ stav [0..1]</text>
   </g>
 
   <!-- ============ Místnost (ambiq:Room) — předmět zájmu ============ -->
@@ -69,9 +70,9 @@
     <text class="ster" x="430" y="365" text-anchor="middle">«ambiq:Room»</text>
     <text class="name" x="430" y="381" text-anchor="middle">Místnost</text>
     <line class="sep" x1="330" y1="388" x2="530" y2="388"/>
-    <text class="attr" x="340" y="407">+ podlaží : Integer</text>
-    <text class="attr" x="340" y="424">+ funkce : Text [0..1]</text>
-    <text class="attr" x="340" y="441">+ dobaPobytu : Text [0..1]</text>
+    <text class="attr" x="340" y="407">+ podlaží</text>
+    <text class="attr" x="340" y="424">+ funkce [0..1]</text>
+    <text class="attr" x="340" y="441">+ dobaPobytu [0..1]</text>
   </g>
 
   <!-- ============ Budova (ambiq:Building) ============ -->
@@ -81,9 +82,9 @@
     <text class="ster" x="430" y="495" text-anchor="middle">«ambiq:Building»</text>
     <text class="name" x="430" y="511" text-anchor="middle">Budova</text>
     <line class="sep" x1="330" y1="518" x2="530" y2="518"/>
-    <text class="attr" x="340" y="537">+ název : Text [0..1]</text>
-    <text class="attr" x="340" y="554">+ adresa : Adresa</text>
-    <text class="attr" x="340" y="571">+ typ : Text [0..1]</text>
+    <text class="attr" x="340" y="537">+ název [0..1]</text>
+    <text class="attr" x="340" y="554">+ adresa</text>
+    <text class="attr" x="340" y="571">+ typ [0..1]</text>
   </g>
 
   <!-- ============ asociace ============ -->
