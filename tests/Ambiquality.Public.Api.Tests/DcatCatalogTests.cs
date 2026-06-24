@@ -56,12 +56,12 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
     }
 
     [Fact]
-    public async Task Catalog_IsDcatCatalogWithDataset()
+    public async Task Catalog_IsDcatCatalogWithLiveDataset()
     {
         var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
 
         Assert.Equal("dcat:Catalog", doc.GetProperty("@type").GetString());
-        var dataset = doc.GetProperty("dcat:dataset");
+        var dataset = LiveDataset(doc);
         Assert.Equal("dcat:Dataset", dataset.GetProperty("@type").GetString());
         Assert.Equal("Ambiquality IEQ Open Data", LangValue(dataset.GetProperty("dcterms:title"), "en"));
     }
@@ -85,10 +85,10 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
     }
 
     [Fact]
-    public async Task Catalog_DatasetHasThemeKeywordAndPeriodicityFromCodelists()
+    public async Task Catalog_LiveDatasetHasThemeKeywordAndPeriodicityFromCodelists()
     {
         var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
-        var dataset = doc.GetProperty("dcat:dataset");
+        var dataset = LiveDataset(doc);
 
         Assert.EndsWith("/data-theme/ENVI", dataset.GetProperty("dcat:theme").GetProperty("@id").GetString());
         Assert.EndsWith("/frequency/CONT",
@@ -105,28 +105,23 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
     }
 
     [Fact]
-    public async Task Catalog_DistributionsCarryFileTypeFormat()
+    public async Task Catalog_AllDistributionsCarryFileTypeFormat()
     {
         var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
-        var distributions = doc.GetProperty("dcat:dataset").GetProperty("dcat:distribution").EnumerateArray().ToList();
 
-        // Every distribution advertises both dcat:mediaType and the EU file-type dcterms:format.
+        // Every distribution across the live dataset and all monthly members advertises
+        // both dcat:mediaType and the EU file-type dcterms:format.
+        var distributions = AllDistributions(doc);
+        Assert.NotEmpty(distributions);
         Assert.All(distributions, d =>
             Assert.Contains("/file-type/", d.GetProperty("dcterms:format").GetProperty("@id").GetString()));
     }
 
-    /// <summary>Extract the @value for a given language tag from a JSON-LD language-tagged literal array.</summary>
-    private static string? LangValue(JsonElement node, string lang) =>
-        node.EnumerateArray()
-            .Where(e => e.GetProperty("@language").GetString() == lang)
-            .Select(e => e.GetProperty("@value").GetString())
-            .FirstOrDefault();
-
     [Fact]
-    public async Task Catalog_HasTwoDistributionsAndContactPoint()
+    public async Task Catalog_LiveDatasetHasTwoDistributionsAndContactPoint()
     {
         var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
-        var dataset = doc.GetProperty("dcat:dataset");
+        var dataset = LiveDataset(doc);
 
         var distributions = dataset.GetProperty("dcat:distribution").EnumerateArray().ToList();
         Assert.Equal(2, distributions.Count);
@@ -138,10 +133,10 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
     }
 
     [Fact]
-    public async Task Catalog_CsvDistribution_ConformsToCsvwSchema()
+    public async Task Catalog_LiveCsvDistribution_ConformsToCsvwSchema()
     {
         var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
-        var dataset = doc.GetProperty("dcat:dataset");
+        var dataset = LiveDataset(doc);
 
         var csv = dataset.GetProperty("dcat:distribution").EnumerateArray()
             .Single(d => d.GetProperty("dcat:mediaType").GetString() == "text/csv");
@@ -151,10 +146,10 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
     }
 
     [Fact]
-    public async Task Catalog_HasSpatialAndTemporalExtent()
+    public async Task Catalog_LiveDatasetHasSpatialAndTemporalExtent()
     {
         var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
-        var dataset = doc.GetProperty("dcat:dataset");
+        var dataset = LiveDataset(doc);
 
         // Temporal extent derives from the seeded measurements (2026-05-01).
         var temporal = dataset.GetProperty("dcterms:temporal");
@@ -164,4 +159,102 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
         var wkt = dataset.GetProperty("dcterms:spatial").GetProperty("dcat:bbox").GetProperty("@value").GetString();
         Assert.StartsWith("POLYGON", wkt);
     }
+
+    [Fact]
+    public async Task Catalog_PublishesMonthlyDatasetSeries()
+    {
+        var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
+        var series = Series(doc);
+
+        // The series groups the bulk archives; it is updated monthly and points at its ends.
+        Assert.EndsWith("/frequency/MONTHLY",
+            series.GetProperty("dcterms:accrualPeriodicity").GetProperty("@id").GetString());
+        Assert.EndsWith("#dataset-2026-04", series.GetProperty("dcat:first").GetProperty("@id").GetString());
+        Assert.EndsWith("#dataset-2026-05", series.GetProperty("dcat:last").GetProperty("@id").GetString());
+
+        // cs + en language-tagged title and description.
+        Assert.NotNull(LangValue(series.GetProperty("dcterms:title"), "cs"));
+        Assert.NotNull(LangValue(series.GetProperty("dcterms:description"), "en"));
+    }
+
+    [Fact]
+    public async Task Catalog_HasOneMemberDatasetPerSeededMonth()
+    {
+        var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
+        var members = Members(doc);
+
+        // Two months seeded (2026-04, 2026-05) -> exactly two member datasets, newest first.
+        Assert.Equal(2, members.Count);
+        Assert.EndsWith("#dataset-2026-05", members[0].GetProperty("@id").GetString());
+        Assert.EndsWith("#dataset-2026-04", members[1].GetProperty("@id").GetString());
+    }
+
+    [Fact]
+    public async Task Catalog_MemberDataset_LinksToSeriesAndIsBoundedToItsMonth()
+    {
+        var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
+        var seriesId = Series(doc).GetProperty("@id").GetString();
+        var may = Members(doc).Single(m => m.GetProperty("@id").GetString()!.EndsWith("#dataset-2026-05"));
+
+        Assert.Equal(seriesId, may.GetProperty("dcat:inSeries").GetProperty("@id").GetString());
+
+        var temporal = may.GetProperty("dcterms:temporal");
+        Assert.StartsWith("2026-05-01", temporal.GetProperty("dcat:startDate").GetProperty("@value").GetString());
+        Assert.StartsWith("2026-06-01", temporal.GetProperty("dcat:endDate").GetProperty("@value").GetString());
+    }
+
+    [Fact]
+    public async Task Catalog_MemberDataset_HasOneGzipFilePerFormat()
+    {
+        var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
+        var may = Members(doc).Single(m => m.GetProperty("@id").GetString()!.EndsWith("#dataset-2026-05"));
+
+        var distributions = may.GetProperty("dcat:distribution").EnumerateArray().ToList();
+        Assert.Equal(2, distributions.Count);
+
+        // Each distribution is a single gzip-compressed file — no zip container, no multi-file split.
+        Assert.All(distributions, d =>
+        {
+            Assert.Equal("application/gzip", d.GetProperty("dcat:compressFormat").GetString());
+            Assert.EndsWith(".gz", d.GetProperty("dcat:downloadURL").GetProperty("@id").GetString());
+            Assert.Contains("gzip", d.GetProperty("dcterms:title").GetString());
+            Assert.DoesNotContain("zip,", d.GetProperty("dcterms:title").GetString());
+        });
+
+        Assert.Contains(distributions, d => d.GetProperty("dcat:mediaType").GetString() == "text/csv");
+        Assert.Contains(distributions, d => d.GetProperty("dcat:mediaType").GetString() == "application/ld+json");
+    }
+
+    // --- helpers -----------------------------------------------------------------
+
+    private static JsonElement Datasets(JsonElement doc) => doc.GetProperty("dcat:dataset");
+
+    /// <summary>The continuous live dataset (its @id ends in "#dataset", not "#dataset-YYYY-MM").</summary>
+    private static JsonElement LiveDataset(JsonElement doc) =>
+        Datasets(doc).EnumerateArray().Single(d =>
+            d.GetProperty("@type").GetString() == "dcat:Dataset" &&
+            d.GetProperty("@id").GetString()!.EndsWith("#dataset"));
+
+    private static JsonElement Series(JsonElement doc) =>
+        Datasets(doc).EnumerateArray().Single(d => d.GetProperty("@type").GetString() == "dcat:DatasetSeries");
+
+    /// <summary>The monthly member datasets, newest first (@id contains "#dataset-").</summary>
+    private static List<JsonElement> Members(JsonElement doc) =>
+        Datasets(doc).EnumerateArray()
+            .Where(d => d.GetProperty("@type").GetString() == "dcat:Dataset"
+                     && d.GetProperty("@id").GetString()!.Contains("#dataset-"))
+            .ToList();
+
+    private static List<JsonElement> AllDistributions(JsonElement doc) =>
+        Datasets(doc).EnumerateArray()
+            .Where(d => d.TryGetProperty("dcat:distribution", out _))
+            .SelectMany(d => d.GetProperty("dcat:distribution").EnumerateArray())
+            .ToList();
+
+    /// <summary>Extract the @value for a given language tag from a JSON-LD language-tagged literal array.</summary>
+    private static string? LangValue(JsonElement node, string lang) =>
+        node.EnumerateArray()
+            .Where(e => e.GetProperty("@language").GetString() == lang)
+            .Select(e => e.GetProperty("@value").GetString())
+            .FirstOrDefault();
 }

@@ -130,13 +130,21 @@ keeps its fixed CSVW column set and does not carry it.
 `/v1/catalog` is structurally **DCAT-AP 3.0** and is **partially aligned** with the
 Czech **DCAT-AP-CZ / OFN** profile. What the document carries:
 
-- cs + en language-tagged `dcterms:title` and `dcterms:description` on both the
-  Catalog and the Dataset (DCAT-AP-CZ requires the multilingual literals);
+- cs + en language-tagged `dcterms:title` and `dcterms:description` on the Catalog and
+  on every dataset/series node (DCAT-AP-CZ requires the multilingual literals);
 - `dcterms:publisher` on the **Catalog** (mandatory in base DCAT-AP 3.0) as well as
-  the Dataset, plus a `dcat:contactPoint`;
-- `dcat:theme` (EU data-theme `ENVI`), `dcat:keyword` (cs + en),
-  `dcterms:accrualPeriodicity` (EU frequency `CONT`), and `dcterms:format` (EU
-  file-type codelist) on every distribution alongside `dcat:mediaType`.
+  every dataset, plus a `dcat:contactPoint` on the live dataset;
+- a continuous live `dcat:Dataset` (the queryable API, `dcterms:accrualPeriodicity` =
+  EU frequency `CONT`) and — when monthly archives exist — a `dcat:DatasetSeries`
+  (`accrualPeriodicity` = `MONTHLY`, with `dcat:first`/`dcat:last`) whose member
+  `dcat:Dataset`s are one per calendar month, each linked back via `dcat:inSeries` and
+  bounded by `dcterms:temporal`. A monthly slice is modelled as its **own dataset**, not
+  as another `dcat:Distribution` of the live dataset (a distribution is a serialization
+  of the whole dataset, not a temporal subset);
+- `dcat:theme` (EU data-theme `ENVI`), `dcat:keyword` (cs + en) and `dcterms:format`
+  (EU file-type codelist, on every distribution alongside `dcat:mediaType`). Each
+  monthly archive distribution is a **single `.gz` file** (`dcat:compressFormat` =
+  `application/gzip`), never a multi-file zip container.
 
 **What it cannot meet — and why.** Full DCAT-AP-CZ conformance requires
 `dcterms:publisher` to be an **IRI from the Czech OVM/RPP register** (*orgán veřejné
