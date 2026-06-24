@@ -11,6 +11,7 @@ using Ambiquality.Auth.Api.Infrastructure.Persistence;
 using Ambiquality.Auth.Api.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -88,6 +89,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddProblemDetails();
+
+// --- Request logging ---------------------------------------------------------
+// One structured line per request (method, path, status, duration) so production
+// traffic, slow calls and errors are visible in the JSON console logs. Bodies and
+// headers are intentionally not logged (credentials / PII).
+builder.Services.AddHttpLogging(logging =>
+{
+    logging.LoggingFields = HttpLoggingFields.RequestMethod
+        | HttpLoggingFields.RequestPath
+        | HttpLoggingFields.ResponseStatusCode
+        | HttpLoggingFields.Duration;
+    logging.CombineLogs = true;
+});
 
 // --- CORS --------------------------------------------------------------------
 // The SPA is served from a different origin than this API (ambiquality.org vs
@@ -195,6 +209,11 @@ var forwardedHeadersOptions = new ForwardedHeadersOptions
 forwardedHeadersOptions.KnownIPNetworks.Clear();
 forwardedHeadersOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedHeadersOptions);
+
+// Log every request now that the real client IP is restored (placed first so the
+// duration covers the whole pipeline and the final status — incl. 500s from the
+// exception handler below — is recorded).
+app.UseHttpLogging();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();

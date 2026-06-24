@@ -3,6 +3,7 @@ using Ambiquality.Core.Infrastructure.Persistence;
 using Ambiquality.Public.Api.Api;
 using Ambiquality.Public.Api.Infrastructure.Catalog;
 using Ambiquality.Public.Api.Infrastructure.Observations;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Npgsql;
@@ -118,6 +119,20 @@ builder.Services.AddOpenApi(options =>
 });
 builder.Services.AddProblemDetails();
 
+// --- Request logging ---------------------------------------------------------
+// One structured line per request (method, path, status, duration) so the public
+// read traffic and any slow queries are visible in the JSON console logs and the
+// p95/p99 latency NFR can be observed. Bodies/headers are not logged (no auth, but
+// keeps the line small under high read volume).
+builder.Services.AddHttpLogging(logging =>
+{
+    logging.LoggingFields = HttpLoggingFields.RequestMethod
+        | HttpLoggingFields.RequestPath
+        | HttpLoggingFields.ResponseStatusCode
+        | HttpLoggingFields.Duration;
+    logging.CombineLogs = true;
+});
+
 var app = builder.Build();
 
 // --- Middleware --------------------------------------------------------------
@@ -146,6 +161,12 @@ app.Use(async (context, next) =>
         await next(context);
     }
 });
+
+// Log every request (first so the duration covers the whole pipeline and the
+// final status is recorded). Unhandled exceptions are still logged by the
+// framework; no UseExceptionHandler so edge binding errors keep their native
+// 400 (a blanket handler would rewrite BadHttpRequestException to 500).
+app.UseHttpLogging();
 
 app.UseCors();
 

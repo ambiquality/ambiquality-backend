@@ -15,6 +15,7 @@ using Ambiquality.Evidence.Api.Infrastructure.Ruian;
 using Ambiquality.Evidence.Api.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -145,6 +146,19 @@ builder.Services.AddOpenApi(options =>
 });
 builder.Services.AddProblemDetails();
 
+// --- Request logging ---------------------------------------------------------
+// One structured line per request (method, path, status, duration) so production
+// traffic, slow calls and errors are visible in the JSON console logs. Bodies and
+// headers are intentionally not logged (auth tokens / PII).
+builder.Services.AddHttpLogging(logging =>
+{
+    logging.LoggingFields = HttpLoggingFields.RequestMethod
+        | HttpLoggingFields.RequestPath
+        | HttpLoggingFields.ResponseStatusCode
+        | HttpLoggingFields.Duration;
+    logging.CombineLogs = true;
+});
+
 // --- CORS --------------------------------------------------------------------
 // The operator SPA is served from a different origin than this API, so browsers
 // require CORS. Bearer-token flow, no cookies, so no AllowCredentials. Allowed
@@ -187,6 +201,12 @@ app.Use(async (context, next) =>
         await next(context);
     }
 });
+
+// Log every request (first so the duration covers the whole pipeline and the
+// final status is recorded). Unhandled exceptions are still logged by the
+// framework; no UseExceptionHandler so edge binding errors keep their native
+// 400 (a blanket handler would rewrite BadHttpRequestException to 500).
+app.UseHttpLogging();
 
 app.UseCors();
 app.UseAuthentication();
