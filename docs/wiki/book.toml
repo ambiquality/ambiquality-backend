@@ -1,0 +1,17 @@
+[book]
+title = "Ambiquality Wiki"
+description = "Operator and developer guide for the Ambiquality IEQ open-data platform."
+authors = ["Vilém Charwot"]
+language = "en"
+src = "src"
+
+[output.html]
+default-theme = "rust"
+preferred-dark-theme = "ayu"
+git-repository-url = "https://github.com/ambiquality/ambiquality-backend"
+edit-url-template = "https://github.com/ambiquality/ambiquality-backend/edit/main/docs/wiki/{path}"
+site-url = "/"
+
+[output.html.fold]
+enable = true
+level = 1

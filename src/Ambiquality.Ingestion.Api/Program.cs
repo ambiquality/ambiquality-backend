@@ -10,6 +10,7 @@ using Ambiquality.Ingestion.Api.Infrastructure.Queue;
 using Ambiquality.Ingestion.Api.Infrastructure.RateLimiting;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 using Npgsql;
 using Scalar.AspNetCore;
 using StackExchange.Redis;
@@ -63,7 +64,52 @@ builder.Services.AddSingleton<IRateLimiter, RedisFixedWindowRateLimiter>();
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddScoped<IngestMeasurementHandler>();
 
-builder.Services.AddOpenApi();
+// OpenAPI document describing the single ingestion endpoint. The spec doubles as the
+// onboarding reference a sensor operator reads after registering a device (Scalar UI,
+// below). The external server URL comes from IngestionApi:BaseIri so the rendered base
+// path matches the real deployment (behind Caddy the /ingestion prefix is stripped).
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, ct) =>
+    {
+        document.Info = new OpenApiInfo
+        {
+            Title = "Ambiquality Ingestion API",
+            Version = "v1",
+            Description =
+                "Endpoint sensors call to submit IEQ (Indoor Environmental Quality) "
+                + "measurements to the Ambiquality platform (F10). A device authenticates "
+                + "with its `X-Sensor-Key` and POSTs a batch of readings; the API validates "
+                + "and durably enqueues them (202 Accepted) without writing the database on "
+                + "the request path.\n\n"
+                + "This page is a **read-only reference** — the \"Test Request\" button is "
+                + "disabled, because submitting real measurements requires a sensor key and "
+                + "should go through the device. A step-by-step guide lives in the project "
+                + "wiki: https://wiki.ambiquality.org/sending-measurements.html",
+            Contact = new OpenApiContact { Name = "Vilém Charwot, VŠE Prague" },
+            License = new OpenApiLicense
+            {
+                Name = "CC BY 4.0",
+                Identifier = "CC-BY-4.0",
+                Url = new Uri("https://creativecommons.org/licenses/by/4.0/")
+            }
+        };
+
+        // Advertise the externally-reachable base URL (e.g. https://data.ambiquality.org/ingestion).
+        // The document paths already carry the /v1 segment, so strip a trailing /v1 to avoid doubling.
+        var baseIri = context.ApplicationServices
+            .GetRequiredService<IConfiguration>()["IngestionApi:BaseIri"];
+        if (!string.IsNullOrWhiteSpace(baseIri))
+        {
+            var origin = baseIri.TrimEnd('/');
+            if (origin.EndsWith("/v1", StringComparison.Ordinal))
+                origin = origin[..^"/v1".Length];
+            document.Servers = [new OpenApiServer { Url = origin }];
+        }
+
+        return Task.CompletedTask;
+    });
+});
 builder.Services.AddProblemDetails();
 
 // --- Request logging ---------------------------------------------------------
@@ -103,11 +149,19 @@ if (vocabularyExtensions?.Properties is { Count: > 0 } extensionProperties)
 // 400 (a blanket handler would rewrite BadHttpRequestException to 500).
 app.UseHttpLogging();
 
-if (app.Environment.IsDevelopment())
+// OpenAPI spec + Scalar UI exposed in ALL environments so a sensor operator can read the
+// ingestion contract after registering a device (linked from the app's API-key reveal).
+// The reference is READ-ONLY: HideTestRequestButton removes the "Test Request" button so
+// no one can POST measurements through the docs UI — real ingestion needs a sensor key and
+// goes through the device. The "Client Libraries" code samples stay, to help build the call.
+// Scalar mounts at "/scalar"; behind Caddy that is reachable at "{host}/ingestion/scalar".
+app.MapOpenApi();
+app.MapScalarApiReference(options =>
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
-}
+    options.Title = "Ambiquality Ingestion API";
+    options.Theme = ScalarTheme.Purple;
+    options.HideTestRequestButton = true;
+});
 
 // Mount under /v1 so the ingestion contract is versioned like the other services
 // (Caddy strips the /ingestion prefix, leaving /v1/measurements).

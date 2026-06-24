@@ -107,6 +107,13 @@ and [`0002 Czech OFN address model`](docs/adr/0002-ofn-czech-address-model.md) �
 for the entity-relationship diagrams of the three schemas. [`docs/conformance/`](docs/conformance/)
 tracks the thesis-requirements conformance review and its gap-closure addendum.
 
+The operator/developer **wiki** — how to register a sensor and send measurements, the
+parameter/unit reference, and how the data is published — lives in
+[`docs/wiki/`](docs/wiki/) (mdBook) and is published to
+[**wiki.ambiquality.org**](https://wiki.ambiquality.org). Each service also exposes a
+live Scalar API reference (`…/public/scalar`, `…/ingestion/scalar`); the ingestion one is
+read-only (no "Test Request").
+
 - **Three databases, one Postgres instance** (see `init-databases.sql`):
   `auth` (owned by Auth.Api), `evidence` (owned by Evidence.Api), and `ieq` (the
   TimescaleDB `measurements` hypertable + `parameter_ranges`). Each service connects as its own
