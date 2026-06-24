@@ -8,6 +8,7 @@ using Ambiquality.Ingestion.Api.Infrastructure;
 using Ambiquality.Ingestion.Api.Infrastructure.Catalog;
 using Ambiquality.Ingestion.Api.Infrastructure.Queue;
 using Ambiquality.Ingestion.Api.Infrastructure.RateLimiting;
+using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Scalar.AspNetCore;
@@ -65,6 +66,19 @@ builder.Services.AddScoped<IngestMeasurementHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 
+// --- Request logging ---------------------------------------------------------
+// One structured line per request (method, path, status, duration) so the
+// ingestion hot path — incl. 202/422/429/503 outcomes — is visible in the JSON
+// console logs. Bodies and headers are intentionally not logged (sensor API keys).
+builder.Services.AddHttpLogging(logging =>
+{
+    logging.LoggingFields = HttpLoggingFields.RequestMethod
+        | HttpLoggingFields.RequestPath
+        | HttpLoggingFields.ResponseStatusCode
+        | HttpLoggingFields.Duration;
+    logging.CombineLogs = true;
+});
+
 var app = builder.Build();
 
 // Seed a permitted-value range per extension property (additive, idempotent —
@@ -82,6 +96,12 @@ if (vocabularyExtensions?.Properties is { Count: > 0 } extensionProperties)
              ON CONFLICT (parameter_code) DO NOTHING
              """);
 }
+
+// Log every request (first so the duration covers the whole pipeline and the
+// final status is recorded). Unhandled exceptions are still logged by the
+// framework; no UseExceptionHandler so edge binding errors keep their native
+// 400 (a blanket handler would rewrite BadHttpRequestException to 500).
+app.UseHttpLogging();
 
 if (app.Environment.IsDevelopment())
 {
