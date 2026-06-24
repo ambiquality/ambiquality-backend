@@ -166,6 +166,19 @@ property vocabulary, Dublin Core / DCAT-AP for the catalog, and the custom
 `ambiq:` namespace (`https://data.ambiquality.org/ns#`) for `receivedTime`
 and `isInvalid`.
 
+## Data model specification (`/docs/`)
+
+`wwwroot/docs/` holds an OFN-conformant human-readable specification of the
+open-data conceptual model (the `sosa:Observation` entity and its properties,
+the observable-property vocabulary, codelists and the catalog entities), in
+Czech, rendered with the [`datagov-cz/respec`](https://github.com/datagov-cz/respec)
+`odcz` profile (vendored as `respec-odcz.js`, Ambiquality branding — no DIA logos).
+Served as a static file at `/docs/` (via `UseStaticFiles`); linked from the
+frontend footer and Catalogue page. The ReSpec build loads its visual theme
+(`base.css`) from `ofn.gov.cz/static` at runtime. Browser content negotiation
+that would redirect ontology/term IRIs to this page is a possible future
+enhancement (not implemented).
+
 ## Deployment note
 
 Behind Caddy's path-stripping `handle_path /public/*`, the app no longer sees the

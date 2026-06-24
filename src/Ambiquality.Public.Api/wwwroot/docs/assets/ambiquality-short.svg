@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="335.05579"
+   height="365.19299"
+   viewBox="0 0 335.05578 365.19301"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <linearGradient
+       id="linearGradient51">
+      <stop
+         style="stop-color:#4d4d4d;stop-opacity:1;"
+         offset="0"
+         id="stop51" />
+      <stop
+         style="stop-color:#4d4d4d;stop-opacity:0;"
+         offset="1"
+         id="stop52" />
+    </linearGradient>
+    <linearGradient
+       xlink:href="#linearGradient51"
+       id="linearGradient52"
+       x1="68.121407"
+       y1="576.07874"
+       x2="163.41264"
+       y2="469.76208"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(2.7575391,0,0,2.7575391,52.276589,-885.5349)" />
+    <linearGradient
+       xlink:href="#linearGradient51"
+       id="linearGradient56"
+       gradientUnits="userSpaceOnUse"
+       x1="186.25102"
+       y1="508.37079"
+       x2="65.365051"
+       y2="511.12717"
+       gradientTransform="matrix(2.7575391,0,0,2.7575391,52.276589,-819.35396)" />
+  </defs>
+  <g
+     id="g1"
+     transform="translate(-230.77428,-409.73341)">
+    <ellipse
+       style="opacity:0.53;fill:url(#linearGradient52);fill-opacity:1;stroke-width:3.60295"
+       id="ellipse4"
+       cx="398.30219"
+       cy="559.23944"
+       rx="167.52791"
+       ry="149.50604" />
+    <ellipse
+       style="opacity:0.53;fill:url(#linearGradient56);fill-opacity:1;stroke-width:3.60295"
+       id="ellipse56"
+       cx="398.30219"
+       cy="625.42035"
+       rx="167.52791"
+       ry="149.50604" />
+    <text
+       xml:space="preserve"
+       style="font-size:328.084px;line-height:10.6;font-family:'Droid Sans Fallback';-inkscape-font-specification:'Droid Sans Fallback';letter-spacing:0px;word-spacing:5.70811px;writing-mode:lr-tb;direction:ltr;fill:#90896f;fill-opacity:1;stroke-width:3.41756"
+       x="363.01059"
+       y="668.21002"
+       id="text6"><tspan
+         id="tspan6"
+         x="363.01059"
+         y="668.21002"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:328.084px;line-height:10.6;font-family:'Ubuntu Sans';-inkscape-font-specification:'Ubuntu Sans Bold';letter-spacing:0px;word-spacing:5.70811px;fill:#333333;fill-opacity:1;stroke-width:3.41756"
+         dx="0">a</tspan></text>
+  </g>
+</svg>
