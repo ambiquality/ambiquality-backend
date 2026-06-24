@@ -17,7 +17,18 @@ public static class MeasurementEndpoints
                 + "one or more parameter readings in a single request — only the quantities it "
                 + "actually measures. Every reading must declare its unit, which has to match the "
                 + "canonical unit configured for the parameter. The batch is all-or-nothing: if any "
-                + "reading fails validation the whole request is rejected and nothing is enqueued.");
+                + "reading fails validation the whole request is rejected and nothing is enqueued.\n\n"
+                + "Authenticate with the sensor's secret key in the `X-Sensor-Key` header. Each sensor "
+                + "is rate-limited to one batch per its declared reporting interval; exceeding it "
+                + "returns 429 with a `Retry-After` header.")
+            // The contract enumerates every outcome a sensor can observe. Problem responses use
+            // application/problem+json (RFC 9457) with a stable urn:ambiquality:ingestion:* type.
+            .Produces<MeasurementsAcceptedResponse>(StatusCodes.Status202Accepted)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)       // missing / unknown / wrong key
+            .ProducesProblem(StatusCodes.Status403Forbidden)          // sensor registered but not active
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)// validation failure (range / unit / ...)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)    // per-sensor rate limit exceeded
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);// durable queue unavailable
     }
 
     private static async Task<Results<Accepted<MeasurementsAcceptedResponse>, ProblemHttpResult>> IngestMeasurements(

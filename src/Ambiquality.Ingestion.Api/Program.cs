@@ -15,6 +15,9 @@ using Npgsql;
 using Scalar.AspNetCore;
 using StackExchange.Redis;
 
+// Name of the X-Sensor-Key API-key security scheme advertised in the OpenAPI document.
+const string SensorKeySchemeName = "SensorKey";
+
 var builder = WebApplication.CreateBuilder(args);
 
 // POD-04: operator-extensible quantities — extension parameters become resolvable
@@ -82,6 +85,15 @@ builder.Services.AddOpenApi(options =>
                 + "with its `X-Sensor-Key` and POSTs a batch of readings; the API validates "
                 + "and durably enqueues them (202 Accepted) without writing the database on "
                 + "the request path.\n\n"
+                + "**Authentication** — every request must carry the secret API key issued "
+                + "when the sensor was registered, in the `X-Sensor-Key` header. A missing, "
+                + "unknown or wrong key is rejected with **401**; a key for a sensor that is "
+                + "registered but not in the *active* state is rejected with **403**.\n\n"
+                + "**Rate limiting** — each sensor may publish at most one batch per its "
+                + "declared reporting interval (`measurement_frequency_seconds`, clamped to a "
+                + "5-minute floor, default 5 minutes). The limit is a fixed window keyed by "
+                + "sensor id. Exceeding it returns **429** with a `Retry-After` header giving "
+                + "the seconds to wait before retrying.\n\n"
                 + "This page is a **read-only reference** — the \"Test Request\" button is "
                 + "disabled, because submitting real measurements requires a sensor key and "
                 + "should go through the device. A step-by-step guide lives in the project "
@@ -105,6 +117,58 @@ builder.Services.AddOpenApi(options =>
             if (origin.EndsWith("/v1", StringComparison.Ordinal))
                 origin = origin[..^"/v1".Length];
             document.Servers = [new OpenApiServer { Url = origin }];
+        }
+
+        // The sensor's secret key is an API key carried in the X-Sensor-Key header.
+        // Declaring it as a security scheme makes Scalar render an auth field and a
+        // padlock on the operation, instead of leaving authentication only in prose.
+        var components = document.Components ??= new OpenApiComponents();
+        components.SecuritySchemes = new Dictionary<string, IOpenApiSecurityScheme>
+        {
+            [SensorKeySchemeName] = new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.ApiKey,
+                In = ParameterLocation.Header,
+                Name = MeasurementEndpoints.SensorKeyHeader,
+                Description =
+                    "Per-sensor secret key issued when the device was registered. "
+                    + "Identifies and authenticates the sensor; required on every request."
+            }
+        };
+
+        // Require the sensor key on every operation. Built here (not in an operation
+        // transformer) because the scheme reference only serialises with its name when it
+        // is bound to the host document, which is in scope here.
+        var sensorKeyRequirement = new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference(SensorKeySchemeName, document)] = []
+        };
+        var paths = document.Paths?.Values ?? Enumerable.Empty<IOpenApiPathItem>();
+        foreach (var operation in paths
+                     .SelectMany(item => item.Operations?.Values
+                         ?? Enumerable.Empty<OpenApiOperation>()))
+        {
+            operation.Security ??= [];
+            operation.Security.Add(sensorKeyRequirement);
+        }
+
+        return Task.CompletedTask;
+    });
+
+    // The throttled response carries a Retry-After header — advertise it on each operation
+    // so the contract matches the runtime behaviour (the handler sets it on every 429).
+    options.AddOperationTransformer((operation, context, ct) =>
+    {
+        if (operation.Responses is not null
+            && operation.Responses.TryGetValue("429", out var response)
+            && response is OpenApiResponse tooManyRequests)
+        {
+            tooManyRequests.Headers ??= new Dictionary<string, IOpenApiHeader>();
+            tooManyRequests.Headers["Retry-After"] = new OpenApiHeader
+            {
+                Description = "Seconds the sensor should wait before retrying (RFC 9110 §10.2.3).",
+                Schema = new OpenApiSchema { Type = JsonSchemaType.Integer }
+            };
         }
 
         return Task.CompletedTask;
