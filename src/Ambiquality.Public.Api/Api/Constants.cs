@@ -47,10 +47,6 @@ public static class Constants
     public const string ContentTypeJsonLd = MediaTypeJsonLd + "; charset=utf-8";
     public const string ContentTypeCsv = MediaTypeCsv + "; charset=utf-8; header=present";
 
-    /// <summary>Pinned DCAT-AP 3.0.0 JSON-LD context IRI used by the catalog endpoint.</summary>
-    public const string DcatApContextIri =
-        "https://semiceu.github.io/DCAT-AP/releases/3.0.0/context/dcat-ap.jsonld";
-
     // EU Publications Office controlled-vocabulary IRIs (DCAT-AP / DCAT-AP-CZ expect
     // codelist values, not free strings). Concept IRIs use the /resource/authority/ form.
     /// <summary>Environment theme from the EU data-theme codelist (dcat:theme).</summary>
