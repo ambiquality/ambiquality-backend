@@ -51,6 +51,8 @@ public sealed class Room
         IReadOnlyCollection<string> pollutionSources,
         DateTime now)
     {
+        ValidateGeometry(areaM2, ceilingHeightM);
+
         var id = Guid.NewGuid();
         var validity = Validity.OpenFrom(now);
 
@@ -140,6 +142,8 @@ public sealed class Room
 
     public void ChangeGeometry(double? areaM2, double? ceilingHeightM, DateTime validFrom, Guid recordedBy)
     {
+        ValidateGeometry(areaM2, ceilingHeightM);
+
         var current = _geometryHistory.Single(h => h.Validity.UpperBoundInfinite);
 
         // Idempotent replay: re-applying the same value at the same instant is a no-op.
@@ -153,6 +157,20 @@ public sealed class Room
 
         current.Close(validFrom);
         _geometryHistory.Add(new RoomGeometryHistory(Id, Validity.OpenFrom(validFrom), areaM2, ceilingHeightM, recordedBy, validFrom));
+    }
+
+    /// <summary>
+    /// Geometry is optional (null = unknown), but when a value is supplied it must be a positive
+    /// physical quantity — a non-positive floor area or ceiling height is meaningless. Shared by
+    /// <see cref="Register"/> and <see cref="ChangeGeometry"/> so both write paths reject it as a
+    /// client error (400, via <see cref="DomainException"/>).
+    /// </summary>
+    private static void ValidateGeometry(double? areaM2, double? ceilingHeightM)
+    {
+        if (areaM2 is <= 0)
+            throw new DomainException("Room area must be greater than 0.");
+        if (ceilingHeightM is <= 0)
+            throw new DomainException("Ceiling height must be greater than 0.");
     }
 
     public void ChangeVentilation(string? newVentilationType, DateTime validFrom, Guid recordedBy)

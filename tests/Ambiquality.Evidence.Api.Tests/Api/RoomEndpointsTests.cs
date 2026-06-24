@@ -490,4 +490,93 @@ public sealed class RoomEndpointsTests : IAsyncLifetime
             "application/problem+json",
             changeResponse.Content.Headers.ContentType?.MediaType);
     }
+
+    // Geometry is optional (null = unknown), but a supplied area / ceiling height must be a
+    // positive physical quantity. A non-positive value at registration is rejected as a client
+    // error (problem+json), never persisted into the open dataset.
+    [Theory]
+    [InlineData(-1.0, null)]
+    [InlineData(0.0, null)]
+    [InlineData(null, -2.5)]
+    [InlineData(null, 0.0)]
+    public async Task RegisterRoom_WithNonPositiveGeometry_Returns400ProblemJson(
+        double? areaM2,
+        double? ceilingHeightM)
+    {
+        var request = new RegisterRoomRequest(
+            Name: "Bad Geometry Room",
+            Floor: 1,
+            FunctionCode: null,
+            ExposureCode: null,
+            AreaM2: areaM2,
+            CeilingHeightM: ceilingHeightM,
+            VentilationType: null,
+            PollutionSources: Array.Empty<string>());
+
+        var response = await _client.PostAsJsonAsync($"/v1/buildings/{_buildingId}/rooms", request);
+
+        Assert.True(
+            response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity,
+            $"Expected 400/422 but got {(int)response.StatusCode}.");
+        Assert.Equal(
+            "application/problem+json",
+            response.Content.Headers.ContentType?.MediaType);
+    }
+
+    // The same positivity rule on the change-geometry path (PUT …/geometry).
+    [Theory]
+    [InlineData(-1.0, null)]
+    [InlineData(0.0, null)]
+    [InlineData(null, -2.5)]
+    [InlineData(null, 0.0)]
+    public async Task ChangeRoomGeometry_WithNonPositiveValue_Returns400ProblemJson(
+        double? areaM2,
+        double? ceilingHeightM)
+    {
+        var roomId = await RegisterRoomAsync(areaM2: 40.0, ceilingHeightM: 2.6);
+
+        var changeResponse = await _client.PutAsJsonAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{roomId}/geometry",
+            new { areaM2, ceilingHeightM, validFrom = DateTime.UtcNow });
+
+        Assert.True(
+            changeResponse.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity,
+            $"Expected 400/422 but got {(int)changeResponse.StatusCode}.");
+        Assert.Equal(
+            "application/problem+json",
+            changeResponse.Content.Headers.ContentType?.MediaType);
+    }
+
+    // A positive geometry change is accepted — the guard must not reject valid values.
+    [Fact]
+    public async Task ChangeRoomGeometry_WithPositiveValues_Succeeds()
+    {
+        var roomId = await RegisterRoomAsync(areaM2: 40.0, ceilingHeightM: 2.6);
+
+        var changeResponse = await _client.PutAsJsonAsync(
+            $"/v1/buildings/{_buildingId}/rooms/{roomId}/geometry",
+            new { areaM2 = 55.5, ceilingHeightM = 3.1, validFrom = DateTime.UtcNow });
+
+        Assert.True(
+            changeResponse.IsSuccessStatusCode,
+            $"Expected 2xx but got {(int)changeResponse.StatusCode}.");
+    }
+
+    private async Task<Guid> RegisterRoomAsync(double? areaM2, double? ceilingHeightM)
+    {
+        var registerRequest = new RegisterRoomRequest(
+            Name: "Geometry Edit Room",
+            Floor: 1,
+            FunctionCode: null,
+            ExposureCode: null,
+            AreaM2: areaM2,
+            CeilingHeightM: ceilingHeightM,
+            VentilationType: null,
+            PollutionSources: Array.Empty<string>());
+
+        var registerResponse = await _client.PostAsJsonAsync(
+            $"/v1/buildings/{_buildingId}/rooms", registerRequest);
+        var registeredRoom = await registerResponse.Content.ReadFromJsonAsync<RoomSnapshotResponse>();
+        return registeredRoom!.Id;
+    }
 }
