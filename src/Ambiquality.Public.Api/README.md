@@ -150,9 +150,11 @@ Czech **DCAT-AP-CZ / OFN** profile. What the document carries:
   bounding-box geometry, on every node;
 - on every distribution: `dcat:mediaType` as an **IANA media-type IRI**
   (`iana.org/assignments/media-types/…`, the codelist form), `dcterms:format` from the EU
-  file-type codelist, `dcat:accessURL`, and `dcterms:license`. Each monthly archive
-  distribution is a **single `.gz` file** (`dcat:compressFormat` = `application/gzip`,
-  `dcat:downloadURL` = `dcat:accessURL`), never a multi-file zip container.
+  file-type codelist, `dcat:accessURL`, `dcterms:license`, and a DCAT-AP-CZ **podmínky užití**
+  (`pu:specifikace`) terms-of-use node declaring the work and database-as-work as CC BY 4.0
+  (with named author), the database as not sui-generis-protected, and no personal data. Each
+  monthly archive distribution is a **single `.gz` file** (`dcat:compressFormat` =
+  `application/gzip`, `dcat:downloadURL` = `dcat:accessURL`), never a multi-file zip container.
 
 **What it cannot meet — and why.** Full DCAT-AP-CZ conformance requires
 `dcterms:publisher` to be an **IRI from the Czech OVM/RPP register** (*orgán veřejné

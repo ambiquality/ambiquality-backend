@@ -6,6 +6,8 @@ namespace Ambiquality.Public.Api.Tests;
 
 public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBase(fixture)
 {
+    private const string LicenseIri = "https://creativecommons.org/licenses/by/4.0/";
+
     [Fact]
     public async Task Catalog_ContentType_IsJsonLd()
     {
@@ -68,7 +70,7 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
 
         Assert.Equal(JsonValueKind.Object, context.ValueKind);
         Assert.DoesNotContain("semiceu.github.io", context.GetRawText());
-        foreach (var prefix in new[] { "dcat", "dcterms", "foaf", "vcard", "geosparql", "xsd" })
+        foreach (var prefix in new[] { "dcat", "dcterms", "foaf", "vcard", "geosparql", "xsd", "pu" })
             Assert.True(context.TryGetProperty(prefix, out _), $"missing prefix '{prefix}'");
     }
 
@@ -132,6 +134,30 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
         Assert.NotEmpty(distributions);
         Assert.All(distributions, d =>
             Assert.Contains("/file-type/", d.GetProperty("dcterms:format").GetProperty("@id").GetString()));
+    }
+
+    [Fact]
+    public async Task Catalog_EveryDistributionCarriesTermsOfUse()
+    {
+        var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
+
+        // DCAT-AP-CZ requires a pu:specifikace (terms-of-use) node on every distribution; the
+        // LKOD validator warns ("Chybí podmínky užití") when it is absent. Each spec must declare
+        // the work, the database-as-work, the sui-generis right and the personal-data status.
+        var distributions = AllDistributions(doc);
+        Assert.NotEmpty(distributions);
+        Assert.All(distributions, d =>
+        {
+            var spec = d.GetProperty("pu:specifikace");
+            Assert.Equal("pu:Specifikace", spec.GetProperty("@type").GetString());
+            Assert.Equal(LicenseIri, spec.GetProperty("pu:autorské-dílo").GetProperty("@id").GetString());
+            Assert.Equal(LicenseIri, spec.GetProperty("pu:databáze-jako-autorské-dílo").GetProperty("@id").GetString());
+            Assert.Contains("není-chráněna",
+                spec.GetProperty("pu:databáze-chráněná-zvláštními-právy").GetProperty("@id").GetString());
+            Assert.Contains("neobsahuje-osobní-údaje",
+                spec.GetProperty("pu:osobní-údaje").GetProperty("@id").GetString());
+            Assert.Equal("cs", spec.GetProperty("pu:autor").GetProperty("@language").GetString());
+        });
     }
 
     [Fact]
