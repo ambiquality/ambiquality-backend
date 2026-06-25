@@ -51,6 +51,18 @@ public static class Constants
     /// under this prefix (e.g. <c>…/ruian/obec/{code}</c>). Mirrors CatalogMapping's address IRIs.</summary>
     public const string RuianResourceBase = "https://linked.cuzk.cz/resource/ruian/";
 
+    // DCAT-AP-CZ "podmínky užití" (terms of use) — the OFN pu: vocabulary. Each distribution
+    // must carry a pu:specifikace node; the validator's SPARQL keys on these exact IRIs.
+    public const string TermsOfUseNamespace = "https://data.gov.cz/slovník/podmínky-užití/";
+
+    /// <summary>"Database not protected by the sui-generis right" — pu:databáze-chráněná-zvláštními-právy value.</summary>
+    public const string DatabaseNotProtectedIri =
+        "https://data.gov.cz/podmínky-užití/není-chráněna-zvláštním-právem-pořizovatele-databáze/";
+
+    /// <summary>"Contains no personal data" — pu:osobní-údaje value.</summary>
+    public const string NoPersonalDataIri =
+        "https://data.gov.cz/podmínky-užití/neobsahuje-osobní-údaje/";
+
     // Wire Content-Type values for HTTP response headers — always declare encoding and,
     // for CSV, the header-row presence so CSVW processors and HTTP clients know the layout.
     public const string ContentTypeJson = MediaTypeJson + "; charset=utf-8";

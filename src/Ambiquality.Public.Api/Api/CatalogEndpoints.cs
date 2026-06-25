@@ -103,7 +103,8 @@ public static class CatalogEndpoints
         ["vcard"] = "http://www.w3.org/2006/vcard/ns#",
         ["foaf"] = "http://xmlns.com/foaf/0.1/",
         ["geosparql"] = "http://www.opengis.net/ont/geosparql#",
-        ["xsd"] = "http://www.w3.org/2001/XMLSchema#"
+        ["xsd"] = "http://www.w3.org/2001/XMLSchema#",
+        ["pu"] = Constants.TermsOfUseNamespace
     };
 
     public static void MapDcatCatalogEndpoints(this WebApplication app)
@@ -371,6 +372,22 @@ public static class CatalogEndpoints
         ["foaf:name"] = PublisherName
     };
 
+    // DCAT-AP-CZ "podmínky užití" (terms-of-use) specification, required on every distribution.
+    // Mirrors the validator's own catalog-004-002-valid fixture for fully-open CC BY 4.0 data:
+    // the work and the database-as-a-work are CC BY 4.0 (with a named author), the database is not
+    // protected by the sui-generis right, and the data contain no personal data. The pu: terms use
+    // the exact predicate IRIs the OFN context maps (e.g. pu:autorské-dílo).
+    private static Dictionary<string, object?> TermsOfUse() => new()
+    {
+        ["@type"] = "pu:Specifikace",
+        ["pu:autorské-dílo"] = Ref(Constants.LicenseIri),
+        ["pu:autor"] = new Dictionary<string, object?> { ["@language"] = "cs", ["@value"] = PublisherName },
+        ["pu:databáze-jako-autorské-dílo"] = Ref(Constants.LicenseIri),
+        ["pu:autor-databáze"] = new Dictionary<string, object?> { ["@language"] = "cs", ["@value"] = PublisherName },
+        ["pu:databáze-chráněná-zvláštními-právy"] = Ref(Constants.DatabaseNotProtectedIri),
+        ["pu:osobní-údaje"] = Ref(Constants.NoPersonalDataIri)
+    };
+
     private static Dictionary<string, object?> Distribution(
         string accessUrl, string mediaType, string title, string? conformsTo = null)
     {
@@ -380,7 +397,8 @@ public static class CatalogEndpoints
             ["dcterms:title"] = title,
             ["dcat:accessURL"] = new Dictionary<string, object?> { ["@id"] = accessUrl },
             ["dcat:mediaType"] = MediaTypeRef(mediaType),
-            ["dcterms:license"] = new Dictionary<string, object?> { ["@id"] = Constants.LicenseIri }
+            ["dcterms:license"] = new Dictionary<string, object?> { ["@id"] = Constants.LicenseIri },
+            ["pu:specifikace"] = TermsOfUse()
         };
         if (FileTypeFor(mediaType) is { } formatIri)
             dist["dcterms:format"] = new Dictionary<string, object?> { ["@id"] = formatIri };
@@ -403,7 +421,8 @@ public static class CatalogEndpoints
             ["dcat:downloadURL"] = Ref(e.DownloadUrl),
             ["dcat:mediaType"] = MediaTypeRef(e.MediaType),
             ["dcat:compressFormat"] = e.CompressFormat,
-            ["dcterms:license"] = Ref(Constants.LicenseIri)
+            ["dcterms:license"] = Ref(Constants.LicenseIri),
+            ["pu:specifikace"] = TermsOfUse()
         };
 
         if (FileTypeFor(e.MediaType) is { } formatIri)
