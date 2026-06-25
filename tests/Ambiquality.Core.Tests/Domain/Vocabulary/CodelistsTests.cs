@@ -2,6 +2,10 @@ using Ambiquality.Core.Domain.Vocabulary;
 
 namespace Ambiquality.Core.Tests.Domain.Vocabulary;
 
+// Shares the process-wide Codelists static singletons with VocabularyExtensionsLoaderTests,
+// which mutates them via Codelist.Add. Same collection ⇒ the two classes never run in
+// parallel, so an Add can't modify a Concepts list mid-enumeration here.
+[Collection(CodelistGlobalState.Name)]
 public sealed class CodelistsTests
 {
     public static IEnumerable<object[]> AllCodelists =>
