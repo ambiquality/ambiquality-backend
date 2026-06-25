@@ -1,4 +1,5 @@
 using Ambiquality.Core.Domain.Vocabulary;
+using Ambiquality.Core.Tests.Domain.Vocabulary;
 
 namespace Ambiquality.Core.Tests.Domain;
 
@@ -6,6 +7,9 @@ namespace Ambiquality.Core.Tests.Domain;
 /// POD-04: vocabulary extensions are additive and strictly backward compatible.
 /// The registries are process-wide statics, so every test uses codes unique to it.
 /// </summary>
+// Same xUnit collection as CodelistsTests: this class mutates the shared Codelists
+// singletons (Codelist.Add), so it must not run in parallel with code enumerating them.
+[Collection(CodelistGlobalState.Name)]
 public class VocabularyExtensionsLoaderTests
 {
     [Fact]
