@@ -60,6 +60,13 @@ public sealed record SensorRow(
 public sealed record SpatialExtent(double MinLat, double MinLon, double MaxLat, double MaxLon);
 
 /// <summary>
+/// Distinct RÚIAN territorial codes covered by the current building stock, for the DCAT-AP-CZ
+/// <c>dcterms:spatial</c> coverage IRIs: obec (municipality) and VÚSC (region). Either list may
+/// be empty when no address codes are recorded.
+/// </summary>
+public sealed record RuianCoverage(IReadOnlyList<long> MunicipalityCodes, IReadOnlyList<long> RegionCodes);
+
+/// <summary>
 /// A building that carries ≥1 active sensor measuring a requested quantity, with the
 /// (pre-masking) coordinates and the ids of those contributing sensors. Backs the map
 /// snapshot: the caller fetches each sensor's latest value and means them per building.
@@ -112,6 +119,10 @@ public interface IEvidenceCatalog
 
     /// <summary>Bounding box of all current building coordinates, or null when none are set.</summary>
     Task<SpatialExtent?> GetSpatialExtentAsync(CancellationToken ct);
+
+    /// <summary>Distinct RÚIAN obec/VÚSC codes covered by the current building stock, for the
+    /// dataset-level DCAT-AP-CZ spatial coverage IRIs. Empty lists when no codes are recorded.</summary>
+    Task<RuianCoverage> GetRuianCoverageAsync(CancellationToken ct);
 
     /// <summary>
     /// Buildings carrying ≥1 active sensor that currently measures <paramref name="parameterCode"/>,

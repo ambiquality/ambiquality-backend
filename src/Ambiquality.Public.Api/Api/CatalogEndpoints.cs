@@ -129,9 +129,10 @@ public static class CatalogEndpoints
         var iri = IriBuilder.ForRequest(http.Request, config);
         var (start, end) = await CatalogMetadataQuery.GetTemporalExtentAsync(db, ct);
         var extent = await catalog.GetSpatialExtentAsync(ct);
+        var coverage = await catalog.GetRuianCoverageAsync(ct);
         var exportRows = await exports.GetExportsAsync(ct);
 
-        var document = BuildDocument(iri, start, end, extent, exportRows);
+        var document = BuildDocument(iri, start, end, extent, coverage, exportRows);
         http.Response.Headers.CacheControl = $"public, max-age={Constants.CacheSeconds}";
 
         return Results.Json(document, contentType: Constants.ContentTypeJsonLd);
@@ -139,12 +140,12 @@ public static class CatalogEndpoints
 
     private static IReadOnlyDictionary<string, object?> BuildDocument(
         IriBuilder iri, DateTime? start, DateTime? end, SpatialExtent? extent,
-        IReadOnlyList<ExportDistributionRow> exports)
+        RuianCoverage coverage, IReadOnlyList<ExportDistributionRow> exports)
     {
         // The catalog always carries the continuous live dataset. When monthly archives
         // exist, it additionally carries a dcat:DatasetSeries and one member dcat:Dataset
         // per month — newest first.
-        var datasets = new List<object> { LiveDataset(iri, start, end, extent) };
+        var datasets = new List<object> { LiveDataset(iri, start, end, extent, coverage) };
 
         var months = exports
             .GroupBy(e => (e.Year, e.Month))
@@ -153,8 +154,8 @@ public static class CatalogEndpoints
 
         if (months.Count > 0)
         {
-            datasets.Add(MonthlySeries(iri, months));
-            datasets.AddRange(months.Select(object (m) => MonthlyDataset(iri, m)));
+            datasets.Add(MonthlySeries(iri, months, extent, coverage));
+            datasets.AddRange(months.Select(object (m) => MonthlyDataset(iri, m, extent, coverage)));
         }
 
         return new Dictionary<string, object?>
@@ -178,7 +179,7 @@ public static class CatalogEndpoints
     /// advertises the CSVW tabular schema via dcterms:conformsTo.
     /// </summary>
     private static Dictionary<string, object?> LiveDataset(
-        IriBuilder iri, DateTime? start, DateTime? end, SpatialExtent? extent)
+        IriBuilder iri, DateTime? start, DateTime? end, SpatialExtent? extent, RuianCoverage coverage)
     {
         var csvSchema = iri.CsvMetadata();
         var dataset = new Dictionary<string, object?>
@@ -207,8 +208,10 @@ public static class CatalogEndpoints
         if (start is not null && end is not null)
             dataset["dcterms:temporal"] = Period(start.Value, end.Value);
 
-        if (extent is not null)
-            dataset["dcterms:spatial"] = Spatial(extent);
+        // Spatial coverage: RÚIAN territorial IRIs (DCAT-AP-CZ wants a RÚIAN reference) alongside
+        // the WKT bbox geometry. Either may be absent; the property is omitted only when both are.
+        if (SpatialCoverage(extent, coverage) is { } spatial)
+            dataset["dcterms:spatial"] = spatial;
 
         return dataset;
     }
@@ -219,12 +222,13 @@ public static class CatalogEndpoints
     /// ends; <paramref name="months"/> is ordered newest-first.
     /// </summary>
     private static Dictionary<string, object?> MonthlySeries(
-        IriBuilder iri, IReadOnlyList<IGrouping<(short Year, short Month), ExportDistributionRow>> months)
+        IriBuilder iri, IReadOnlyList<IGrouping<(short Year, short Month), ExportDistributionRow>> months,
+        SpatialExtent? extent, RuianCoverage coverage)
     {
         var newest = months[0].Key;
         var oldest = months[^1].Key;
 
-        return new Dictionary<string, object?>
+        var series = new Dictionary<string, object?>
         {
             ["@id"] = SeriesIri(iri),
             ["@type"] = "dcat:DatasetSeries",
@@ -233,11 +237,17 @@ public static class CatalogEndpoints
             ["dcterms:publisher"] = Publisher(),
             ["dcterms:license"] = Ref(Constants.LicenseIri),
             ["dcat:theme"] = Ref(Constants.ThemeEnvironment),
+            ["dcat:keyword"] = Multilingual(Keywords),
             ["dcterms:accrualPeriodicity"] = Ref(Constants.FrequencyMonthly),
             ["dcterms:temporal"] = Period(MonthStart(oldest), MonthStart(newest).AddMonths(1)),
             ["dcat:first"] = Ref(MonthDatasetIri(iri, oldest)),
             ["dcat:last"] = Ref(MonthDatasetIri(iri, newest))
         };
+
+        if (SpatialCoverage(extent, coverage) is { } spatial)
+            series["dcterms:spatial"] = spatial;
+
+        return series;
     }
 
     /// <summary>
@@ -246,13 +256,14 @@ public static class CatalogEndpoints
     /// one gzip download distribution per published format.
     /// </summary>
     private static Dictionary<string, object?> MonthlyDataset(
-        IriBuilder iri, IGrouping<(short Year, short Month), ExportDistributionRow> month)
+        IriBuilder iri, IGrouping<(short Year, short Month), ExportDistributionRow> month,
+        SpatialExtent? extent, RuianCoverage coverage)
     {
         var (year, mon) = month.Key;
         var monthStart = MonthStart(month.Key);
         var csvSchema = iri.CsvMetadata();
 
-        return new Dictionary<string, object?>
+        var dataset = new Dictionary<string, object?>
         {
             ["@id"] = MonthDatasetIri(iri, month.Key),
             ["@type"] = "dcat:Dataset",
@@ -271,10 +282,18 @@ public static class CatalogEndpoints
             ["dcterms:publisher"] = Publisher(),
             ["dcterms:license"] = Ref(Constants.LicenseIri),
             ["dcat:theme"] = Ref(Constants.ThemeEnvironment),
+            ["dcat:keyword"] = Multilingual(Keywords),
+            // A closed-month archive is a frozen snapshot — it never updates.
+            ["dcterms:accrualPeriodicity"] = Ref(Constants.FrequencyNever),
             ["dcat:inSeries"] = Ref(SeriesIri(iri)),
             ["dcterms:temporal"] = Period(monthStart, monthStart.AddMonths(1)),
             ["dcat:distribution"] = month.Select(object (e) => DownloadDistribution(e, csvSchema)).ToList()
         };
+
+        if (SpatialCoverage(extent, coverage) is { } spatial)
+            dataset["dcterms:spatial"] = spatial;
+
+        return dataset;
     }
 
     private static string SeriesIri(IriBuilder iri) => $"{iri.Catalog()}#series";
@@ -311,6 +330,27 @@ public static class CatalogEndpoints
         }
     };
 
+    // dcterms:spatial coverage: distinct RÚIAN obec IRI refs (DCAT-AP-CZ wants a RÚIAN reference;
+    // falls back to VÚSC when no obec is recorded) followed by the WKT bbox Location node. Returns
+    // null only when neither a RÚIAN code nor a bounding box is available.
+    private static List<object>? SpatialCoverage(SpatialExtent? extent, RuianCoverage coverage)
+    {
+        var spatial = new List<object>();
+
+        var codes = coverage.MunicipalityCodes.Count > 0 ? coverage.MunicipalityCodes : coverage.RegionCodes;
+        var segment = coverage.MunicipalityCodes.Count > 0 ? "obec" : "vusc";
+        foreach (var code in codes)
+            spatial.Add(Ref(RuianIri(segment, code)));
+
+        if (extent is not null)
+            spatial.Add(Spatial(extent));
+
+        return spatial.Count > 0 ? spatial : null;
+    }
+
+    private static string RuianIri(string segment, long code) =>
+        $"{Constants.RuianResourceBase}{segment}/{code.ToString(CultureInfo.InvariantCulture)}";
+
     // Language-tagged literals ({"@language","@value"} form) — DCAT-AP-CZ wants parallel
     // cs+en versions of title/description/keyword, not bare strings.
     private static object[] Multilingual((string Lang, string Value)[] values) =>
@@ -339,7 +379,7 @@ public static class CatalogEndpoints
             ["@type"] = "dcat:Distribution",
             ["dcterms:title"] = title,
             ["dcat:accessURL"] = new Dictionary<string, object?> { ["@id"] = accessUrl },
-            ["dcat:mediaType"] = mediaType,
+            ["dcat:mediaType"] = MediaTypeRef(mediaType),
             ["dcterms:license"] = new Dictionary<string, object?> { ["@id"] = Constants.LicenseIri }
         };
         if (FileTypeFor(mediaType) is { } formatIri)
@@ -358,8 +398,10 @@ public static class CatalogEndpoints
         {
             ["@type"] = "dcat:Distribution",
             ["dcterms:title"] = $"Measurements {e.Year:D4}-{e.Month:D2} ({e.MediaType}, gzip)",
+            // accessURL is DCAT-AP-mandatory; for a downloadable file it points at the same URL.
+            ["dcat:accessURL"] = Ref(e.DownloadUrl),
             ["dcat:downloadURL"] = Ref(e.DownloadUrl),
-            ["dcat:mediaType"] = e.MediaType,
+            ["dcat:mediaType"] = MediaTypeRef(e.MediaType),
             ["dcat:compressFormat"] = e.CompressFormat,
             ["dcterms:license"] = Ref(Constants.LicenseIri)
         };
@@ -384,6 +426,15 @@ public static class CatalogEndpoints
         Constants.MediaTypeJsonLd => Constants.FileTypeJsonLd,
         Constants.MediaTypeCsv => Constants.FileTypeCsv,
         _ => null
+    };
+
+    // dcat:mediaType as an IANA dcterms:MediaType IRI ref (the DCAT-AP-CZ codelist form), not the
+    // bare MIME string. Falls back to the bare string for an unmapped type.
+    private static object MediaTypeRef(string mediaType) => mediaType switch
+    {
+        Constants.MediaTypeJsonLd => Ref(Constants.MediaTypeJsonLdIri),
+        Constants.MediaTypeCsv => Ref(Constants.MediaTypeCsvIri),
+        _ => mediaType
     };
 
     private static Dictionary<string, object?> TypedDate(DateTime value, string xsdType) => new()

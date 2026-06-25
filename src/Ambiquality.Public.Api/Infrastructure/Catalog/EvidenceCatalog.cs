@@ -411,6 +411,30 @@ public sealed class EvidenceCatalog(NpgsqlDataSource dataSource) : IEvidenceCata
         return new SpatialExtent(reader.GetDouble(0), reader.GetDouble(1), reader.GetDouble(2), reader.GetDouble(3));
     }
 
+    public async Task<RuianCoverage> GetRuianCoverageAsync(CancellationToken ct)
+    {
+        const string sql = """
+            SELECT DISTINCT ah.municipality_code, ah.region_code
+            FROM evidence.building_address_history ah
+            WHERE upper_inf(ah.validity) AND ah.municipality_code IS NOT NULL
+            """;
+
+        await using var connection = await dataSource.OpenConnectionAsync(ct);
+        await using var command = new NpgsqlCommand(sql, connection);
+
+        var municipalities = new SortedSet<long>();
+        var regions = new SortedSet<long>();
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            municipalities.Add(reader.GetInt64(0));
+            if (!reader.IsDBNull(1))
+                regions.Add(reader.GetInt64(1));
+        }
+
+        return new RuianCoverage([.. municipalities], [.. regions]);
+    }
+
     // ---- Helpers ------------------------------------------------------------
 
     private static string[]? ExposureCodesAtLeast(int? minutes) => minutes switch

@@ -142,8 +142,8 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
 
         var distributions = dataset.GetProperty("dcat:distribution").EnumerateArray().ToList();
         Assert.Equal(2, distributions.Count);
-        Assert.Contains(distributions, d => d.GetProperty("dcat:mediaType").GetString() == "text/csv");
-        Assert.Contains(distributions, d => d.GetProperty("dcat:mediaType").GetString() == "application/ld+json");
+        Assert.Contains(distributions, d => MediaTypeIri(d)!.EndsWith("/text/csv"));
+        Assert.Contains(distributions, d => MediaTypeIri(d)!.EndsWith("/application/ld+json"));
 
         var email = dataset.GetProperty("dcat:contactPoint").GetProperty("vcard:hasEmail").GetProperty("@id").GetString();
         Assert.Equal("mailto:info@ambiquality.org", email);
@@ -156,7 +156,7 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
         var dataset = LiveDataset(doc);
 
         var csv = dataset.GetProperty("dcat:distribution").EnumerateArray()
-            .Single(d => d.GetProperty("dcat:mediaType").GetString() == "text/csv");
+            .Single(d => MediaTypeIri(d)!.EndsWith("/text/csv"));
 
         var conformsTo = csv.GetProperty("dcterms:conformsTo").GetProperty("@id").GetString();
         Assert.EndsWith("/v1/schema/observations.csv-metadata.json", conformsTo);
@@ -172,9 +172,35 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
         var temporal = dataset.GetProperty("dcterms:temporal");
         Assert.StartsWith("2026-05-01", temporal.GetProperty("dcat:startDate").GetProperty("@value").GetString());
 
-        // Spatial extent derives from the seeded building coordinates.
-        var wkt = dataset.GetProperty("dcterms:spatial").GetProperty("dcat:bbox").GetProperty("@value").GetString();
+        // Spatial coverage is an array: a RÚIAN obec IRI (DCAT-AP-CZ) plus the WKT bbox geometry.
+        var spatial = dataset.GetProperty("dcterms:spatial").EnumerateArray().ToList();
+        Assert.Contains(spatial, s => RuianObecId(s) is not null);
+        var wkt = spatial.Single(s => s.TryGetProperty("dcat:bbox", out _))
+            .GetProperty("dcat:bbox").GetProperty("@value").GetString();
         Assert.StartsWith("POLYGON", wkt);
+    }
+
+    [Fact]
+    public async Task Catalog_SeriesAndMemberDatasets_CarryKeywordSpatialAndPeriodicity()
+    {
+        var doc = await Client.GetFromJsonAsync<JsonElement>("/v1/catalog");
+        var series = Series(doc);
+        var may = Members(doc).Single(m => m.GetProperty("@id").GetString()!.EndsWith("#dataset-2026-05"));
+
+        // Both the series and the member dataset must carry cs+en keywords and a RÚIAN spatial
+        // IRI — the LKOD validator raises errors when these are missing.
+        foreach (var node in new[] { series, may })
+        {
+            var keywords = node.GetProperty("dcat:keyword").EnumerateArray().ToList();
+            Assert.Contains(keywords, k => k.GetProperty("@language").GetString() == "cs");
+            Assert.Contains(keywords, k => k.GetProperty("@language").GetString() == "en");
+            Assert.Contains(node.GetProperty("dcterms:spatial").EnumerateArray(),
+                s => RuianObecId(s) is not null);
+        }
+
+        // A frozen monthly archive never updates.
+        Assert.EndsWith("/frequency/NEVER",
+            may.GetProperty("dcterms:accrualPeriodicity").GetProperty("@id").GetString());
     }
 
     [Fact]
@@ -238,8 +264,13 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
             Assert.DoesNotContain("zip,", d.GetProperty("dcterms:title").GetString());
         });
 
-        Assert.Contains(distributions, d => d.GetProperty("dcat:mediaType").GetString() == "text/csv");
-        Assert.Contains(distributions, d => d.GetProperty("dcat:mediaType").GetString() == "application/ld+json");
+        Assert.Contains(distributions, d => MediaTypeIri(d)!.EndsWith("/text/csv"));
+        Assert.Contains(distributions, d => MediaTypeIri(d)!.EndsWith("/application/ld+json"));
+
+        // accessURL is DCAT-AP-mandatory and, for a downloadable file, equals the downloadURL.
+        Assert.All(distributions, d =>
+            Assert.Equal(d.GetProperty("dcat:downloadURL").GetProperty("@id").GetString(),
+                         d.GetProperty("dcat:accessURL").GetProperty("@id").GetString()));
     }
 
     // --- helpers -----------------------------------------------------------------
@@ -267,6 +298,15 @@ public sealed class DcatCatalogTests(TimescaleFixture fixture) : PublicApiTestBa
             .Where(d => d.TryGetProperty("dcat:distribution", out _))
             .SelectMany(d => d.GetProperty("dcat:distribution").EnumerateArray())
             .ToList();
+
+    /// <summary>The IANA media-type IRI (dcat:mediaType @id) of a distribution.</summary>
+    private static string? MediaTypeIri(JsonElement distribution) =>
+        distribution.GetProperty("dcat:mediaType").GetProperty("@id").GetString();
+
+    /// <summary>The RÚIAN obec IRI of a dcterms:spatial element, or null when it is not a RÚIAN ref.</summary>
+    private static string? RuianObecId(JsonElement spatial) =>
+        spatial.TryGetProperty("@id", out var id) &&
+        id.GetString() is { } s && s.Contains("/ruian/obec/") ? s : null;
 
     /// <summary>Extract the @value for a given language tag from a JSON-LD language-tagged literal array.</summary>
     private static string? LangValue(JsonElement node, string lang) =>
