@@ -41,6 +41,16 @@ public static class Constants
     public const string MediaTypeJsonLd = "application/ld+json";
     public const string MediaTypeCsv = "text/csv";
 
+    // IANA media-type IRIs for DCAT-AP dcat:mediaType. The DCAT-AP-CZ validator expects a
+    // dcterms:MediaType IRI from the IANA register (the "media-type from codelist" check),
+    // not the bare MIME string.
+    public const string MediaTypeJsonLdIri = "http://www.iana.org/assignments/media-types/application/ld+json";
+    public const string MediaTypeCsvIri = "http://www.iana.org/assignments/media-types/text/csv";
+
+    /// <summary>RÚIAN linked-data resource base; territorial elements are dereferenceable IRIs
+    /// under this prefix (e.g. <c>…/ruian/obec/{code}</c>). Mirrors CatalogMapping's address IRIs.</summary>
+    public const string RuianResourceBase = "https://linked.cuzk.cz/resource/ruian/";
+
     // Wire Content-Type values for HTTP response headers — always declare encoding and,
     // for CSV, the header-row presence so CSVW processors and HTTP clients know the layout.
     public const string ContentTypeJson = MediaTypeJson + "; charset=utf-8";
@@ -62,6 +72,11 @@ public static class Constants
     /// the downloadable archive series gains one new member per calendar month.</summary>
     public const string FrequencyMonthly =
         "http://publications.europa.eu/resource/authority/frequency/MONTHLY";
+
+    /// <summary>"Never" from the EU frequency codelist (dcterms:accrualPeriodicity); a published
+    /// monthly archive is a frozen snapshot of a closed calendar month and never updates.</summary>
+    public const string FrequencyNever =
+        "http://publications.europa.eu/resource/authority/frequency/NEVER";
 
     /// <summary>JSON-LD file type from the EU file-type codelist (dcterms:format).</summary>
     public const string FileTypeJsonLd =

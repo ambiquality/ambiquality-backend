@@ -141,10 +141,18 @@ Czech **DCAT-AP-CZ / OFN** profile. What the document carries:
   bounded by `dcterms:temporal`. A monthly slice is modelled as its **own dataset**, not
   as another `dcat:Distribution` of the live dataset (a distribution is a serialization
   of the whole dataset, not a temporal subset);
-- `dcat:theme` (EU data-theme `ENVI`), `dcat:keyword` (cs + en) and `dcterms:format`
-  (EU file-type codelist, on every distribution alongside `dcat:mediaType`). Each
-  monthly archive distribution is a **single `.gz` file** (`dcat:compressFormat` =
-  `application/gzip`), never a multi-file zip container.
+- `dcat:theme` (EU data-theme `ENVI`) and `dcat:keyword` (cs + en) on **every**
+  dataset/series node — the live dataset, the series, and each monthly member;
+- `dcterms:accrualPeriodicity` from the EU frequency codelist on every node: `CONT` on the
+  live dataset, `MONTHLY` on the series, `NEVER` on each frozen monthly archive;
+- `dcterms:spatial` carrying both the dataset's **RÚIAN territorial IRI(s)** (obec —
+  `linked.cuzk.cz/resource/ruian/obec/{code}`, derived from the building stock) and the WKT
+  bounding-box geometry, on every node;
+- on every distribution: `dcat:mediaType` as an **IANA media-type IRI**
+  (`iana.org/assignments/media-types/…`, the codelist form), `dcterms:format` from the EU
+  file-type codelist, `dcat:accessURL`, and `dcterms:license`. Each monthly archive
+  distribution is a **single `.gz` file** (`dcat:compressFormat` = `application/gzip`,
+  `dcat:downloadURL` = `dcat:accessURL`), never a multi-file zip container.
 
 **What it cannot meet — and why.** Full DCAT-AP-CZ conformance requires
 `dcterms:publisher` to be an **IRI from the Czech OVM/RPP register** (*orgán veřejné
@@ -164,7 +172,9 @@ its **dereferenceable RÚIAN IRI** the way the OFN context models it (`"@type": 
 is recorded — `ulice`, `obec` (`…/ruian/obec/{code}`), `část_obce`, `okres`, `vúsc`
 (`…/ruian/vusc/{code}`) — each alongside its `název_*` label carried as a language-tagged string
 (`{"cs": …}`). The platform is Czech-only, so coordinates are precise open data (no anonymization).
-RÚIAN spatial *coverage* IRIs for the dataset as a whole remain out of scope.
+The catalog's dataset-level `dcterms:spatial` reuses the same RÚIAN register: the distinct obec
+(municipality) IRIs covered by the building stock are emitted as territorial *coverage* references
+alongside the WKT bbox.
 
 ## Linked-data vocabularies
 
