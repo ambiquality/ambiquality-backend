@@ -29,7 +29,7 @@ X-Sensor-Key: amq_sk_your_key_here
 Content-Type: application/json
 ```
 
-- `{base}` is the platform host (production: `https://data.ambiquality.org`).
+- `{base}` is the platform API host (production: `https://api.ambiquality.org`).
 - The secret key travels in the **`X-Sensor-Key` header**, never in the body or the URL.
 - The body is a **batch** of readings from **one** sensor.
 
@@ -94,7 +94,7 @@ status code alone.
 ### curl
 
 ```bash
-curl -sS -X POST "https://data.ambiquality.org/ingestion/v1/measurements" \
+curl -sS -X POST "https://api.ambiquality.org/ingestion/v1/measurements" \
   -H "X-Sensor-Key: $AMQ_SENSOR_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -112,7 +112,7 @@ curl -sS -X POST "https://data.ambiquality.org/ingestion/v1/measurements" \
 import os, requests
 
 resp = requests.post(
-    "https://data.ambiquality.org/ingestion/v1/measurements",
+    "https://api.ambiquality.org/ingestion/v1/measurements",
     headers={"X-Sensor-Key": os.environ["AMQ_SENSOR_KEY"]},
     json={
         "sensorId": "33333333-3333-3333-3333-333333333333",

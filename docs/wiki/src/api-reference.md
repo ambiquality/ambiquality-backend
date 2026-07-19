@@ -12,7 +12,7 @@ so they never drift from the real contract.
 > the exact schema and to copy a code sample, then send from the device. The narrative
 > walkthrough is [Sending measurements](sending-measurements.md).
 
-- **Production:** <https://data.ambiquality.org/ingestion/scalar>
+- **Production:** <https://api.ambiquality.org/ingestion/scalar>
 - **Local dev stack (Caddy on :8080):** <http://localhost:8080/ingestion/scalar>
 
 It documents the one endpoint you need: `POST /v1/measurements`.
@@ -22,7 +22,7 @@ It documents the one endpoint you need: `POST /v1/measurements`.
 The read side — observations (JSON / JSON-LD / CSV), the building/room/sensor catalog,
 the DCAT-AP 3.0 dataset description and monthly archives — has its own reference:
 
-- **Production:** <https://data.ambiquality.org/public/scalar>
+- **Production:** <https://api.ambiquality.org/public/scalar>
 - **Local dev stack:** <http://localhost:8080/public/scalar>
 
 ## Raw OpenAPI documents
