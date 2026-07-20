@@ -8,9 +8,9 @@ namespace Ambiquality.Public.Api.Application.Observations;
 
 /// <summary>
 /// Streams a filtered observation set as CSV directly to the response body, one row
-/// at a time, so memory stays bounded regardless of export size. A leading
-/// <c># license:</c> comment and a <c>Link: …; rel="license"</c> header carry the
-/// CC BY 4.0 attribution (CSV has no body field for it), and a
+/// at a time, so memory stays bounded regardless of export size. A
+/// <c>Link: …; rel="license"</c> header carries the CC BY 4.0 attribution (CSV has
+/// no body field for it, and RFC 4180 has no comment syntax), and a
 /// <c>Link: …; rel="describedby"</c> points at the CSVW tabular schema so the CSV is
 /// self-describing.
 /// </summary>
@@ -29,7 +29,6 @@ public sealed class ObservationCsvStreamer(IAsyncEnumerable<Measurement>? rows, 
         response.Headers.Append("Link", $"<{iri.CsvMetadata()}>; rel=\"describedby\"; type=\"application/csvm+json\"");
 
         await using var writer = new StreamWriter(response.Body, new UTF8Encoding(false), 1 << 14, leaveOpen: true);
-        await writer.WriteLineAsync($"# license: {Constants.LicenseIri}");
         await writer.WriteLineAsync(HeaderRow);
 
         if (rows is null)

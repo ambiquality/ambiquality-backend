@@ -6,8 +6,7 @@
   "dc:license": { "@id": "https://creativecommons.org/licenses/by/4.0/" },
   "dialect": {
     "header": true,
-    "encoding": "utf-8",
-    "commentPrefix": "#"
+    "encoding": "utf-8"
   },
   "tableSchema": {
     "primaryKey": "id",

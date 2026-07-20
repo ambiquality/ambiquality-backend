@@ -7,7 +7,7 @@ namespace Ambiquality.Public.Api.Tests;
 public sealed class CsvEndpointsTests(TimescaleFixture fixture) : PublicApiTestBase(fixture)
 {
     [Fact]
-    public async Task ExportCsv_HasLicenseCommentHeaderAndRows()
+    public async Task ExportCsv_HasHeaderAndRows()
     {
         var response = await Client.GetAsync("/v1/observations.csv?parameterCode=co2");
         response.EnsureSuccessStatusCode();
@@ -18,12 +18,12 @@ public sealed class CsvEndpointsTests(TimescaleFixture fixture) : PublicApiTestB
         var lines = (await response.Content.ReadAsStringAsync())
             .Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-        Assert.StartsWith("# license:", lines[0]);
-        Assert.Equal("id,sensor_id,parameter_code,value,unit,observed_property_uri,quantity_kind_uri,unit_uri,observed_at,received_at,is_invalid", lines[1]);
-        Assert.Equal(3, lines.Length - 2); // 3 valid co2 rows
+        // RFC 4180: the header is the first line — no leading comment row.
+        Assert.Equal("id,sensor_id,parameter_code,value,unit,observed_property_uri,quantity_kind_uri,unit_uri,observed_at,received_at,is_invalid", lines[0]);
+        Assert.Equal(3, lines.Length - 1); // 3 valid co2 rows
 
         // Each co2 row carries the substance-specific observed-property IRI.
-        Assert.All(lines[2..], row =>
+        Assert.All(lines[1..], row =>
             Assert.Contains($"{PublicApiFactory.BaseIri}/v1/properties/co2", row));
     }
 
