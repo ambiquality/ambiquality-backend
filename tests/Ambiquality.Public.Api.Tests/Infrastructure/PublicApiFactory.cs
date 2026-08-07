@@ -16,6 +16,8 @@ public sealed class PublicApiFactory(string connectionString) : WebApplicationFa
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // No fixed-port metrics listener in tests.
+        builder.UseSetting("Observability:Enabled", "false");
         builder.UseSetting("ConnectionStrings:IeqDb", connectionString);
         builder.UseSetting("ConnectionStrings:EvidenceDb", connectionString);
         builder.UseSetting("PublicApi:BaseIri", BaseIri);

@@ -9,6 +9,7 @@ using Ambiquality.Auth.Api.Domain.Users;
 using Ambiquality.Auth.Api.Infrastructure.Messaging;
 using Ambiquality.Auth.Api.Infrastructure.Persistence;
 using Ambiquality.Auth.Api.Infrastructure.Security;
+using Ambiquality.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpLogging;
@@ -19,9 +20,20 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using OpenTelemetry.Metrics;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// --- Observability -----------------------------------------------------------
+// OpenTelemetry metrics (RED + runtime) exposed on a dedicated internal port
+// (Observability:MetricsPort) via an HttpListener — never the Kestrel port behind
+// Caddy, so /metrics cannot leak through the public ingress. Off in tests.
+var observabilityEnabled = ObservabilityExtensions.IsEnabled(builder.Configuration);
+var observabilityMetricsPort = ObservabilityExtensions.ResolveMetricsPort(builder.Configuration, 9464);
+if (observabilityEnabled)
+    builder.Services.AddAmbiqualityMetrics(observabilityMetricsPort,
+        metrics => metrics.AddAspNetCoreInstrumentation());
 
 // --- Configuration / options -------------------------------------------------
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();

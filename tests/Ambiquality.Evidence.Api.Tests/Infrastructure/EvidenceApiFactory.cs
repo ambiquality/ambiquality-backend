@@ -34,6 +34,9 @@ public sealed class EvidenceApiFactory : WebApplicationFactory<Program>, IAsyncL
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // No fixed-port metrics listener in tests.
+        builder.UseSetting("Observability:Enabled", "false");
+
         builder.ConfigureServices(services =>
         {
             // Remove the default DbContext registration

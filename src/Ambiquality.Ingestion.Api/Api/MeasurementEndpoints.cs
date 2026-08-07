@@ -1,4 +1,5 @@
 using Ambiquality.Ingestion.Api.Application;
+using Ambiquality.Observability;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Ambiquality.Ingestion.Api.Api;
@@ -50,6 +51,8 @@ public static class MeasurementEndpoints
                 Readings: readings),
             cancellationToken);
 
+        RecordResult(result);
+
         // 202, not 201: the batch is durably enqueued but not yet materialized into the
         // hypertable — the worker performs the write asynchronously.
         if (result.IsAccepted)
@@ -69,5 +72,27 @@ public static class MeasurementEndpoints
             context.Response.Headers.RetryAfter = retryAfter.ToString();
 
         return Problems.ToProblem(result.Rejection!.Value, result.Detail!);
+    }
+
+    /// <summary>
+    /// Feeds the ingestion throughput/outcome counters (Google's RED "rate/errors" for the
+    /// write path — the ≥ 100 measurements/s NFR and per-outcome rejection mix).
+    /// </summary>
+    private static void RecordResult(IngestMeasurementsResult result)
+    {
+        var outcome = result.IsAccepted
+            ? AmbiqualityMetrics.OutcomeAccepted
+            : result.Rejection switch
+            {
+                IngestRejectionReason.RateLimited => AmbiqualityMetrics.OutcomeRateLimited,
+                IngestRejectionReason.Unauthorized => AmbiqualityMetrics.OutcomeUnauthorized,
+                IngestRejectionReason.SensorNotActive => AmbiqualityMetrics.OutcomeForbidden,
+                IngestRejectionReason.QueueUnavailable => AmbiqualityMetrics.OutcomeEnqueueFailed,
+                _ => AmbiqualityMetrics.OutcomeValidationRejected
+            };
+
+        AmbiqualityMetrics.IngestionBatches.Add(1, AmbiqualityMetrics.IngestionBatchTags(outcome));
+        if (result.IsAccepted && result.Accepted is { Count: > 0 } accepted)
+            AmbiqualityMetrics.MeasurementEnqueued.Add(accepted.Count);
     }
 }

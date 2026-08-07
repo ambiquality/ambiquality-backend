@@ -61,6 +61,15 @@ cp .env.example .env
 > not update the existing roles — you must reset the volume with `./dev.sh down` (which removes
 > volumes) and start again for the new passwords to take effect.
 
+## Monitoring
+
+Each service exposes OpenTelemetry metrics on an internal `/metrics` port (9464–9469) and
+a Prometheus + Grafana overlay (`compose.monitoring.yml`, started automatically by
+`dev.sh` / `deploy.sh`) provides Four-Golden-Signals dashboards (Overview, Service RED,
+Infrastructure USE, Ingestion Pipeline). Grafana and Prometheus bind to `127.0.0.1` and are
+reached **only** over SSH port forwarding — never the public ingress. See
+[`docs/monitoring.md`](docs/monitoring.md).
+
 ## Topology
 
 [Caddy](https://caddyserver.com/) is the public ingress; the API services are not published

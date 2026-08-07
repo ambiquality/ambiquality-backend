@@ -13,15 +13,28 @@ using Ambiquality.Evidence.Api.Infrastructure;
 using Ambiquality.Evidence.Api.Infrastructure.Persistence;
 using Ambiquality.Evidence.Api.Infrastructure.Ruian;
 using Ambiquality.Evidence.Api.Infrastructure.Security;
+using Ambiquality.Evidence.Api.Monitoring;
+using Ambiquality.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using OpenTelemetry.Metrics;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// --- Observability -----------------------------------------------------------
+// OpenTelemetry metrics (RED + runtime) exposed on a dedicated internal port
+// (Observability:MetricsPort) via an HttpListener — never the Kestrel port behind
+// Caddy, so /metrics cannot leak through the public ingress. Off in tests.
+var observabilityEnabled = ObservabilityExtensions.IsEnabled(builder.Configuration);
+var observabilityMetricsPort = ObservabilityExtensions.ResolveMetricsPort(builder.Configuration, 9465);
+if (observabilityEnabled)
+    builder.Services.AddAmbiqualityMetrics(observabilityMetricsPort,
+        metrics => metrics.AddAspNetCoreInstrumentation());
 
 // --- Configuration / options -------------------------------------------------
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
@@ -62,6 +75,12 @@ builder.Services.AddHttpClient<IAddressGeocoder, RuianGeocoderClient>(client =>
 });
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
+
+// --- Observability (business metrics) ----------------------------------------
+// Tracks distinct active operators for the ambiquality.active_users gauge (started as a
+// hosted service, recorded from CurrentUserMiddleware).
+builder.Services.AddSingleton<ActiveUsersTracker>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ActiveUsersTracker>());
 
 // --- AuthN / AuthZ -----------------------------------------------------------
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

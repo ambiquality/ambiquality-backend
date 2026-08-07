@@ -18,6 +18,7 @@ src/
   Ambiquality.Ingestion.Worker/ ← [BUILT] background service: drains the Redis stream and bulk-writes measurements to the ieq hypertable
   Ambiquality.Public.Api/       ← [BUILT] read-only open-data API: observations (JSON/JSON-LD/CSV), evidence catalog, DCAT-AP 3.0, OpenAPI (F11–F17)
   Ambiquality.Export.Worker/    ← [BUILT] background service: publishes monthly downloadable archives (CSV + JSON-LD, zipped) to object storage; records them in ieq.measurement_exports for Public.Api's DCAT distributions (F17)
+  Ambiquality.Observability/    ← [BUILT] shared OpenTelemetry metrics: ambiquality meter + instruments, OTel/Prometheus wiring (Golden Signals) — see "Mapping to The Four Golden Signals, + Observability"
 tests/
   Ambiquality.Core.Tests/
   Ambiquality.Auth.Api.Tests/
@@ -26,6 +27,7 @@ tests/
   Ambiquality.Ingestion.Worker.Tests/
   Ambiquality.Public.Api.Tests/
   Ambiquality.Export.Worker.Tests/
+  Ambiquality.Observability.Tests/
 ```
 
 **Auth.Api**, **Evidence.Api**, **Ingestion.Api**, **Ingestion.Worker**, **Public.Api** and
@@ -134,6 +136,32 @@ dotnet run --project src/Ambiquality.Ingestion.Api      # validate + enqueue; ne
 dotnet run --project src/Ambiquality.Ingestion.Worker   # drain + persist; needs ieq db + Redis
 dotnet run --project src/Ambiquality.Public.Api         # read-only open data; needs ieq + evidence dbs
 ```
+
+## Mapping to The Four Golden Signals, + Observability
+
+Services export OpenTelemetry metrics (`Ambiquality.Observability` project) on dedicated
+internal `/metrics` ports (auth 9464, evidence 9465, ingestion 9466, public 9467,
+ingestion-worker 9468, export-worker 9469) via an `HttpListener` — never the app port, so
+`/metrics` can't leak through Caddy. `compose.monitoring.yml` + `conf/` add
+Prometheus + Grafana (4 dashboards: Overview, Service RED, Infrastructure USE, Ingestion
+Pipeline) accessed **only via SSH port forwarding** (`ssh -L 3000:… -L 9090:…`). See
+`docs/monitoring.md`.
+
+- **Metrics add sites**: instruments live in `Ambiquality.Observability/AmbiqualityMetrics.cs`;
+  they are recorded e.g. at `MeasurementEndpoints.RecordResult` (ingestion outcomes),
+  `CurrentUserMiddleware` + `ActiveUsersTracker` (operator activity), `QueueMetricsService`
+  + `DrainStatus` (Ingestion.Worker), `RumVitalsEndpoint` (Public.Api web vitals) and
+  `MonthlyExportService` (exports). Prometheus labels every target with a static `service`
+  label in `conf/prometheus/prometheus.yml` — keep new targets and dashboards' `{__name__=…}`
+  matchers in sync.
+- **Public.Api RUM endpoint**: `POST /telemetry/vitals` (CORS-open, `ExcludeFromDescription`
+  so it stays out of the published OpenAPI) feeds `ambiquality.web_vitals.*`. Keep
+  `VITE_RUM_ENDPOINT` in the frontend release pipeline aligned with its routing
+  (`…/public/telemetry/vitals`).
+- **Tests**: `dotnet test` — `Ambiquality.Observability.Tests`
+  (`RollingActivityGauge` window logic) and `Ambiquality.Public.Api.Tests/RumVitalsEndpointTests`
+  (beacon validation + OpenAPI exclusion). Test factories set `Observability:Enabled=false`
+  so no metrics listener binds a fixed port during tests.
 
 Start the full stack (Postgres, Redis, Caddy, Mailpit, the APIs, the ingestion worker, migrations)
 with the dev helper, which wraps `podman compose --profile development`:

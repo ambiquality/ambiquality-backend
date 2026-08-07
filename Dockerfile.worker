@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY ["src/Ambiquality.Core/Ambiquality.Core.csproj", "src/Ambiquality.Core/"]
+COPY ["src/Ambiquality.Observability/Ambiquality.Observability.csproj", "src/Ambiquality.Observability/"]
 COPY ["src/Ambiquality.Ingestion.Worker/Ambiquality.Ingestion.Worker.csproj", "src/Ambiquality.Ingestion.Worker/"]
 RUN dotnet restore "src/Ambiquality.Ingestion.Worker/Ambiquality.Ingestion.Worker.csproj"
 COPY src/ src/

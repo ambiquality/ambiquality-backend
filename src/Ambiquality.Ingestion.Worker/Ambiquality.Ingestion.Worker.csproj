@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Ambiquality.Core\Ambiquality.Core.csproj" />
+    <ProjectReference Include="..\Ambiquality.Observability\Ambiquality.Observability.csproj" />
   </ItemGroup>
 
 </Project>

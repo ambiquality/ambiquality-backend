@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <!-- NOTE: OpenTelemetry.Instrumentation.AspNetCore is deliberately NOT referenced
+         here — it pulls the Microsoft.AspNetCore.App shared framework into every consumer,
+         which breaks the background workers (they run on dotnet/runtime, not aspnet).
+         The API projects reference it themselves and pass the additional instrumentation
+         into AddAmbiqualityMetrics via the instruments callback. -->
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+    <!-- The Prometheus exporters are beta by design in OpenTelemetry .NET. We use the
+         HttpListener exporter for every service (APIs and workers alike) on a dedicated
+         internal metrics port, so /metrics never shares the application's HTTP port and
+         can never be reached through the public Caddy routes. Port 9468 is the OTel
+         default; per-service ports are assigned at the call site (see Program.cs). -->
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.HttpListener" Version="1.17.0-beta.1" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,49 @@
+# Prometheus scrape config for the Ambiquality observability stack.
+#
+# Every .NET service (API or worker) serves /metrics on its own internal port
+# (9464-9469) via an OpenTelemetry HttpListener — these ports are never published to the
+# host, so nothing here is reachable from the public internet. The `service` label is
+# applied per target so the Grafana dashboards can switch with a single $service
+# dropdown (one RED dashboard covers all services; one USE dashboard covers all
+# containers).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: ambiquality
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["auth-api:9464"]
+        labels: { service: auth-api }
+      - targets: ["evidence-api:9465"]
+        labels: { service: evidence-api }
+      - targets: ["ingestion-api:9466"]
+        labels: { service: ingestion-api }
+      - targets: ["public-api:9467"]
+        labels: { service: public-api }
+      - targets: ["ingestion-worker:9468"]
+        labels: { service: ingestion-worker }
+      - targets: ["export-worker:9469"]
+        labels: { service: export-worker }
+
+# USE at the host level (the VPS itself). Per-container USE for the .NET services comes
+# from the process metrics (dotnet_process_cpu_time / _memory_working_set) on the same
+# service-label scraping above; Redis/Postgres saturation comes from their exporters.
+  - job_name: node-exporter
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels: { service: infra }
+
+  - job_name: redis-exporter
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+        labels: { service: redis }
+
+  - job_name: postgres-exporter
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+        labels: { service: postgres }
