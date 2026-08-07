@@ -142,6 +142,8 @@ services:
       Vocabulary__ExtensionsPath: /etc/ambiquality/vocabulary-extensions.json
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:6200
+      # Internal Prometheus scrape port (compose.monitoring.yml); never published.
+      Observability__MetricsPort: "9465"
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=evidence_api;Password=${EVIDENCE_API_DB_PASSWORD:?error}"
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
@@ -210,6 +212,8 @@ services:
       Vocabulary__ExtensionsPath: /etc/ambiquality/vocabulary-extensions.json
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:6300
+      # Internal Prometheus scrape port (compose.monitoring.yml); never published.
+      Observability__MetricsPort: "9466"
       # ingestion_api: read-write on ieq, read-only on the evidence catalog.
       ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=ingestion_api;Password=${INGESTION_API_DB_PASSWORD:?error}"
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=ingestion_api;Password=${INGESTION_API_DB_PASSWORD:?error}"
@@ -239,6 +243,8 @@ services:
         condition: service_healthy
     environment:
       DOTNET_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      # Internal Prometheus scrape port (compose.monitoring.yml); never published.
+      Observability__MetricsPort: "9468"
       # ingestion_api role: read-write on ieq (the worker is the only measurements writer).
       ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=ingestion_api;Password=${INGESTION_API_DB_PASSWORD:?error}"
       ConnectionStrings__Redis: "redis:6379"
@@ -261,6 +267,8 @@ services:
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=export_worker;Password=${EXPORT_WORKER_DB_PASSWORD:?error}"
       Export__StorageType: ${EXPORT_STORAGE_TYPE:-FileSystem}
       Export__FileSystem__BasePath: /exports
+      # Internal Prometheus scrape port (compose.monitoring.yml); never published.
+      Observability__MetricsPort: "9469"
       Export__S3__ServiceUrl: ${EXPORT_S3_SERVICE_URL:-}
       Export__S3__BucketName: ${EXPORT_S3_BUCKET_NAME:-}
       Export__S3__AccessKey: ${EXPORT_S3_ACCESS_KEY:-}
@@ -284,6 +292,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:6100
+      # Internal Prometheus scrape port (compose.monitoring.yml); never published.
+      Observability__MetricsPort: "9464"
       ConnectionStrings__AuthDb: "Host=postgres;Port=5432;Database=auth;Username=auth_api;Password=${AUTH_API_DB_PASSWORD:?error}"
       Jwt__Issuer: ${JWT_ISSUER}
       Jwt__Audience: ${JWT_AUDIENCE}
@@ -321,6 +331,8 @@ services:
       Vocabulary__ExtensionsPath: /etc/ambiquality/vocabulary-extensions.json
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:6400
+      # Internal Prometheus scrape port (compose.monitoring.yml); never published.
+      Observability__MetricsPort: "9467"
       # public_api role: read-only on both ieq (measurements) and evidence (catalog).
       ConnectionStrings__IeqDb: "Host=postgres;Port=5432;Database=ieq;Username=public_api;Password=${PUBLIC_API_DB_PASSWORD:?error}"
       ConnectionStrings__EvidenceDb: "Host=postgres;Port=5432;Database=evidence;Username=public_api;Password=${PUBLIC_API_DB_PASSWORD:?error}"

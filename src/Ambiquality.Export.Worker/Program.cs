@@ -3,9 +3,18 @@ using Ambiquality.Export.Worker;
 using Ambiquality.Export.Worker.Exporting;
 using Ambiquality.Export.Worker.Persistence;
 using Ambiquality.Export.Worker.Storage;
+using Ambiquality.Observability;
 using Npgsql;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+// --- Observability -----------------------------------------------------------
+// Runtime + export throughput metrics exposed on the worker's internal metrics
+// port (Observability:MetricsPort).
+var observabilityEnabled = ObservabilityExtensions.IsEnabled(builder.Configuration);
+var observabilityMetricsPort = ObservabilityExtensions.ResolveMetricsPort(builder.Configuration, 9469);
+if (observabilityEnabled)
+    builder.Services.AddAmbiqualityWorkerMetrics(observabilityMetricsPort);
 
 // POD-04: operator-extensible quantities — so archives serialize extension
 // parameters with their labels/QUDT URIs the same way the live API does.

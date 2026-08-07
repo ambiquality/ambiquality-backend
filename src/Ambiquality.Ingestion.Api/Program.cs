@@ -8,10 +8,12 @@ using Ambiquality.Ingestion.Api.Infrastructure;
 using Ambiquality.Ingestion.Api.Infrastructure.Catalog;
 using Ambiquality.Ingestion.Api.Infrastructure.Queue;
 using Ambiquality.Ingestion.Api.Infrastructure.RateLimiting;
+using Ambiquality.Observability;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Npgsql;
+using OpenTelemetry.Metrics;
 using Scalar.AspNetCore;
 using StackExchange.Redis;
 
@@ -19,6 +21,16 @@ using StackExchange.Redis;
 const string SensorKeySchemeName = "SensorKey";
 
 var builder = WebApplication.CreateBuilder(args);
+
+// --- Observability -----------------------------------------------------------
+// OpenTelemetry metrics (RED + runtime) exposed on a dedicated internal port
+// (Observability:MetricsPort) via an HttpListener — never the Kestrel port behind
+// Caddy, so /metrics cannot leak through the public ingress. Off in tests.
+var observabilityEnabled = ObservabilityExtensions.IsEnabled(builder.Configuration);
+var observabilityMetricsPort = ObservabilityExtensions.ResolveMetricsPort(builder.Configuration, 9466);
+if (observabilityEnabled)
+    builder.Services.AddAmbiqualityMetrics(observabilityMetricsPort,
+        metrics => metrics.AddAspNetCoreInstrumentation());
 
 // POD-04: operator-extensible quantities — extension parameters become resolvable
 // (QUDT URIs) before any validation runs; their ranges are seeded into

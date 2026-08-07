@@ -37,6 +37,9 @@ public sealed class IngestionApiFactory : WebApplicationFactory<Program>, IAsync
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // No fixed-port metrics listener in tests.
+        builder.UseSetting("Observability:Enabled", "false");
+
         builder.ConfigureServices(services =>
         {
             var ieqDescriptor = services.SingleOrDefault(

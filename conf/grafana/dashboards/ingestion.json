@@ -1,0 +1,70 @@
+{
+  "uid": "ambiquality-ingestion",
+  "title": "Ambiquality — Ingestion Pipeline",
+  "tags": ["ambiquality", "monitoring"],
+  "timezone": "utc",
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "annotations": { "list": [] },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Measurements enqueued / second (the ≥100/s NFR)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "countps", "custom": { "drawStyle": "line", "showPoints": "never", "fillOpacity": 15 } }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "sum(rate({__name__=\"ambiquality_ingestion_measurements_enqueued_total\"}[$__rate_interval]))", "legendFormat": "enqueued/s" } ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Batches by outcome",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "count", "custom": { "drawStyle": "bars", "fillOpacity": 35, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "sum by (outcome)(rate({__name__=\"ambiquality_ingestion_batches_total\"}[$__rate_interval]))", "legendFormat": "{{outcome}}" } ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Queue depth (pending)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "showPoints": "never", "fillOpacity": 15 } }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "{__name__=\"ambiquality_queue_measurements_pending\"}", "legendFormat": "pending" } ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Drain gap (seconds since last write)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "showPoints": "never", "fillOpacity": 15 } }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "{__name__=\"ambiquality_queue_last_drain_gap_seconds\"}", "legendFormat": "drain gap" } ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Archives published",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "sum({__name__=\"ambiquality_export_archives_published_total\"})", "legendFormat": "archives" } ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Unacked stream entries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "max({__name__=\"ambiquality_queue_measurements_unacked\"})", "legendFormat": "unacked" } ]
+    }
+  ]
+}

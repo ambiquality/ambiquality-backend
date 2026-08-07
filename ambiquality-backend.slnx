@@ -7,6 +7,7 @@
     <Project Path="src/Ambiquality.Ingestion.Api/Ambiquality.Ingestion.Api.csproj" />
     <Project Path="src/Ambiquality.Ingestion.Worker/Ambiquality.Ingestion.Worker.csproj" />
     <Project Path="src/Ambiquality.Public.Api/Ambiquality.Public.Api.csproj" />
+    <Project Path="src/Ambiquality.Observability/Ambiquality.Observability.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Ambiquality.Auth.Api.Tests/Ambiquality.Auth.Api.Tests.csproj" />
@@ -15,6 +16,7 @@
     <Project Path="tests/Ambiquality.Export.Worker.Tests/Ambiquality.Export.Worker.Tests.csproj" />
     <Project Path="tests/Ambiquality.Ingestion.Api.Tests/Ambiquality.Ingestion.Api.Tests.csproj" />
     <Project Path="tests/Ambiquality.Ingestion.Worker.Tests/Ambiquality.Ingestion.Worker.Tests.csproj" />
+    <Project Path="tests/Ambiquality.Observability.Tests/Ambiquality.Observability.Tests.csproj" />
     <Project Path="tests/Ambiquality.Public.Api.Tests/Ambiquality.Public.Api.Tests.csproj" />
   </Folder>
 </Solution>

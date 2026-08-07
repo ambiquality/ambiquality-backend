@@ -1,5 +1,6 @@
 using Ambiquality.Core.Messaging;
 using Ambiquality.Ingestion.Api.Infrastructure.Queue;
+using Ambiquality.Ingestion.Worker.Monitoring;
 using Ambiquality.Ingestion.Worker.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -56,7 +57,7 @@ public sealed class IngestionQueueEndToEndTests : IAsyncLifetime
         var writer = new MeasurementBatchWriter(_dataSource);
         var drain = new MeasurementDrainService(
             _redisMux, writer, Options.Create(_options),
-            NullLogger<MeasurementDrainService>.Instance);
+            NullLogger<MeasurementDrainService>.Instance, new DrainStatus());
 
         var first = Measurement(700);
         var second = Measurement(800);
@@ -88,7 +89,7 @@ public sealed class IngestionQueueEndToEndTests : IAsyncLifetime
         var writer = new MeasurementBatchWriter(_dataSource);
         var drain = new MeasurementDrainService(
             _redisMux, writer, Options.Create(_options),
-            NullLogger<MeasurementDrainService>.Instance);
+            NullLogger<MeasurementDrainService>.Instance, new DrainStatus());
 
         // A multi-reading batch is appended inside one MULTI/EXEC transaction.
         var batch = new[] { Measurement(700), Measurement(800), Measurement(900) };

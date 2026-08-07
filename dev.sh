@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-COMPOSE="podman compose -f podman-compose.yml --profile development"
+# App stack (podman-compose.yml) + observability overlay (compose.monitoring.yml).
+# Monitoring UIs bound to 127.0.0.1:3000 (Grafana) / :9090 (Prometheus).
+COMPOSE="podman compose -f podman-compose.yml -f compose.monitoring.yml --profile development"
 
 case "${1:-}" in
   up)

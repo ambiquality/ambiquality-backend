@@ -39,6 +39,7 @@ echo "▶ Deploying backend=$BACKEND_TAG frontend=$FRONTEND_TAG to $DEPLOY_HOST:
 echo "▶ Syncing deploy files…"
 rsync -az --delete \
 	--include='compose.ghcr.yml' \
+	--include='compose.monitoring.yml' \
 	--include='init-databases.sh' \
 	--include='init-databases.sql.tpl' \
 	--include='conf/' --include='conf/***' \
@@ -53,8 +54,8 @@ ssh "$DEPLOY_HOST" "
 	cd '$DEPLOY_DIR'
 	cp conf/Caddyfile.production conf/Caddyfile
 	export TAG='$BACKEND_TAG' FRONTEND_TAG='$FRONTEND_TAG'
-	podman compose -f compose.ghcr.yml pull
-	podman compose -f compose.ghcr.yml up -d --remove-orphans
+	podman compose -f compose.ghcr.yml -f compose.monitoring.yml pull
+	podman compose -f compose.ghcr.yml -f compose.monitoring.yml up -d --remove-orphans
 	podman image prune -f >/dev/null
 "
 

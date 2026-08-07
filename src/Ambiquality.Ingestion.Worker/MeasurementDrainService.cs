@@ -1,4 +1,5 @@
 using Ambiquality.Core.Messaging;
+using Ambiquality.Ingestion.Worker.Monitoring;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
@@ -16,7 +17,8 @@ public sealed class MeasurementDrainService(
     IConnectionMultiplexer redis,
     MeasurementBatchWriter writer,
     IOptions<MeasurementQueueOptions> options,
-    ILogger<MeasurementDrainService> logger) : BackgroundService
+    ILogger<MeasurementDrainService> logger,
+    DrainStatus drainStatus) : BackgroundService
 {
     private static readonly TimeSpan IdleReclaimAfter = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan ErrorBackoff = TimeSpan.FromSeconds(5);
@@ -127,5 +129,9 @@ public sealed class MeasurementDrainService(
 
         if (ids.Count > 0)
             await db.StreamAcknowledgeAsync(_options.StreamKey, _options.ConsumerGroup, ids.ToArray());
+
+        // Successfully drained a batch — publish the freshness timestamp for the
+        // queue-lag gauge (only reached when the write above did not throw).
+        drainStatus.MarkDrained();
     }
 }

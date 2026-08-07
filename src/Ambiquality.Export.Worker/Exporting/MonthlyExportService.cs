@@ -1,4 +1,5 @@
 using Ambiquality.Export.Worker.Persistence;
+using Ambiquality.Observability;
 
 namespace Ambiquality.Export.Worker.Exporting;
 
@@ -64,7 +65,10 @@ public sealed class MonthlyExportService(
         }
 
         foreach (var format in missing)
+        {
             await exporter.ExportAsync(month, format, ct);
+            AmbiqualityMetrics.ExportArchivesPublished.Add(1);
+        }
     }
 
     /// <summary>02:00 UTC on the first day of the month after <paramref name="nowUtc"/>.</summary>

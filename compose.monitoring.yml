@@ -1,0 +1,90 @@
+# Observability overlay — the "Four Golden Signals" monitoring stack.
+#
+# This is overlay #2 for BOTH environments, exactly as podman-compose.yml /
+# compose.ghcr.yml are the overlay #1s:
+#   dev:  podman compose -f podman-compose.yml -f compose.monitoring.yml --profile development up
+#   prod: podman compose -f compose.ghcr.yml -f compose.monitoring.yml up -d
+#
+# Prometheus scrapes every .NET service's internal /metrics port (9464-9469, served by
+# an HttpListener that never shares the public application port), the exporters and
+# cAdvisor over the compose `db`/`public` networks. Nothing here is published to the
+# host except Grafana and Prometheus, bound to 127.0.0.1 so the operator reaches them
+# only over SSH port forwarding (never through the public ingress):
+#   ssh -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 ambiquality@ambiquality.org
+#
+# Secrets come from the same server .env as the app stack (mandatory: GF_ADMIN_PASSWORD).
+services:
+  prometheus:
+    image: docker.io/prom/prometheus:v3.13.2
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+      - --web.listen-address=:9090
+      - --web.enable-lifecycle
+    volumes:
+      - prometheus-data:/prometheus
+      - ./conf/prometheus:/etc/prometheus:ro
+    networks:
+      - db
+      - public
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  grafana:
+    image: docker.io/grafana/grafana-oss:13.0.2
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:?error}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./conf/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./conf/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - public
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  # USE at the host level (the VPS itself).
+  # Per-CONTAINER CPU/memory comes from the .NET process metrics (dotnet_process_* with the
+  # scrape-job `service` label) — cAdvisor was dropped because under rootless Podman it
+  # cannot read sibling containers' cgroup data (only the machine / series appears), which
+  # matches the documented fallback. See docs/monitoring.md.
+  node-exporter:
+    image: docker.io/prom/node-exporter:v1.12.1
+    command:
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro
+    networks:
+      - db
+      - public
+    restart: unless-stopped
+
+  # Saturation of Redis (the ingestion queue's backing store): clients, memory, evictions.
+  redis-exporter:
+    image: docker.io/oliver006/redis_exporter:v1.88.0
+    environment:
+      REDIS_ADDR: redis:6379
+    networks:
+      - db
+    restart: unless-stopped
+
+  # Saturation of Postgres/TimescaleDB: active vs max connections, locks, cache hit ratio.
+  postgres-exporter:
+    image: docker.io/prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:${POSTGRES_PASSWORD:?error}@postgres:5432/postgres?sslmode=disable
+      # pg_stat_database exposes one row per database; limit to the app databases.
+      PG_EXPORTER_AUTODISCOVER_DATABASES: "true"
+    networks:
+      - db
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:

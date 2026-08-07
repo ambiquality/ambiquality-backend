@@ -47,6 +47,8 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        // No fixed-port metrics listener in tests.
+        builder.UseSetting("Observability:Enabled", "false");
 
         builder.ConfigureServices(services =>
         {

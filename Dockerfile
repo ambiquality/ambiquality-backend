@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY ["src/Ambiquality.Auth.Api/Ambiquality.Auth.Api.csproj", "src/Ambiquality.Auth.Api/"]
+COPY ["src/Ambiquality.Observability/Ambiquality.Observability.csproj", "src/Ambiquality.Observability/"]
 RUN dotnet restore "src/Ambiquality.Auth.Api/Ambiquality.Auth.Api.csproj"
 COPY src/ src/
 RUN dotnet publish "src/Ambiquality.Auth.Api/Ambiquality.Auth.Api.csproj" -c Release -o /app/publish

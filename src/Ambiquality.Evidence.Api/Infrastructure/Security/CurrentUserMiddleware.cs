@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using Ambiquality.Evidence.Api.Application.Abstractions;
+using Ambiquality.Evidence.Api.Monitoring;
 
 namespace Ambiquality.Evidence.Api.Infrastructure.Security;
 
@@ -15,7 +16,8 @@ public sealed class CurrentUserMiddleware(RequestDelegate next)
         HttpContext context,
         CurrentUser currentUser,
         IUserProjectionRepository projections,
-        IClock clock)
+        IClock clock,
+        ActiveUsersTracker activityTracker)
     {
         if (context.User.Identity?.IsAuthenticated == true &&
             Guid.TryParse(context.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var authUserId))
@@ -23,6 +25,7 @@ public sealed class CurrentUserMiddleware(RequestDelegate next)
             var projectionId = await projections.FindOrCreateAsync(
                 authUserId, clock.UtcNow, context.RequestAborted);
             currentUser.SetAuthenticated(authUserId, projectionId);
+            activityTracker.RecordActivity(authUserId, clock.UtcNow);
         }
 
         await next(context);

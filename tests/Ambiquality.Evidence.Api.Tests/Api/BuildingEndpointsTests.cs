@@ -185,10 +185,15 @@ public sealed class BuildingEndpointsTests : IAsyncLifetime
     {
         var building = await RegisterBuildingAsync("Idem Building");
 
-        // A fixed, microsecond-clean instant so the value round-trips through
-        // Postgres (tstzrange has microsecond resolution) byte-identically; the
-        // second PUT then compares equal and short-circuits to a no-op.
-        var validFrom = new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc);
+        // validFrom stays strictly after registration (a minute past now) yet
+        // is whole-second clean so it round-trips through Postgres (tstzrange
+        // has microsecond resolution) byte-identically; the second PUT then
+        // compares equal and short-circuits to a no-op. A hardcoded date would
+        // go stale once it falls into the past, so it is derived from UtcNow.
+        var validFrom = DateTime.UtcNow.AddMinutes(1);
+        validFrom = new DateTime(
+            validFrom.Ticks - validFrom.Ticks % TimeSpan.TicksPerSecond,
+            DateTimeKind.Utc);
         var changeRequest = new ChangeBuildingNameRequest(NewName: "Renamed", ValidFrom: validFrom);
 
         // First PUT applies the change.

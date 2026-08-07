@@ -1,5 +1,6 @@
 using Ambiquality.Core.Domain.Vocabulary;
 using Ambiquality.Core.Infrastructure.Persistence;
+using Ambiquality.Observability;
 using Ambiquality.Public.Api.Api;
 using Ambiquality.Public.Api.Infrastructure.Catalog;
 using Ambiquality.Public.Api.Infrastructure.Observations;
@@ -7,9 +8,20 @@ using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Npgsql;
+using OpenTelemetry.Metrics;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// --- Observability -----------------------------------------------------------
+// OpenTelemetry metrics (RED + runtime + web-vitals RUM) exposed on a dedicated
+// internal port (Observability:MetricsPort) via an HttpListener — never the Kestrel
+// port behind Caddy, so /metrics cannot leak through the public ingress. Off in tests.
+var observabilityEnabled = ObservabilityExtensions.IsEnabled(builder.Configuration);
+var observabilityMetricsPort = ObservabilityExtensions.ResolveMetricsPort(builder.Configuration, 9467);
+if (observabilityEnabled)
+    builder.Services.AddAmbiqualityMetrics(observabilityMetricsPort,
+        metrics => metrics.AddAspNetCoreInstrumentation());
 
 // POD-04: operator-extensible codelists and quantities — applied before any
 // endpoint publishes the vocabularies (codelist/property endpoints, SKOS labels).
@@ -206,6 +218,7 @@ app.MapBuildingEndpoints();
 app.MapRoomEndpoints();
 app.MapSensorEndpoints();
 app.MapDcatCatalogEndpoints();
+app.MapRumVitalsEndpoint();
 
 app.Run();
 

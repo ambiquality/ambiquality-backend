@@ -1,0 +1,178 @@
+{
+  "uid": "ambiquality-overview",
+  "title": "Ambiquality — Overview (10,000-foot view)",
+  "tags": ["ambiquality", "monitoring"],
+  "timezone": "utc",
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "annotations": { "list": [] },
+  "templating": { "list": [] },
+  "panels": [
+    { "id": 1, "type": "row", "title": "Global health", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total Active Users (24h)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "max({__name__=\"ambiquality_active_users\",window=\"24h\"})", "legendFormat": "operators" } ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Active Users 1h",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "max({__name__=\"ambiquality_active_users\",window=\"1h\"})", "legendFormat": "operators" } ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Active Users 5m",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "max({__name__=\"ambiquality_active_users\",window=\"5m\"})", "legendFormat": "operators" } ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Services up",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100, "min": 0 }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "100 * avg(up{job=\"ambiquality\"})", "legendFormat": "availability" } ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Request rate (all APIs)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 1 }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "sum(rate({__name__=\"http_server_request_duration_seconds_count\"}[$__rate_interval]))", "legendFormat": "rps" } ]
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Global Error Rate (aggregated 5xx)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Global Error Rate %",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "max": 100, "min": 0, "custom": { "drawStyle": "line", "showPoints": "never", "fillOpacity": 15 } },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (sum(rate({__name__=\"http_server_request_duration_seconds_count\",http_response_status_code=~\"5..\"}[$__rate_interval])) or vector(0)) / (sum(rate({__name__=\"http_server_request_duration_seconds_count\"}[$__rate_interval])) or vector(0))",
+          "legendFormat": "5xx %"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "5xx per second",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "count", "custom": { "drawStyle": "bars", "fillOpacity": 40 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate({__name__=\"http_server_request_duration_seconds_count\",http_response_status_code=~\"5..\"}[$__rate_interval]))", "legendFormat": "5xx/s" }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Core Web Vitals (bar gauges)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "LCP (p75)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 2500 }, { "color": "red", "value": 4000 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true },
+      "targets": [ { "refId": "A", "expr": "histogram_quantile(0.75, sum by (le)(rate({__name__=\"ambiquality_web_vitals_duration_milliseconds_bucket\",metric=\"lcp\"}[$__rate_interval])))", "legendFormat": "LCP" } ]
+    },
+    {
+      "id": 12,
+      "type": "bargauge",
+      "title": "INP (p75)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 4, "x": 4, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 200 }, { "color": "red", "value": 500 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true },
+      "targets": [ { "refId": "A", "expr": "histogram_quantile(0.75, sum by (le)(rate({__name__=\"ambiquality_web_vitals_duration_milliseconds_bucket\",metric=\"inp\"}[$__rate_interval])))", "legendFormat": "INP" } ]
+    },
+    {
+      "id": 14,
+      "type": "bargauge",
+      "title": "TTFB (p75)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 4, "x": 8, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 800 }, { "color": "red", "value": 1800 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true },
+      "targets": [ { "refId": "A", "expr": "histogram_quantile(0.75, sum by (le)(rate({__name__=\"ambiquality_web_vitals_duration_milliseconds_bucket\",metric=\"ttfb\"}[$__rate_interval])))", "legendFormat": "TTFB" } ]
+    },
+    {
+      "id": 15,
+      "type": "bargauge",
+      "title": "CLS (p75)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 4, "x": 12, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 3,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 0.25 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true },
+      "targets": [ { "refId": "A", "expr": "histogram_quantile(0.75, sum by (le)(rate({__name__=\"ambiquality_web_vitals_cls_bucket\"}[$__rate_interval])))", "legendFormat": "CLS" } ]
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Page views / s",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 4, "x": 16, "y": 15 },
+      "fieldConfig": { "defaults": { "unit": "count", "decimals": 1 }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "sum(rate({__name__=\"ambiquality_web_vitals_pageviews_total\"}[$__rate_interval]))", "legendFormat": "pages/s" } ]
+    }
+  ]
+}
