@@ -6,7 +6,8 @@ namespace Ambiquality.Public.Api.Api;
 
 /// <summary>
 /// Anonymous browser telemetry endpoint that feeds the Core Web Vitals histograms
-/// (LCP / FID / INP / TTFB / CLS) into the <c>ambiquality.web_vitals.*</c> instruments.
+/// (LCP / INP / TTFB / CLS — web-vitals v6 dropped FID) into the
+/// <c>ambiquality.web_vitals.*</c> instruments.
 ///
 /// The SPA reports with <c>navigator.sendBeacon</c> on pagehide using a <c>text/plain</c>
 /// blob, which is a CORS-safelisted simple request against the (any-origin) Public.Api.
@@ -22,6 +23,17 @@ public static class RumVitalsEndpoint
     // Upper sanity bounds (ms). Anything beyond is a broken/clamped read and is dropped.
     private const double MaxTimingMilliseconds = 300_000; // 5 minutes
     private const double MaxCls = 1.0;
+
+    /// <summary>
+    /// The closed set of route buckets the SPA is allowed to report (see the frontend's
+    /// <c>deriveRouteBucket</c>). Enforcing membership here — not just charset/length —
+    /// bounds the cardinality of the <c>route_bucket</c> label on the anonymous, CORS-open
+    /// <c>ambiquality.web_vitals.*</c> instruments: any other value falls back to "other".
+    /// </summary>
+    private static readonly HashSet<string> RouteBucketAllowList = new(StringComparer.Ordinal)
+    {
+        "map", "catalog", "detail", "archive", "account", "admin", "other",
+    };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
         { PropertyNameCaseInsensitive = true };
@@ -50,9 +62,6 @@ public static class RumVitalsEndpoint
             if (TryPositive(payload.Lcp, out var lcp))
                 AmbiqualityMetrics.WebVitalsDuration.Record(
                     lcp, AmbiqualityMetrics.VitalsDurationTags("lcp", bucket));
-            if (TryPositive(payload.Fid, out var fid))
-                AmbiqualityMetrics.WebVitalsDuration.Record(
-                    fid, AmbiqualityMetrics.VitalsDurationTags("fid", bucket));
             if (TryPositive(payload.Inp, out var inp))
                 AmbiqualityMetrics.WebVitalsDuration.Record(
                     inp, AmbiqualityMetrics.VitalsDurationTags("inp", bucket));
@@ -81,12 +90,13 @@ public static class RumVitalsEndpoint
         return true;
     }
 
-    /// <summary>Restrict to a small fixed set of route buckets to bound metric cardinality.</summary>
+    /// <summary>
+    /// Restrict to the route-bucket allow-list (see <see cref="RouteBucketAllowList"/>) to
+    /// bound metric cardinality; anything else, including well-formed but unknown values,
+    /// falls back to "other".
+    /// </summary>
     private static string SanitizeRouteBucket(string? bucket) =>
-        bucket is { Length: > 0 and <= 32 }
-        && bucket.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-')
-            ? bucket
-            : "other";
+        bucket is not null && RouteBucketAllowList.Contains(bucket) ? bucket : "other";
 }
 
 /// <summary>Anonymous web-vitals report body sent by the SPA's beacon on pagehide.</summary>
@@ -94,7 +104,6 @@ public sealed record VitalsPayload
 {
     public string? RouteBucket { get; init; }
     public double? Lcp { get; init; }
-    public double? Fid { get; init; }
     public double? Inp { get; init; }
     public double? Cls { get; init; }
     public double? Ttfb { get; init; }

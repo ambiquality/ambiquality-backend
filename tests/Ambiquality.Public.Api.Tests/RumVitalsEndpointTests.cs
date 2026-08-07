@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -37,7 +38,6 @@ public sealed class RumVitalsEndpointTests : IDisposable
         {
             routeBucket = "map",
             lcp = 1200,
-            fid = 45,
             inp = 130,
             cls = 0.01,
             ttfb = 250
@@ -75,6 +75,56 @@ public sealed class RumVitalsEndpointTests : IDisposable
         });
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Post_UnknownRouteBucket_SanitizesToOther()
+    {
+        // A well-formed-but-unknown bucket (valid charset, not in the allow-list) must not
+        // mint a new high-cardinality route_bucket label — it is folded into "other".
+        var recorded = await CapturePageviewBucketAsync("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+
+        Assert.Equal("other", Assert.Single(recorded));
+    }
+
+    [Fact]
+    public async Task Post_AllowListedRouteBucket_PassesThroughUnchanged()
+    {
+        var recorded = await CapturePageviewBucketAsync("catalog");
+
+        Assert.Equal("catalog", Assert.Single(recorded));
+    }
+
+    /// <summary>
+    /// POSTs a vitals payload and returns the <c>route_bucket</c> label recorded on the
+    /// <c>ambiquality.web_vitals.pageviews</c> counter (always emitted, so the assertion
+    /// is deterministic and independent of the clamps applied to the timing values).
+    /// </summary>
+    private async Task<List<string>> CapturePageviewBucketAsync(string routeBucket)
+    {
+        var recordedBuckets = new List<string>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, listener) =>
+        {
+            if (instrument.Name == "ambiquality.web_vitals.pageviews")
+                listener.EnableMeasurementEvents(instrument);
+        };
+        listener.SetMeasurementEventCallback<long>((_, _, tags, _) =>
+        {
+            foreach (var tag in tags)
+                if (tag.Key == "route_bucket")
+                    recordedBuckets.Add(tag.Value?.ToString() ?? "");
+        });
+        listener.Start();
+
+        var response = await _client.PostAsJsonAsync("/telemetry/vitals", new
+        {
+            routeBucket,
+            ttfb = 250
+        });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        return recordedBuckets;
     }
 
     [Fact]

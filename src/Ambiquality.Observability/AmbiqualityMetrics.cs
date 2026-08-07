@@ -51,10 +51,10 @@ public static class AmbiqualityMetrics
         "Seconds since the ingestion worker last drained the stream.");
 
     // ── Core Web Vitals (Public.Api RUM endpoint) ──────────────────────────────
-    /// <summary>Browser-reported timings for lcp / fid / inp / ttfb (ms).</summary>
+    /// <summary>Browser-reported timings for lcp / inp / ttfb (ms).</summary>
     public static readonly Histogram<double> WebVitalsDuration = Meter.CreateHistogram<double>(
         "ambiquality.web_vitals.duration", "ms",
-        "Browser-reported web vital timings (lcp, fid, inp, ttfb), tagged by metric and route bucket.");
+        "Browser-reported web vital timings (lcp, inp, ttfb), tagged by metric and route bucket.");
 
     /// <summary>Cumulative Layout Shift score (unitless).</summary>
     public static readonly Histogram<double> WebVitalsCls = Meter.CreateHistogram<double>(

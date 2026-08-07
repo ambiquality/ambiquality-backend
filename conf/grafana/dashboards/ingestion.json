@@ -19,7 +19,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "countps", "custom": { "drawStyle": "line", "showPoints": "never", "fillOpacity": 15 } }, "overrides": [] },
-      "targets": [ { "refId": "A", "expr": "sum(rate({__name__=\"ambiquality.ingestion.measurements_enqueued_total\"}[$__rate_interval]))", "legendFormat": "enqueued/s" } ]
+      "targets": [ { "refId": "A", "expr": "sum(rate({__name__=\"ambiquality_ingestion_measurements_enqueued_total\"}[$__rate_interval]))", "legendFormat": "enqueued/s" } ]
     },
     {
       "id": 2,
@@ -28,7 +28,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "fieldConfig": { "defaults": { "unit": "count", "custom": { "drawStyle": "bars", "fillOpacity": 35, "stacking": { "mode": "normal" } } }, "overrides": [] },
-      "targets": [ { "refId": "A", "expr": "sum by (outcome)(rate({__name__=\"ambiquality.ingestion.batches_total\"}[$__rate_interval]))", "legendFormat": "{{outcome}}" } ]
+      "targets": [ { "refId": "A", "expr": "sum by (outcome)(rate({__name__=\"ambiquality_ingestion_batches_total\"}[$__rate_interval]))", "legendFormat": "{{outcome}}" } ]
     },
     {
       "id": 3,
@@ -37,7 +37,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "showPoints": "never", "fillOpacity": 15 } }, "overrides": [] },
-      "targets": [ { "refId": "A", "expr": "{__name__=\"ambiquality.queue.measurements_pending\"}", "legendFormat": "pending" } ]
+      "targets": [ { "refId": "A", "expr": "{__name__=\"ambiquality_queue_measurements_pending\"}", "legendFormat": "pending" } ]
     },
     {
       "id": 4,
@@ -46,7 +46,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "showPoints": "never", "fillOpacity": 15 } }, "overrides": [] },
-      "targets": [ { "refId": "A", "expr": "{__name__=\"ambiquality.queue.last_drain_gap_seconds\"}", "legendFormat": "drain gap" } ]
+      "targets": [ { "refId": "A", "expr": "{__name__=\"ambiquality_queue_last_drain_gap_seconds\"}", "legendFormat": "drain gap" } ]
     },
     {
       "id": 5,
@@ -55,7 +55,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 4, "w": 12, "x": 0, "y": 16 },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "targets": [ { "refId": "A", "expr": "sum({__name__=\"ambiquality.export.archives_published_total\"})", "legendFormat": "archives" } ]
+      "targets": [ { "refId": "A", "expr": "sum({__name__=\"ambiquality_export_archives_published_total\"})", "legendFormat": "archives" } ]
     },
     {
       "id": 6,
@@ -64,7 +64,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 4, "w": 12, "x": 12, "y": 16 },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "targets": [ { "refId": "A", "expr": "max({__name__=\"ambiquality.queue.measurements_unacked\"})", "legendFormat": "unacked" } ]
+      "targets": [ { "refId": "A", "expr": "max({__name__=\"ambiquality_queue_measurements_unacked\"})", "legendFormat": "unacked" } ]
     }
   ]
 }
