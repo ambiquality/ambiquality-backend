@@ -3,7 +3,7 @@
 Backend services for **Ambiquality** — an open-source platform for collecting, storing, and
 sharing Indoor Environment Quality (IEQ) measurements (CO₂, temperature, humidity, particulate
 matter, VOCs, acoustics, light) from IoT sensors and publishing them as open data. Built as a
-bachelor thesis at VŠE Prague (author: Vilém Charwot, submission May 2026).
+bachelor thesis at VŠE Prague (author: Vilém Charwot, submitted May 2026).
 
 ## Projects
 
@@ -187,6 +187,7 @@ pushes all ten images in parallel, each tagged `1.2.0`, `1.2`, and `latest`:
 | `ingestion-worker` | Drains the Redis stream → measurements hypertable |
 | `public-api` | Read-only open-data API |
 | `export-worker` | Monthly downloadable archives |
+| `postgres-backup` | Periodically dumps all platform databases + globals to `backup-data` (optionally S3) |
 
 Deploy a released version with the GHCR compose file (pulls images instead of building):
 
