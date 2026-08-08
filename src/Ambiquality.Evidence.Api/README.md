@@ -12,9 +12,9 @@ The sensor is also the **canonical device registry**: its `Id` is the stable ide
 ingested measurements will reference (the planned Ingestion.Api carries `sensor_id`; there is no
 separate devices table).
 
-> **Note on the architecture.** The thesis (and `CLAUDE.md`) originally planned building/room
-> registration to live in `Public.Api`. It was extracted into this dedicated service. The
-> public read API and ingestion remain separate, not-yet-built projects.
+> **Note on the architecture.** The thesis (and `AGENTS.md`) originally planned building/room
+> registration to live in `Public.Api`. It was extracted into this dedicated service; the
+> public read API and ingestion are separate services.
 
 ## Core concept: attribute-level temporal versioning
 

@@ -1,0 +1,11 @@
+backup/
+LICENSE
+**/*.md
+postman/
+**/*.sh
+conf/
+*.env
+*.env.*
+*.yml
+*.drawio
+docs/
