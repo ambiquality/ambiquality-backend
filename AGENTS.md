@@ -261,3 +261,67 @@ container-related.
 - Always create a new branch based on `main` for a brand-new feature and name it properly.
 - In the presence of uncommitted changes, ask the user whether to commit first. If yes, wait for
   the user to merge them into `main` and to instruct you to continue.
+
+<!-- code-review-graph MCP tools -->
+## MCP Tools: code-review-graph
+
+**IMPORTANT: This project has a knowledge graph. ALWAYS use the
+code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
+the codebase.** The graph is faster, cheaper (fewer tokens), and gives
+you structural context (callers, dependents, test coverage) that file
+scanning cannot.
+
+### When to use graph tools FIRST
+
+- **Exploring code**: `semantic_search_nodes_tool` or `query_graph_tool` instead of Grep
+- **Understanding impact**: `get_impact_radius_tool` instead of manually tracing imports
+- **Code review**: `detect_changes_tool` + `get_review_context_tool` instead of reading entire files
+- **Finding relationships**: `query_graph_tool` with callers_of/callees_of/imports_of/tests_for
+- **Architecture questions**: `get_architecture_overview_tool` + `list_communities_tool`
+
+Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
+
+### Key Tools
+
+| Tool | Use when |
+| ------ | ---------- |
+| `detect_changes_tool` | Reviewing code changes — gives risk-scored analysis |
+| `get_review_context_tool` | Need source snippets for review — token-efficient |
+| `get_impact_radius_tool` | Understanding blast radius of a change |
+| `get_affected_flows_tool` | Finding which execution paths are impacted |
+| `query_graph_tool` | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes_tool` | Finding functions/classes by name or keyword |
+| `get_architecture_overview_tool` | Understanding high-level codebase structure |
+| `refactor_tool` | Planning renames, finding dead code |
+
+### Semantic search: embeddings config (IMPORTANT)
+
+The graph's vectors are computed with the **openai** provider using
+`nomic-embed-text-v2-moe` (served via a local OpenAI-compatible endpoint). The MCP server
+inherits the config from the shell env:
+
+- `CRG_OPENAI_BASE_URL=http://10.0.0.1:11434/v1`
+- `CRG_OPENAI_MODEL=nomic-embed-text-v2-moe`
+- `CRG_OPENAI_API_KEY` (any non-empty value for the local endpoint)
+- `CRG_OPENAI_BATCH_SIZE`
+
+**Gotcha:** `semantic_search_nodes_tool` defaults to `provider="local"`
+(all-MiniLM-L6-v2), which has **no** matching vectors in this graph, so it silently falls
+back to keyword/FTS and returns 0 for fuzzy queries. To use the real vectors, **always pass
+`provider="openai"`** — the model auto-falls back to `CRG_OPENAI_MODEL`, so the model
+argument is not needed:
+
+```
+semantic_search_nodes_tool(query="...", provider="openai")
+```
+
+The provider is stored per-vector; a re-embed with a different provider/model/endpoint is
+refused (migration), so keep `provider="openai"` and `CRG_OPENAI_MODEL` in sync with what
+was used for `code-review-graph embed`.
+
+### Workflow
+
+1. The graph auto-updates on file changes (via hooks).
+2. Use `detect_changes_tool` for code review.
+3. Use `get_affected_flows_tool` to understand impact.
+4. Use `query_graph_tool` pattern="tests_for" to check coverage.
