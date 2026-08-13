@@ -10,7 +10,8 @@ namespace Ambiquality.Auth.Api.Application.Users;
 public sealed class ChangePasswordHandler(
     IUserRepository repository,
     IPasswordService passwordService,
-    IClock clock)
+    IClock clock,
+    AuthOptions options)
 {
     public async Task HandleAsync(
         ChangePasswordCommand command, CancellationToken cancellationToken = default)
@@ -20,6 +21,8 @@ public sealed class ChangePasswordHandler(
 
         if (!passwordService.Verify(user, user.PasswordHash, command.CurrentPassword))
             throw new InvalidCredentialsException();
+
+        PasswordPolicy.Validate(command.NewPassword, options.PasswordMinLength, options.PasswordMaxLength);
 
         user.ChangePassword(passwordService.Hash(user, command.NewPassword));
         user.RevokeAllRefreshTokens(clock.UtcNow);
