@@ -2,13 +2,6 @@ using Ambiquality.Auth.Api.Domain;
 
 namespace Ambiquality.Auth.Api.Application;
 
-/// <summary>Raised when registration targets an email that already exists.</summary>
-public sealed class EmailAlreadyRegisteredException : DomainException
-{
-    public EmailAlreadyRegisteredException()
-        : base("An account with this email address already exists.") { }
-}
-
 /// <summary>
 /// Raised for any login failure. The message is deliberately generic to avoid
 /// account enumeration.

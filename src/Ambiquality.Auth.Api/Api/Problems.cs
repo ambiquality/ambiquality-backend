@@ -34,12 +34,6 @@ public static class Problems
             "Weak password",
             exception.Message),
 
-        EmailAlreadyRegisteredException => new ProblemDescriptor(
-            StatusCodes.Status409Conflict,
-            TypePrefix + "email-already-registered",
-            "Email already registered",
-            exception.Message),
-
         InvalidCredentialsException => new ProblemDescriptor(
             StatusCodes.Status401Unauthorized,
             TypePrefix + "invalid-credentials",
