@@ -38,3 +38,12 @@ public sealed class UserNotFoundException : DomainException
 {
     public UserNotFoundException() : base("The requested user could not be found.") { }
 }
+
+/// <summary>
+/// Raised when a chosen password fails the configured length policy. The detail
+/// carries the concrete rule (e.g. the minimum length) so the caller can fix it.
+/// </summary>
+public sealed class WeakPasswordException : DomainException
+{
+    public WeakPasswordException(string message) : base(message) { }
+}
