@@ -46,7 +46,10 @@ var authOptions = new AuthOptions
         builder.Configuration.GetValue("Jwt:ConfirmationTokenHours", 24)),
     RefreshTokenLifetime = TimeSpan.FromDays(
         builder.Configuration.GetValue("Jwt:RefreshTokenDays", 30)),
-    FrontendBaseUrl = builder.Configuration.GetValue("App:FrontendBaseUrl", "https://localhost")
+    FrontendBaseUrl = builder.Configuration.GetValue("App:FrontendBaseUrl", "https://localhost"),
+    EmailIpPermitLimit = builder.Configuration.GetValue("Auth:EmailIpPermitLimit", 5),
+    EmailIpWindow = TimeSpan.FromMinutes(
+        builder.Configuration.GetValue("Auth:EmailIpWindowMinutes", 10))
 };
 
 builder.Services.AddSingleton(jwtOptions);
@@ -130,25 +133,27 @@ builder.Services.AddCors(options =>
             policy.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod();
     }));
 
-// --- Brute-force rate limiting ----------------------------------------------
-// Per-IP fixed window on /login. Complements the per-account backoff in
-// LoginHandler: this stops volumetric guessing from one source; the backoff
-// slows low-and-slow guessing against a single account. Neither locks an
-// account, so an attacker cannot deny service to a legitimate user (OWASP).
+// --- Brute-force / abuse rate limiting --------------------------------------
+// Per-IP fixed windows on login and on the anonymous email-triggering endpoints
+// (register, resend-confirmation). The login policy complements the per-account
+// backoff in LoginHandler; the email policy caps SMTP abuse / inbox bombing.
+// Neither locks an account, so an attacker cannot deny service to a legitimate
+// user (OWASP).
 const string loginRateLimitPolicy = "login";
+const string emailRateLimitPolicy = "email";
 builder.Services.AddRateLimiter(rateLimiter =>
 {
     rateLimiter.AddPolicy(loginRateLimitPolicy, httpContext =>
     {
         // Resolve options per-request so integration tests can override the limit.
         var opts = httpContext.RequestServices.GetRequiredService<AuthOptions>();
-        var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = opts.LoginIpPermitLimit,
-            Window = opts.LoginIpWindow,
-            QueueLimit = 0
-        });
+        return IpFixedWindowPartition(httpContext, opts.LoginIpPermitLimit, opts.LoginIpWindow);
+    });
+
+    rateLimiter.AddPolicy(emailRateLimitPolicy, httpContext =>
+    {
+        var opts = httpContext.RequestServices.GetRequiredService<AuthOptions>();
+        return IpFixedWindowPartition(httpContext, opts.EmailIpPermitLimit, opts.EmailIpWindow);
     });
 
     rateLimiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -159,15 +164,36 @@ builder.Services.AddRateLimiter(rateLimiter =>
             context.HttpContext.Response.Headers.RetryAfter =
                 ((int)retryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture);
 
+        // Pick the problem URN from the policy that rejected so clients can branch.
+        var policyName = context.HttpContext.GetEndpoint()?.Metadata
+            .OfType<EnableRateLimitingAttribute>()
+            .Select(a => a.PolicyName)
+            .FirstOrDefault(p => p is not null);
+        var isEmailPolicy = policyName == emailRateLimitPolicy;
+
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
         await context.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
         {
             Status = StatusCodes.Status429TooManyRequests,
-            Type = "urn:ambiquality:auth:too-many-login-attempts",
-            Title = "Too many login attempts",
-            Detail = "Too many login attempts from your network. Please wait and try again."
+            Type = isEmailPolicy
+                ? "urn:ambiquality:auth:too-many-requests"
+                : "urn:ambiquality:auth:too-many-login-attempts",
+            Title = isEmailPolicy ? "Too many requests" : "Too many login attempts",
+            Detail = "Too many requests from your network. Please wait and try again."
         }, options: null, contentType: "application/problem+json", cancellationToken: cancellationToken);
     };
+
+    static RateLimitPartition<string> IpFixedWindowPartition(
+        HttpContext httpContext, int permitLimit, TimeSpan window)
+    {
+        var clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = permitLimit,
+            Window = window,
+            QueueLimit = 0
+        });
+    }
 });
 
 builder.Services.AddOpenApi(options =>
