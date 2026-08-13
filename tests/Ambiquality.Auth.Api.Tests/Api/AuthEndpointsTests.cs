@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Ambiquality.Auth.Api.Api.Contracts;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Ambiquality.Auth.Api.Tests.Api;
 
@@ -262,17 +263,19 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     }
 
     [Fact]
-    public async Task Register_DuplicateEmail_Returns409ProblemJson()
+    public async Task Register_DuplicateEmail_StillReturns201_AndSendsNoEmail()
     {
         var client = factory.CreateClient();
         var email = UniqueEmail();
         await client.PostAsJsonAsync("/v1/register", new RegisterRequest(email, "Sup3rSecret!"));
 
+        // Anti-enumeration: an existing address gets the SAME 201 as a fresh one,
+        // and no second confirmation email is sent (no 409, no distinct body).
         var response = await client.PostAsJsonAsync(
             "/v1/register", new RegisterRequest(email, "An0therSecret!"));
 
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -285,6 +288,51 @@ public class AuthEndpointsTests(AuthApiFactory factory)
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Register_TooShortPassword_Returns400WeakPassword_AndSendsNoEmail()
+    {
+        var client = factory.CreateClient();
+        var email = UniqueEmail();
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/register", new RegisterRequest(email, "a"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.NotNull(problem);
+        Assert.Equal("urn:ambiquality:auth:weak-password", problem.Type);
+        Assert.Null(factory.EmailSender.LastTo(email));
+
+        // No account was created — the same email can still be registered properly.
+        var retry = await client.PostAsJsonAsync(
+            "/v1/register", new RegisterRequest(email, "Sup3rSecret!"));
+        Assert.Equal(HttpStatusCode.Created, retry.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangePassword_WithTooShortNewPassword_Returns400WeakPassword()
+    {
+        var client = factory.CreateClient();
+        var (email, password) = await RegisterAndConfirmAsync(client);
+        var login = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
+        var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
+
+        var change = await client.PostAsJsonAsync(
+            "/v1/account/change-password", new ChangePasswordRequest(password, "short"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, change.StatusCode);
+        var problem = await change.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal("urn:ambiquality:auth:weak-password", problem!.Type);
+
+        // The old password still works.
+        client.DefaultRequestHeaders.Authorization = null;
+        var relogin = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
+        Assert.Equal(HttpStatusCode.OK, relogin.StatusCode);
     }
 }
 

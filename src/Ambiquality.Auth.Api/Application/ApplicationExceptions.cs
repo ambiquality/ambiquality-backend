@@ -2,13 +2,6 @@ using Ambiquality.Auth.Api.Domain;
 
 namespace Ambiquality.Auth.Api.Application;
 
-/// <summary>Raised when registration targets an email that already exists.</summary>
-public sealed class EmailAlreadyRegisteredException : DomainException
-{
-    public EmailAlreadyRegisteredException()
-        : base("An account with this email address already exists.") { }
-}
-
 /// <summary>
 /// Raised for any login failure. The message is deliberately generic to avoid
 /// account enumeration.
@@ -37,4 +30,13 @@ public sealed class InvalidRefreshTokenException : DomainException
 public sealed class UserNotFoundException : DomainException
 {
     public UserNotFoundException() : base("The requested user could not be found.") { }
+}
+
+/// <summary>
+/// Raised when a chosen password fails the configured length policy. The detail
+/// carries the concrete rule (e.g. the minimum length) so the caller can fix it.
+/// </summary>
+public sealed class WeakPasswordException : DomainException
+{
+    public WeakPasswordException(string message) : base(message) { }
 }

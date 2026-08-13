@@ -47,6 +47,8 @@ var authOptions = new AuthOptions
     RefreshTokenLifetime = TimeSpan.FromDays(
         builder.Configuration.GetValue("Jwt:RefreshTokenDays", 30)),
     FrontendBaseUrl = builder.Configuration.GetValue("App:FrontendBaseUrl", "https://localhost"),
+    PasswordMinLength = builder.Configuration.GetValue("Auth:PasswordMinLength", 12),
+    PasswordMaxLength = builder.Configuration.GetValue("Auth:PasswordMaxLength", 128),
     EmailIpPermitLimit = builder.Configuration.GetValue("Auth:EmailIpPermitLimit", 5),
     EmailIpWindow = TimeSpan.FromMinutes(
         builder.Configuration.GetValue("Auth:EmailIpWindowMinutes", 10))

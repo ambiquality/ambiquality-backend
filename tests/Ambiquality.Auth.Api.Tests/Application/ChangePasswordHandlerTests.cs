@@ -14,8 +14,9 @@ public class ChangePasswordHandlerTests
     private readonly InMemoryUserRepository _repository = new();
     private readonly IPasswordService _passwordService = Substitute.For<IPasswordService>();
     private readonly FakeClock _clock = new(Now);
+    private readonly AuthOptions _options = new();
 
-    private ChangePasswordHandler CreateHandler() => new(_repository, _passwordService, _clock);
+    private ChangePasswordHandler CreateHandler() => new(_repository, _passwordService, _clock, _options);
 
     private User SeedConfirmedUserWithRefreshToken()
     {
@@ -33,10 +34,10 @@ public class ChangePasswordHandlerTests
     {
         var user = SeedConfirmedUserWithRefreshToken();
         _passwordService.Verify(user, "old-hash", "current-pw").Returns(true);
-        _passwordService.Hash(user, "new-pw").Returns("new-hash");
+        _passwordService.Hash(user, "new-S3cret-pass").Returns("new-hash");
         var handler = CreateHandler();
 
-        await handler.HandleAsync(new ChangePasswordCommand(user.Id, "current-pw", "new-pw"));
+        await handler.HandleAsync(new ChangePasswordCommand(user.Id, "current-pw", "new-S3cret-pass"));
 
         Assert.Equal("new-hash", user.PasswordHash);
         Assert.Equal(1, _repository.SaveChangesCallCount);
@@ -47,12 +48,25 @@ public class ChangePasswordHandlerTests
     {
         var user = SeedConfirmedUserWithRefreshToken();
         _passwordService.Verify(user, "old-hash", "current-pw").Returns(true);
-        _passwordService.Hash(user, "new-pw").Returns("new-hash");
+        _passwordService.Hash(user, "new-S3cret-pass").Returns("new-hash");
         var handler = CreateHandler();
 
-        await handler.HandleAsync(new ChangePasswordCommand(user.Id, "current-pw", "new-pw"));
+        await handler.HandleAsync(new ChangePasswordCommand(user.Id, "current-pw", "new-S3cret-pass"));
 
         Assert.All(user.RefreshTokens, t => Assert.False(t.IsActive(Now)));
+    }
+
+    [Fact]
+    public async Task Handle_WithTooShortNewPassword_ThrowsWeakPassword_AndKeepsOldHash()
+    {
+        var user = SeedConfirmedUserWithRefreshToken();
+        _passwordService.Verify(user, "old-hash", "current-pw").Returns(true);
+        var handler = CreateHandler();
+
+        await Assert.ThrowsAsync<WeakPasswordException>(() =>
+            handler.HandleAsync(new ChangePasswordCommand(user.Id, "current-pw", "short")));
+
+        Assert.Equal("old-hash", user.PasswordHash);
     }
 
     [Fact]
@@ -63,7 +77,7 @@ public class ChangePasswordHandlerTests
         var handler = CreateHandler();
 
         await Assert.ThrowsAsync<InvalidCredentialsException>(() =>
-            handler.HandleAsync(new ChangePasswordCommand(user.Id, "wrong-pw", "new-pw")));
+            handler.HandleAsync(new ChangePasswordCommand(user.Id, "wrong-pw", "new-S3cret-pass")));
         Assert.Equal("old-hash", user.PasswordHash);
     }
 
@@ -73,6 +87,6 @@ public class ChangePasswordHandlerTests
         var handler = CreateHandler();
 
         await Assert.ThrowsAsync<UserNotFoundException>(() =>
-            handler.HandleAsync(new ChangePasswordCommand(Guid.NewGuid(), "current-pw", "new-pw")));
+            handler.HandleAsync(new ChangePasswordCommand(Guid.NewGuid(), "current-pw", "new-S3cret-pass")));
     }
 }

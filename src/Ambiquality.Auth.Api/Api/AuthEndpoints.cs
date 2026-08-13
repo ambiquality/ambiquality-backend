@@ -35,10 +35,10 @@ public static class AuthEndpoints
         .WithSummary("Register a new user account")
         .WithDescription(
             "Creates a new user with the provided email and password. " +
-            "A confirmation email is sent; the account cannot be used until the email is confirmed via GET /confirm-email.")
+            "A confirmation email is sent; the account cannot be used until the email is confirmed via GET /confirm-email. " +
+            "Returns 201 uniformly — registering an already-existing address is a silent no-op (no second email) so the endpoint cannot be used to enumerate accounts.")
         .Produces(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .ProducesProblem(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status429TooManyRequests)
         .RequireRateLimiting("email");
 

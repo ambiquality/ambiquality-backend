@@ -66,13 +66,42 @@ public class RegisterUserHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithDuplicateEmail_Throws()
+    public async Task Handle_WithDuplicateEmail_IsSilentNoOp()
     {
         var handler = CreateHandler();
         await handler.HandleAsync(new RegisterUserCommand("dup@example.com", "Sup3rSecret!"));
+        var emailCount = _repository.Users.Count;
 
-        await Assert.ThrowsAsync<EmailAlreadyRegisteredException>(() =>
-            handler.HandleAsync(new RegisterUserCommand("dup@example.com", "Another1!")));
+        // Second registration with the same address: no exception, no extra row,
+        // no second confirmation email (anti-enumeration). Exactly one send total
+        // (the one from the FIRST registration).
+        await handler.HandleAsync(new RegisterUserCommand("dup@example.com", "An0therSecret!"));
+
+        Assert.Equal(emailCount, _repository.Users.Count);
+        await _emailSender.Received(1).SendAsync(
+            "dup@example.com", Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WithTooShortPassword_ThrowsWeakPassword_AndDoesNotPersist()
+    {
+        var handler = CreateHandler();
+
+        await Assert.ThrowsAsync<WeakPasswordException>(() =>
+            handler.HandleAsync(new RegisterUserCommand("new@example.com", "short")));
+
+        Assert.Empty(_repository.Users);
+    }
+
+    [Fact]
+    public async Task Handle_WithTooLongPassword_ThrowsWeakPassword_AndDoesNotPersist()
+    {
+        var handler = CreateHandler();
+
+        await Assert.ThrowsAsync<WeakPasswordException>(() =>
+            handler.HandleAsync(new RegisterUserCommand("new@example.com", new string('x', 129))));
+
+        Assert.Empty(_repository.Users);
     }
 
     [Fact]

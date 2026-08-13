@@ -17,6 +17,14 @@ public sealed class AuthOptions
     /// <summary>Base URL the frontend uses to build confirmation links in emails.</summary>
     public string FrontendBaseUrl { get; init; } = "https://localhost";
 
+    // --- Password policy (NIST SP 800-63B: length over composition) ----------
+
+    /// <summary>Minimum password length accepted at registration and password change.</summary>
+    public int PasswordMinLength { get; init; } = 12;
+
+    /// <summary>Maximum password length; caps hashing cost / input size.</summary>
+    public int PasswordMaxLength { get; init; } = 128;
+
     // --- Brute-force throttling (no account lockout; see OWASP) --------------
 
     /// <summary>Failed logins per account allowed before the backoff delay starts.</summary>
