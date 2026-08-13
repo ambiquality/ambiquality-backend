@@ -33,6 +33,13 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// </summary>
     protected virtual int LoginIpPermitLimit => 10_000;
 
+    /// <summary>
+    /// Per-IP email-triggering limit for the booted host. Defaults high so the
+    /// register / resend-confirmation partitions never trip during ordinary
+    /// tests; the dedicated email rate-limit test overrides it.
+    /// </summary>
+    protected virtual int EmailIpPermitLimit => 10_000;
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();
@@ -62,14 +69,16 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddSingleton<IEmailSender>(EmailSender);
 
             // Override throttling knobs: instant per-account backoff (no real
-            // sleeping in tests) and a configurable per-IP limit.
+            // sleeping in tests) and configurable per-IP limits.
             services.RemoveAll<AuthOptions>();
             services.AddSingleton(new AuthOptions
             {
                 LoginThrottleBaseDelay = TimeSpan.Zero,
                 LoginThrottleMaxDelay = TimeSpan.Zero,
                 LoginIpPermitLimit = LoginIpPermitLimit,
-                LoginIpWindow = TimeSpan.FromMinutes(1)
+                LoginIpWindow = TimeSpan.FromMinutes(1),
+                EmailIpPermitLimit = EmailIpPermitLimit,
+                EmailIpWindow = TimeSpan.FromMinutes(1)
             });
 
             using var scope = services.BuildServiceProvider().CreateScope();
