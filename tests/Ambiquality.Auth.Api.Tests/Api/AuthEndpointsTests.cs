@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Ambiquality.Auth.Api.Api;
 using Ambiquality.Auth.Api.Api.Contracts;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,6 +11,18 @@ namespace Ambiquality.Auth.Api.Tests.Api;
 public class AuthEndpointsTests(AuthApiFactory factory)
 {
     private static string UniqueEmail() => $"user-{Guid.NewGuid():N}@example.com";
+
+    /// <summary>Extracts the raw refresh-token cookie value from a response.</summary>
+    private static string? GetRefreshCookie(HttpResponseMessage response)
+    {
+        var setCookie = response.Headers.GetValues("Set-Cookie")
+            .FirstOrDefault(h => h.StartsWith(RefreshTokenCookie.Name + "=", StringComparison.OrdinalIgnoreCase));
+        if (setCookie is null) return null;
+
+        var value = setCookie[(RefreshTokenCookie.Name.Length + 1)..];
+        var end = value.IndexOf(';');
+        return end >= 0 ? value[..end] : value;
+    }
 
     private async Task<(string Email, string Password)> RegisterAndConfirmAsync(HttpClient client)
     {
@@ -67,7 +80,7 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     }
 
     [Fact]
-    public async Task Login_AfterConfirmation_ReturnsTokens()
+    public async Task Login_AfterConfirmation_ReturnsAccessTokenAndSetsRefreshCookie()
     {
         var client = factory.CreateClient();
         var (email, password) = await RegisterAndConfirmAsync(client);
@@ -79,7 +92,8 @@ public class AuthEndpointsTests(AuthApiFactory factory)
         var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
         Assert.NotNull(body);
         Assert.False(string.IsNullOrWhiteSpace(body.AccessToken));
-        Assert.False(string.IsNullOrWhiteSpace(body.RefreshToken));
+        // The refresh token is delivered as an HttpOnly cookie, never in the body.
+        Assert.NotNull(GetRefreshCookie(response));
     }
 
     [Fact]
@@ -150,32 +164,68 @@ public class AuthEndpointsTests(AuthApiFactory factory)
             "/v1/account/change-password", new ChangePasswordRequest(password, "An0therSecret!"));
         Assert.Equal(HttpStatusCode.OK, change.StatusCode);
 
-        // The refresh token issued BEFORE the password change must be rejected.
-        var refresh = await client.PostAsJsonAsync(
-            "/v1/refresh", new RefreshRequest(tokens.RefreshToken));
+        // The refresh cookie issued BEFORE the password change must be rejected —
+        // the change revokes every prior refresh token.
+        var refresh = await client.PostAsJsonAsync("/v1/refresh", new { });
         Assert.Equal(HttpStatusCode.Unauthorized, refresh.StatusCode);
         Assert.Equal("application/problem+json", refresh.Content.Headers.ContentType?.MediaType);
     }
 
     [Fact]
-    public async Task Refresh_RotatesTokens_AndOldTokenIsRejected()
+    public async Task Refresh_RotatesRefreshCookie_AndOldTokenIsRejected()
+    {
+        var client = factory.CreateClient();
+        var (email, password) = await RegisterAndConfirmAsync(client);
+        var login = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
+        var oldToken = GetRefreshCookie(login);
+        Assert.NotNull(oldToken);
+
+        // The client's cookie jar sends the refresh cookie automatically.
+        var refresh = await client.PostAsJsonAsync("/v1/refresh", new { });
+        Assert.Equal(HttpStatusCode.OK, refresh.StatusCode);
+        var refreshed = await refresh.Content.ReadFromJsonAsync<AuthResponse>();
+        Assert.NotNull(refreshed);
+        var newToken = GetRefreshCookie(refresh);
+        Assert.NotNull(newToken);
+        Assert.NotEqual(oldToken, newToken);
+
+        // Reusing the OLD cookie value is rejected (rotation) — use a fresh client
+        // so its cookie jar doesn't auto-send the new token.
+        var staleClient = factory.CreateClient();
+        var reuse = new HttpRequestMessage(HttpMethod.Post, "/v1/refresh");
+        reuse.Headers.Add("Cookie", $"{RefreshTokenCookie.Name}={oldToken}");
+        var reused = await staleClient.SendAsync(reuse);
+        Assert.Equal(HttpStatusCode.Unauthorized, reused.StatusCode);
+        Assert.Equal("application/problem+json", reused.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Refresh_WithoutCookie_Returns401()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/v1/refresh", new { });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Logout_ClearsRefreshCookie_AndTokenStopsWorking()
     {
         var client = factory.CreateClient();
         var (email, password) = await RegisterAndConfirmAsync(client);
         var login = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
         var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
 
-        var refresh = await client.PostAsJsonAsync(
-            "/v1/refresh", new RefreshRequest(tokens!.RefreshToken));
-        Assert.Equal(HttpStatusCode.OK, refresh.StatusCode);
-        var refreshed = await refresh.Content.ReadFromJsonAsync<AuthResponse>();
-        Assert.NotNull(refreshed);
-        Assert.NotEqual(tokens.RefreshToken, refreshed.RefreshToken);
+        var logout = await client.PostAsJsonAsync("/v1/account/logout", new { });
+        Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);
 
-        var reuse = await client.PostAsJsonAsync(
-            "/v1/refresh", new RefreshRequest(tokens.RefreshToken));
-        Assert.Equal(HttpStatusCode.Unauthorized, reuse.StatusCode);
-        Assert.Equal("application/problem+json", reuse.Content.Headers.ContentType?.MediaType);
+        // The refresh cookie is cleared: a subsequent refresh is unauthorized.
+        var refresh = await client.PostAsJsonAsync("/v1/refresh", new { });
+        Assert.Equal(HttpStatusCode.Unauthorized, refresh.StatusCode);
     }
 
     [Fact]

@@ -25,6 +25,12 @@ public sealed class AuthOptions
     /// <summary>Maximum password length; caps hashing cost / input size.</summary>
     public int PasswordMaxLength { get; init; } = 128;
 
+    /// <summary>
+    /// Marks the refresh-token cookie <c>Secure</c>. Must be <c>true</c> in production
+    /// (HTTPS only); <c>false</c> in dev where the stack runs over plain HTTP.
+    /// </summary>
+    public bool RefreshCookieSecure { get; init; } = false;
+
     // --- Brute-force throttling (no account lockout; see OWASP) --------------
 
     /// <summary>Failed logins per account allowed before the backoff delay starts.</summary>

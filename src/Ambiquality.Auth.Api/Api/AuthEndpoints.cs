@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Ambiquality.Auth.Api.Api.Contracts;
+using Ambiquality.Auth.Api.Application;
 using Ambiquality.Auth.Api.Application.Users;
 using Ambiquality.Auth.Api.Domain;
 
@@ -43,6 +44,8 @@ public static class AuthEndpoints
         .RequireRateLimiting("email");
 
         group.MapPost("/login", async (
+            HttpContext httpContext,
+            AuthOptions options,
             LoginRequest request,
             LoginHandler handler,
             CancellationToken cancellationToken) =>
@@ -51,11 +54,8 @@ public static class AuthEndpoints
             {
                 var result = await handler.HandleAsync(
                     new LoginCommand(request.Email, request.Password), cancellationToken);
-                return Results.Ok(new AuthResponse(
-                    result.AccessToken,
-                    result.AccessTokenExpiresAt,
-                    result.RefreshToken,
-                    result.RefreshTokenExpiresAt));
+                RefreshTokenCookie.Append(httpContext.Response, options, result.RefreshToken, result.RefreshTokenExpiresAt);
+                return Results.Ok(new AuthResponse(result.AccessToken, result.AccessTokenExpiresAt));
             }
             catch (DomainException ex)
             {
@@ -65,7 +65,8 @@ public static class AuthEndpoints
         .WithName("Login")
         .WithSummary("Log in and obtain JWT tokens")
         .WithDescription(
-            "Validates the credentials and returns a short-lived access token plus a long-lived refresh token. " +
+            "Validates the credentials and returns a short-lived access token. " +
+            "The long-lived refresh token is set as an HttpOnly cookie. " +
             "The account email must be confirmed before login succeeds.")
         .Produces<AuthResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
@@ -73,19 +74,21 @@ public static class AuthEndpoints
         .RequireRateLimiting("login");
 
         group.MapPost("/refresh", async (
-            RefreshRequest request,
+            HttpContext httpContext,
+            AuthOptions options,
             RefreshTokenHandler handler,
             CancellationToken cancellationToken) =>
         {
+            var refreshToken = httpContext.Request.Cookies[RefreshTokenCookie.Name];
+            if (string.IsNullOrEmpty(refreshToken))
+                return Problems.ToResult(new InvalidRefreshTokenException());
+
             try
             {
                 var result = await handler.HandleAsync(
-                    new RefreshTokenCommand(request.RefreshToken), cancellationToken);
-                return Results.Ok(new AuthResponse(
-                    result.AccessToken,
-                    result.AccessTokenExpiresAt,
-                    result.RefreshToken,
-                    result.RefreshTokenExpiresAt));
+                    new RefreshTokenCommand(refreshToken), cancellationToken);
+                RefreshTokenCookie.Append(httpContext.Response, options, result.RefreshToken, result.RefreshTokenExpiresAt);
+                return Results.Ok(new AuthResponse(result.AccessToken, result.AccessTokenExpiresAt));
             }
             catch (DomainException ex)
             {
@@ -93,10 +96,10 @@ public static class AuthEndpoints
             }
         })
         .WithName("RefreshToken")
-        .WithSummary("Exchange a refresh token for a new token pair")
+        .WithSummary("Exchange the refresh-token cookie for a new token pair")
         .WithDescription(
-            "Issues a new access token and refresh token in exchange for a valid, non-expired refresh token. " +
-            "The old refresh token is invalidated on success.")
+            "Issues a new access token and refresh token in exchange for the HttpOnly refresh cookie. " +
+            "The old refresh token is invalidated on success (rotation).")
         .Produces<AuthResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
