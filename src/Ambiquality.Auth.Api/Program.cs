@@ -46,7 +46,8 @@ var authOptions = new AuthOptions
         builder.Configuration.GetValue("Jwt:ConfirmationTokenHours", 24)),
     RefreshTokenLifetime = TimeSpan.FromDays(
         builder.Configuration.GetValue("Jwt:RefreshTokenDays", 30)),
-    FrontendBaseUrl = builder.Configuration.GetValue("App:FrontendBaseUrl", "https://localhost")
+    FrontendBaseUrl = builder.Configuration.GetValue("App:FrontendBaseUrl", "https://localhost"),
+    RefreshCookieSecure = builder.Configuration.GetValue("Auth:RefreshCookieSecure", false)
 };
 
 builder.Services.AddSingleton(jwtOptions);
@@ -117,17 +118,19 @@ builder.Services.AddHttpLogging(logging =>
 
 // --- CORS --------------------------------------------------------------------
 // The SPA is served from a different origin than this API (ambiquality.org vs
-// api.ambiquality.org), so browsers require CORS. Bearer-token flow, no cookies,
-// so no AllowCredentials. Allowed origins come from config (comma-separated) so
-// dev (localhost) and prod (the frontend domain) are both expressible; empty
-// means no CORS headers (server-to-server only).
+// api.ambiquality.org), so browsers require CORS. Bearer tokens for access
+// control plus a SameSite=Strict HttpOnly refresh cookie, so the policy allows
+// credentials for the configured origins (explicit, never '*'). Origins come
+// from config (comma-separated) so dev (localhost) and prod (the frontend
+// domain) are both expressible; empty means no CORS headers (server-to-server
+// only).
 var corsOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? string.Empty)
     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
     {
         if (corsOrigins.Length > 0)
-            policy.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod();
+            policy.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
     }));
 
 // --- Brute-force rate limiting ----------------------------------------------

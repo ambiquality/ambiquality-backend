@@ -103,6 +103,8 @@ public static class AccountEndpoints
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/logout", async (
+            HttpContext httpContext,
+            AuthOptions options,
             ClaimsPrincipal principal,
             LogoutHandler handler,
             CancellationToken cancellationToken) =>
@@ -111,6 +113,7 @@ public static class AccountEndpoints
                 return Results.Unauthorized();
 
             await handler.HandleAsync(new LogoutCommand(userId), cancellationToken);
+            RefreshTokenCookie.Clear(httpContext.Response, options);
             return Results.NoContent();
         })
         .WithName("Logout")

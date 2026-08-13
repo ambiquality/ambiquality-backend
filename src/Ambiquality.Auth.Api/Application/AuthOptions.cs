@@ -17,6 +17,12 @@ public sealed class AuthOptions
     /// <summary>Base URL the frontend uses to build confirmation links in emails.</summary>
     public string FrontendBaseUrl { get; init; } = "https://localhost";
 
+    /// <summary>
+    /// Marks the refresh-token cookie <c>Secure</c>. Must be <c>true</c> in production
+    /// (HTTPS only); <c>false</c> in dev where the stack runs over plain HTTP.
+    /// </summary>
+    public bool RefreshCookieSecure { get; init; } = false;
+
     // --- Brute-force throttling (no account lockout; see OWASP) --------------
 
     /// <summary>Failed logins per account allowed before the backoff delay starts.</summary>
