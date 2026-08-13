@@ -137,6 +137,27 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     }
 
     [Fact]
+    public async Task ChangePassword_RevokesPreviouslyIssuedRefreshTokens()
+    {
+        var client = factory.CreateClient();
+        var (email, password) = await RegisterAndConfirmAsync(client);
+        var login = await client.PostAsJsonAsync("/v1/login", new LoginRequest(email, password));
+        var tokens = await login.Content.ReadFromJsonAsync<AuthResponse>();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
+
+        var change = await client.PostAsJsonAsync(
+            "/v1/account/change-password", new ChangePasswordRequest(password, "An0therSecret!"));
+        Assert.Equal(HttpStatusCode.OK, change.StatusCode);
+
+        // The refresh token issued BEFORE the password change must be rejected.
+        var refresh = await client.PostAsJsonAsync(
+            "/v1/refresh", new RefreshRequest(tokens.RefreshToken));
+        Assert.Equal(HttpStatusCode.Unauthorized, refresh.StatusCode);
+        Assert.Equal("application/problem+json", refresh.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
     public async Task Refresh_RotatesTokens_AndOldTokenIsRejected()
     {
         var client = factory.CreateClient();
