@@ -68,7 +68,8 @@ public static class AccountEndpoints
         .WithSummary("Change the authenticated user's password")
         .WithDescription(
             "Verifies the current password then replaces it with the new password. " +
-            "All existing refresh tokens remain valid after the change.")
+            "All existing refresh tokens are revoked, so other sessions must re-authenticate; " +
+            "the current access token stays valid until it expires.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
