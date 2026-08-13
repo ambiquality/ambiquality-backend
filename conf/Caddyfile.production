@@ -21,8 +21,39 @@
 	email {$ACME_EMAIL}
 }
 
+# ── Shared security headers (WSTG-CONF-07/12/14) ────────────────────────────
+# Defense-in-depth at the single ingress choke-point: HSTS, MIME-sniffing
+# protection, frame protection, referrer trimming and permissions disabling.
+# The SPA block additionally gets a Content-Security-Policy tuned to the built
+# app's real origins (self bundle, MapLibre workers, OpenFreeMap style/tiles,
+# the API host for XHR + RUM beacons). -Server hides the Caddy/Kestrel banner.
+(site_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+}
+
+(spa_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; connect-src 'self' https://api.ambiquality.org https://tiles.openfreemap.org; worker-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		-Server
+	}
+}
+
 # ── Backend API (path-routed to each service) ──────────────────────────────
 {$DOMAIN} {
+	import site_headers
+
 	encode {
 		zstd
 		gzip
@@ -59,6 +90,8 @@
 # service's /v1/… — the published IRIs therefore resolve. Keep this in lockstep
 # with PUBLIC_API_BASE_IRI=https://data.ambiquality.org/v1 in the server .env.
 data.ambiquality.org {
+	import site_headers
+
 	encode {
 		zstd
 		gzip
@@ -77,10 +110,13 @@ data.ambiquality.org {
 # Canonicalize www → apex, then reverse-proxy to the frontend container, which
 # serves the static bundle with its own SPA history fallback.
 www.ambiquality.org {
+	import site_headers
 	redir https://ambiquality.org{uri} permanent
 }
 
 ambiquality.org {
+	import spa_headers
+
 	encode {
 		zstd
 		gzip
