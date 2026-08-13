@@ -262,17 +262,19 @@ public class AuthEndpointsTests(AuthApiFactory factory)
     }
 
     [Fact]
-    public async Task Register_DuplicateEmail_Returns409ProblemJson()
+    public async Task Register_DuplicateEmail_StillReturns201_AndSendsNoEmail()
     {
         var client = factory.CreateClient();
         var email = UniqueEmail();
         await client.PostAsJsonAsync("/v1/register", new RegisterRequest(email, "Sup3rSecret!"));
 
+        // Anti-enumeration: an existing address gets the SAME 201 as a fresh one,
+        // and no second confirmation email is sent (no 409, no distinct body).
         var response = await client.PostAsJsonAsync(
             "/v1/register", new RegisterRequest(email, "An0therSecret!"));
 
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

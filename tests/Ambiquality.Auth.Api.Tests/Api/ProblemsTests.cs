@@ -17,15 +17,6 @@ public class ProblemsTests
     }
 
     [Fact]
-    public void Describe_EmailAlreadyRegistered_MapsTo409()
-    {
-        var descriptor = Problems.Describe(new EmailAlreadyRegisteredException());
-
-        Assert.Equal(409, descriptor.StatusCode);
-        Assert.Equal("urn:ambiquality:auth:email-already-registered", descriptor.Type);
-    }
-
-    [Fact]
     public void Describe_InvalidCredentials_MapsTo401WithGenericDetail()
     {
         var descriptor = Problems.Describe(new InvalidCredentialsException());
