@@ -38,7 +38,9 @@ public static class AuthEndpoints
             "A confirmation email is sent; the account cannot be used until the email is confirmed via GET /confirm-email. " +
             "Returns 201 uniformly — registering an already-existing address is a silent no-op (no second email) so the endpoint cannot be used to enumerate accounts.")
         .Produces(StatusCodes.Status201Created)
-        .ProducesProblem(StatusCodes.Status400BadRequest);
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
+        .RequireRateLimiting("email");
 
         group.MapPost("/login", async (
             LoginRequest request,
@@ -145,7 +147,9 @@ public static class AuthEndpoints
         .WithDescription(
             "Triggers a new confirmation email for the given address. " +
             "Always returns 202 regardless of whether the address is registered, to prevent account enumeration.")
-        .Produces(StatusCodes.Status202Accepted);
+        .Produces(StatusCodes.Status202Accepted)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests)
+        .RequireRateLimiting("email");
 
         return app;
     }

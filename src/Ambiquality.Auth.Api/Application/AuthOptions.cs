@@ -45,6 +45,16 @@ public sealed class AuthOptions
     /// <summary>Fixed window for the per-IP login rate limit.</summary>
     public TimeSpan LoginIpWindow { get; init; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Anonymous email-triggering requests (register, resend-confirmation) permitted
+    /// per client IP per <see cref="EmailIpWindow"/>. Prevents SMTP abuse / inbox
+    /// bombing without a per-account lockout.
+    /// </summary>
+    public int EmailIpPermitLimit { get; init; } = 5;
+
+    /// <summary>Fixed window for the per-IP email-triggering rate limit.</summary>
+    public TimeSpan EmailIpWindow { get; init; } = TimeSpan.FromMinutes(10);
+
     /// <summary>Per-account backoff policy assembled from the throttle knobs.</summary>
     public LoginThrottlePolicy LoginThrottlePolicy => new(
         LoginThrottleFreeAttempts,
