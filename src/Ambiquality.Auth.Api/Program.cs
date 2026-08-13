@@ -46,7 +46,9 @@ var authOptions = new AuthOptions
         builder.Configuration.GetValue("Jwt:ConfirmationTokenHours", 24)),
     RefreshTokenLifetime = TimeSpan.FromDays(
         builder.Configuration.GetValue("Jwt:RefreshTokenDays", 30)),
-    FrontendBaseUrl = builder.Configuration.GetValue("App:FrontendBaseUrl", "https://localhost")
+    FrontendBaseUrl = builder.Configuration.GetValue("App:FrontendBaseUrl", "https://localhost"),
+    PasswordMinLength = builder.Configuration.GetValue("Auth:PasswordMinLength", 12),
+    PasswordMaxLength = builder.Configuration.GetValue("Auth:PasswordMaxLength", 128)
 };
 
 builder.Services.AddSingleton(jwtOptions);

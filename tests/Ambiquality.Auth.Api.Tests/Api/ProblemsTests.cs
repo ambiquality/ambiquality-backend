@@ -64,6 +64,16 @@ public class ProblemsTests
     }
 
     [Fact]
+    public void Describe_WeakPassword_MapsTo400WithStableType()
+    {
+        var descriptor = Problems.Describe(new WeakPasswordException("Password must be at least 12 characters."));
+
+        Assert.Equal(400, descriptor.StatusCode);
+        Assert.Equal("urn:ambiquality:auth:weak-password", descriptor.Type);
+        Assert.Equal("Password must be at least 12 characters.", descriptor.Detail);
+    }
+
+    [Fact]
     public void Describe_GenericDomainException_MapsTo400()
     {
         var descriptor = Problems.Describe(new DomainException("some invariant broke"));

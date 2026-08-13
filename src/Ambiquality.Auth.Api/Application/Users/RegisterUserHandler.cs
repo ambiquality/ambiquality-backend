@@ -20,6 +20,10 @@ public sealed class RegisterUserHandler(
     {
         var email = Email.Create(command.Email);
 
+        // Validate the password FIRST so the response never depends on whether the
+        // email already exists (anti-enumeration — a weak-password 400 is uniform).
+        PasswordPolicy.Validate(command.Password, options.PasswordMinLength, options.PasswordMaxLength);
+
         if (await repository.GetByEmailAsync(email, cancellationToken) is not null)
             throw new EmailAlreadyRegisteredException();
 

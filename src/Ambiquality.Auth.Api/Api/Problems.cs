@@ -28,6 +28,12 @@ public static class Problems
             "Invalid email address",
             exception.Message),
 
+        WeakPasswordException => new ProblemDescriptor(
+            StatusCodes.Status400BadRequest,
+            TypePrefix + "weak-password",
+            "Weak password",
+            exception.Message),
+
         EmailAlreadyRegisteredException => new ProblemDescriptor(
             StatusCodes.Status409Conflict,
             TypePrefix + "email-already-registered",
