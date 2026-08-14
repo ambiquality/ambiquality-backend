@@ -14,9 +14,9 @@ values:
     enabled: true
     description: Test user email — overwritten per-run by Register's pre-request
   - key: password
-    value: Test1234!
+    value: Sup3rSecret!
     enabled: true
-    description: Test user password
+    description: Test user password — meets the 12-char Auth.Api password policy
   - key: newEmail
     value: ""
     enabled: true
