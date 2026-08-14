@@ -4,9 +4,8 @@ description: "Complete test suite for Ambiquality IEQ backend (Auth.Api + Eviden
 variables:
   baseUrl: http://localhost:8080
   email: test@example.com
-  password: Test1234!
+  password: Sup3rSecret!
   accessToken: ""
-  refreshToken: ""
   buildingId: ""
   buildingSlug: ""
   roomId: ""

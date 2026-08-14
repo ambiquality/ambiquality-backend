@@ -13,11 +13,15 @@ scripts:
     code: |-
       pm.test('Status 200', () => pm.response.to.have.status(200));
       const j = pm.response.json();
-      pm.test('Has accessToken and refreshToken', () => {
+      pm.test('Returns accessToken and sets HttpOnly refresh cookie', () => {
         pm.expect(j.accessToken).to.be.a('string').and.not.empty;
-        pm.expect(j.refreshToken).to.be.a('string').and.not.empty;
+        // The refresh token is delivered as an HttpOnly cookie, never in the body.
+        pm.expect(j.refreshToken).to.be.undefined;
+        const setCookie = (pm.response.headers.get('set-cookie') || '').toLowerCase();
+        pm.expect(setCookie).to.include('amq_refresh=');
+        // Kestrel serializes the flag lowercase ('httponly'); check case-insensitively.
+        pm.expect(setCookie).to.include('httponly');
       });
       pm.collectionVariables.set('accessToken', j.accessToken);
-      pm.collectionVariables.set('refreshToken', j.refreshToken);
     language: text/javascript
 order: 2000
