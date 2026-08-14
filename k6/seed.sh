@@ -15,7 +15,7 @@ MAILPIT_URL="${MAILPIT_URL:-http://localhost:8025}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 TS="$(date +%s)"
 EMAIL="k6+${TS}@example.com"
-PASSWORD="Test1234!"
+PASSWORD="Sup3rSecret!"
 
 say() { echo "[seed] $*" >&2; }
 
